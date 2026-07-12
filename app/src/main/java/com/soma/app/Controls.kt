@@ -104,6 +104,11 @@ fun PlusButton(onClick: () -> Unit, onLongClick: () -> Unit, modifier: Modifier 
 }
 
 @Composable
+fun TodosButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Canvas(modifier.size(48.dp).then(tapModifier(onClick, "todos"))) { drawOpenRing() }
+}
+
+@Composable
 fun RecordButton(recording: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Canvas(modifier.size(48.dp).then(tapModifier(onClick, if (recording) "stop" else "record"))) {
         if (recording) drawStop() else drawMicrophone()
@@ -170,6 +175,17 @@ private const val GEAR_HOLE_RADIUS = 0.085f
 private const val GEAR_TOOTH_WIDTH = 0.10f
 private const val GEAR_TOOTH_HEIGHT = 0.12f
 private const val GEAR_OUTER_RADIUS = 0.27f
+
+/** The open-todo ring, matching the row marker for open todos. */
+private fun DrawScope.drawOpenRing() {
+    val side = size.minDimension
+    drawCircle(
+        color = Ink,
+        radius = side * 0.20f,
+        center = Offset(side / 2f, side / 2f),
+        style = androidx.compose.ui.graphics.drawscope.Stroke(side * 0.055f),
+    )
+}
 
 private fun DrawScope.drawMicrophone() {
     val side = size.minDimension

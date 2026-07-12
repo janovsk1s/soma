@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -193,12 +192,7 @@ private fun HomeHeader(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = 64.dp),
         )
-        Box(
-            modifier = Modifier.align(Alignment.CenterEnd).width(64.dp).then(tapModifier(onTodos, "todos")),
-            contentAlignment = Alignment.CenterEnd,
-        ) {
-            Text(stringResource(R.string.todos), color = Ink, fontSize = 14.sp)
-        }
+        TodosButton(onTodos, Modifier.align(Alignment.CenterEnd).offset(x = 10.dp))
     }
 }
 

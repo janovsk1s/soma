@@ -2,10 +2,12 @@
 
 Notable changes to Soma are documented here.
 
-## Unreleased
+## 0.1.0-preview.3 — 2026-07-13
 
 ### Changed
 
+- The todos button in the home header is now a drawn open-ring glyph — the same marker
+  the todo list uses for an open item — replacing the "todos" text label.
 - The "still open" block is now driven by the tested `StillOpenPolicy` in `core`: when
   open todos exist, tapping it opens the todo list; entries marked "return later" are
   the target only when no todos are open.
