@@ -99,6 +99,7 @@
     <string name="notification_reminder_text">A quiet place to drop what is on your mind.</string>
     <string name="notification_browser_title">Soma Browser view</string>
     <string name="developer_title">Developer</string>
+    <string name="developer_light_mode">light mode</string>
     <string name="developer_demo">demo mode</string>
     <string name="developer_return_home">return home on leave</string>
     <string name="developer_transcribe_power_saver">transcribe in battery saver</string>

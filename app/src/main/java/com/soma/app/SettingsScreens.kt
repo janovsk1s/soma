@@ -191,7 +191,7 @@ fun LicensesScreen(onBack: () -> Unit) {
     }
 }
 
-private enum class DeveloperAction { DEMO, RETURN_HOME, BATTERY_SAVER, LANGUAGE }
+private enum class DeveloperAction { LIGHT_MODE, DEMO, RETURN_HOME, BATTERY_SAVER, LANGUAGE }
 
 @Composable
 fun DeveloperScreen(
@@ -201,6 +201,7 @@ fun DeveloperScreen(
 ) {
     BackHandler(onBack = onBack)
     val context = LocalContext.current
+    var lightMode by remember { mutableStateOf(SomaPrefs.lightMode(context)) }
     var demo by remember { mutableStateOf(SomaPrefs.demoMode(context)) }
     var returnHome by remember { mutableStateOf(SomaPrefs.returnHome(context)) }
     var batterySaver by remember { mutableStateOf(SomaPrefs.transcribeInBatterySaver(context)) }
@@ -210,12 +211,14 @@ fun DeveloperScreen(
             PagedList(DeveloperAction.entries) { action ->
                 SettingsItem(
                     label = when (action) {
+                        DeveloperAction.LIGHT_MODE -> stringResource(R.string.developer_light_mode)
                         DeveloperAction.DEMO -> stringResource(R.string.developer_demo)
                         DeveloperAction.RETURN_HOME -> stringResource(R.string.developer_return_home)
                         DeveloperAction.BATTERY_SAVER -> stringResource(R.string.developer_transcribe_power_saver)
                         DeveloperAction.LANGUAGE -> stringResource(R.string.developer_language)
                     },
                     trailing = when (action) {
+                        DeveloperAction.LIGHT_MODE -> stringResource(if (lightMode) R.string.on else R.string.off)
                         DeveloperAction.DEMO -> stringResource(if (demo) R.string.on else R.string.off)
                         DeveloperAction.RETURN_HOME -> stringResource(if (returnHome) R.string.on else R.string.off)
                         DeveloperAction.BATTERY_SAVER -> stringResource(if (batterySaver) R.string.on else R.string.off)
@@ -223,6 +226,11 @@ fun DeveloperScreen(
                     },
                     onClick = {
                         when (action) {
+                            DeveloperAction.LIGHT_MODE -> {
+                                lightMode = !lightMode
+                                SomaPalette.lightMode = lightMode
+                                SomaPrefs.setLightMode(context, lightMode)
+                            }
                             DeveloperAction.DEMO -> {
                                 demo = !demo
                                 SomaPrefs.setDemoMode(context, demo)

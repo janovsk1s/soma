@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 @Composable
@@ -126,21 +127,49 @@ private fun DrawScope.drawPlus() {
 }
 
 private fun DrawScope.drawGear() {
-    val side = size.minDimension
-    val center = Offset(side / 2f, side / 2f)
-    val outer = side * 0.28f
-    repeat(8) { tooth ->
-        rotate(tooth * 45f, center) {
+    val s = size.minDimension
+    val toothWidth = (s * GEAR_TOOTH_WIDTH).roundToInt().toFloat()
+    val toothHeight = (s * GEAR_TOOTH_HEIGHT).roundToInt().toFloat()
+    val center = pixelAlignedCenter(s / 2f, toothWidth)
+    val c = Offset(center, center)
+    val body = (s * GEAR_BODY_RADIUS).roundToInt().toFloat()
+    val hole = (s * GEAR_HOLE_RADIUS).roundToInt().toFloat()
+    val outerRadius = (s * GEAR_OUTER_RADIUS).roundToInt().toFloat()
+    for (tooth in 0 until GEAR_TOOTH_COUNT) {
+        rotate(GEAR_TOOTH_STEP_DEGREES * tooth, c) {
             drawRect(
-                Ink,
-                topLeft = Offset(center.x - side * 0.045f, center.y - side * 0.34f),
-                size = Size(side * 0.09f, side * 0.13f),
+                color = Ink,
+                topLeft = Offset(
+                    pixelAlignedCenter(c.x, toothWidth) - toothWidth / 2f,
+                    c.y - outerRadius,
+                ),
+                size = Size(toothWidth, toothHeight),
             )
         }
     }
-    drawCircle(Ink, outer, center)
-    drawCircle(Paper, side * 0.105f, center)
+    drawCircle(Ink, body, c)
+    drawCircle(Paper, hole, c)
 }
+
+private fun pixelAlignedStroke(rawWidth: Float): Float =
+    rawWidth.roundToInt().coerceAtLeast(MIN_STROKE_PX).toFloat()
+
+private fun pixelAlignedCenter(rawCenter: Float, rawWidth: Float): Float {
+    val stroke = pixelAlignedStroke(rawWidth).toInt()
+    val rounded = rawCenter.roundToInt().toFloat()
+    return if (stroke % ODD_STROKE_MODULUS == 0) rounded else rounded + HALF_PIXEL
+}
+
+private const val MIN_STROKE_PX = 1
+private const val ODD_STROKE_MODULUS = 2
+private const val HALF_PIXEL = 0.5f
+private const val GEAR_TOOTH_COUNT = 8
+private const val GEAR_TOOTH_STEP_DEGREES = 45f
+private const val GEAR_BODY_RADIUS = 0.205f
+private const val GEAR_HOLE_RADIUS = 0.085f
+private const val GEAR_TOOTH_WIDTH = 0.10f
+private const val GEAR_TOOTH_HEIGHT = 0.12f
+private const val GEAR_OUTER_RADIUS = 0.27f
 
 private fun DrawScope.drawMicrophone() {
     val side = size.minDimension

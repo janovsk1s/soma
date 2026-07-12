@@ -98,6 +98,7 @@
     <string name="notification_reminder_text">Rauhallinen paikka mielessä olevien asioiden jättämiseen.</string>
     <string name="notification_browser_title">Soman selainnäkymä</string>
     <string name="developer_title">kehittäjä</string>
+    <string name="developer_light_mode">vaalea tila</string>
     <string name="developer_demo">demotila</string>
     <string name="developer_return_home">palaa poistuttaessa alkuun</string>
     <string name="developer_transcribe_power_saver">litteroi virransäästötilassa</string>

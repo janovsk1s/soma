@@ -98,6 +98,7 @@
     <string name="notification_reminder_text">Rahulik koht, kuhu jätta see, mis mõtteis on.</string>
     <string name="notification_browser_title">Soma brauserivaade</string>
     <string name="developer_title">arendaja</string>
+    <string name="developer_light_mode">hele režiim</string>
     <string name="developer_demo">demorežiim</string>
     <string name="developer_return_home">lahkudes naase avalehele</string>
     <string name="developer_transcribe_power_saver">transkribeeri akusäästurežiimis</string>

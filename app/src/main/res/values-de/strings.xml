@@ -98,6 +98,7 @@
     <string name="notification_reminder_text">Ein ruhiger Ort für alles, was gerade im Kopf ist.</string>
     <string name="notification_browser_title">Soma-Browseransicht</string>
     <string name="developer_title">Entwickler</string>
+    <string name="developer_light_mode">heller Modus</string>
     <string name="developer_demo">Demo-Modus</string>
     <string name="developer_return_home">beim Verlassen zur Startseite</string>
     <string name="developer_transcribe_power_saver">im Energiesparmodus transkribieren</string>

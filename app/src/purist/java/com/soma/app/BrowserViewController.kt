@@ -269,6 +269,7 @@ sealed interface BrowserViewState {
 /** No-op implementation for the build that has neither INTERNET permission nor :lanserver. */
 class BrowserViewController(
     @Suppress("UNUSED_PARAMETER") dataSource: BrowserViewDataSource,
+    @Suppress("UNUSED_PARAMETER") lightMode: Boolean = false,
 ) : AutoCloseable {
     private val mutableState = MutableStateFlow<BrowserViewState>(BrowserViewState.Unavailable)
 

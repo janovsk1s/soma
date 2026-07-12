@@ -206,7 +206,7 @@ class LanBrowserServer(
                 markAuthenticatedActivity()
                 DispatchResult(redirect("/days"))
             } else {
-                DispatchResult(htmlResponse(200, HtmlRenderer.login()))
+                DispatchResult(htmlResponse(200, HtmlRenderer.login(lightMode = config.lightMode)))
             }
         }
 
@@ -289,14 +289,14 @@ class LanBrowserServer(
             )
         }
         return DispatchResult(
-            htmlResponse(401, HtmlRenderer.login("That code did not match.")),
+            htmlResponse(401, HtmlRenderer.login("That code did not match.", config.lightMode)),
         )
     }
 
     private fun daysResponse(request: HttpRequest): HttpResponse {
         val page = pageNumber(request)
         val result = dataSource.listDays(pageRequest(page)).bounded()
-        return htmlResponse(200, HtmlRenderer.days(page, result))
+        return htmlResponse(200, HtmlRenderer.days(page, result, config.lightMode))
     }
 
     private fun dayResponse(request: HttpRequest): HttpResponse {
@@ -310,7 +310,7 @@ class LanBrowserServer(
         val page = pageNumber(request)
         val result = dataSource.entriesForDay(date, pageRequest(page))?.bounded()
             ?: return errorResponse(404, "That day does not exist.")
-        return htmlResponse(200, HtmlRenderer.day(date, page, result))
+        return htmlResponse(200, HtmlRenderer.day(date, page, result, config.lightMode))
     }
 
     private fun todosResponse(request: HttpRequest): HttpResponse {
@@ -325,7 +325,7 @@ class LanBrowserServer(
         }
         val page = pageNumber(request)
         val result = dataSource.listTodos(filter, pageRequest(page)).bounded()
-        return htmlResponse(200, HtmlRenderer.todos(filter, page, result))
+        return htmlResponse(200, HtmlRenderer.todos(filter, page, result, config.lightMode))
     }
 
     private fun audioResponse(request: HttpRequest): HttpResponse {
@@ -531,7 +531,11 @@ class LanBrowserServer(
         }
         val headers = linkedMapOf("Content-Type" to "text/html; charset=utf-8")
         headers.putAll(extraHeaders)
-        return secureResponse(status, headers, ResponseBody.text(HtmlRenderer.error(status, title, message)))
+        return secureResponse(
+            status,
+            headers,
+            ResponseBody.text(HtmlRenderer.error(status, title, message, config.lightMode)),
+        )
     }
 
     private fun secureResponse(

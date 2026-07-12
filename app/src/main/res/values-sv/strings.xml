@@ -98,6 +98,7 @@
     <string name="notification_reminder_text">En lugn plats att släppa det du har i tankarna.</string>
     <string name="notification_browser_title">Soma webbläsarvy</string>
     <string name="developer_title">utvecklare</string>
+    <string name="developer_light_mode">ljust läge</string>
     <string name="developer_demo">demoläge</string>
     <string name="developer_return_home">återgå hem vid avslut</string>
     <string name="developer_transcribe_power_saver">transkribera i batterisparläge</string>

@@ -56,6 +56,19 @@ class LanBrowserServerTest {
     }
 
     @Test
+    fun `browser pages are dark by default and follow developer light mode`() {
+        val darkServer = server(FakeDataSource())
+        val darkPage = request(darkServer.start(), "GET", "/")
+        assertTrue(darkPage.text.contains("color-scheme:dark"))
+        assertTrue(darkPage.text.contains("--paper:#000;--ink:#fff;--dim:#888"))
+
+        val lightServer = server(FakeDataSource(), lightMode = true)
+        val lightPage = request(lightServer.start(), "GET", "/")
+        assertTrue(lightPage.text.contains("color-scheme:light"))
+        assertTrue(lightPage.text.contains("--paper:#fff;--ink:#000;--dim:#555"))
+    }
+
+    @Test
     fun `one-time code creates a random strict session and unlocks read-only pages`() {
         val data = FakeDataSource()
         val server = server(data)
@@ -252,8 +265,9 @@ class LanBrowserServerTest {
         data: FakeDataSource,
         listener: LanServerStateListener = LanServerStateListener {},
         clock: Clock = Clock.systemUTC(),
+        lightMode: Boolean = false,
     ): LanBrowserServer = LanBrowserServer(
-        config = LanServerConfig(address),
+        config = LanServerConfig(address, lightMode = lightMode),
         dataSource = data,
         stateListener = listener,
         clock = clock,

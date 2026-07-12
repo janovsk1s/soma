@@ -4,9 +4,10 @@ import java.time.LocalDate
 import kotlin.math.max
 
 internal object HtmlRenderer {
-    fun login(error: String? = null): String = page(
+    fun login(error: String? = null, lightMode: Boolean = false): String = page(
         title = "Browser view",
         navigation = false,
+        lightMode = lightMode,
         body = buildString {
             append("<main><header><h1>Soma</h1><p>Browser view</p></header>")
             if (error != null) {
@@ -27,8 +28,9 @@ internal object HtmlRenderer {
         },
     )
 
-    fun days(pageNumber: Int, result: PagedResult<BrowserDay>): String = page(
+    fun days(pageNumber: Int, result: PagedResult<BrowserDay>, lightMode: Boolean = false): String = page(
         title = "Days",
+        lightMode = lightMode,
         body = buildString {
             append("<main><header><h1>Days</h1><p>Daily notes</p></header>")
             val days = result.items.take(PAGE_SIZE)
@@ -63,8 +65,10 @@ internal object HtmlRenderer {
         date: LocalDate,
         pageNumber: Int,
         result: PagedResult<BrowserEntry>,
+        lightMode: Boolean = false,
     ): String = page(
         title = date.toString(),
+        lightMode = lightMode,
         body = buildString {
             append("<main><header><a class=\"back\" href=\"/days\">← Days</a><h1>")
             append(Html.escape(date.toString()))
@@ -103,8 +107,10 @@ internal object HtmlRenderer {
         filter: BrowserTodoFilter,
         pageNumber: Int,
         result: PagedResult<BrowserTodo>,
+        lightMode: Boolean = false,
     ): String = page(
         title = "Todos",
+        lightMode = lightMode,
         body = buildString {
             append("<main><header><h1>Todos</h1><p>")
             append(if (filter == BrowserTodoFilter.OPEN) "Still open" else "Done / archived")
@@ -143,8 +149,9 @@ internal object HtmlRenderer {
         },
     )
 
-    fun error(status: Int, title: String, message: String): String = page(
+    fun error(status: Int, title: String, message: String, lightMode: Boolean = false): String = page(
         title = title,
+        lightMode = lightMode,
         body = "<main><header><h1>${Html.escape(status.toString())}</h1>" +
             "<p>${Html.escape(title)}</p></header><p>${Html.escape(message)}</p></main>",
     )
@@ -199,12 +206,18 @@ internal object HtmlRenderer {
         }
     }
 
-    private fun page(title: String, body: String, navigation: Boolean = true): String = buildString {
+    private fun page(
+        title: String,
+        body: String,
+        navigation: Boolean = true,
+        lightMode: Boolean = false,
+    ): String = buildString {
         append("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">")
         append("<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">")
         append("<title>")
         append(Html.escape(title))
         append(" · Soma</title><style>")
+        append(if (lightMode) LIGHT_THEME else DARK_THEME)
         append(STYLES)
         append("</style></head><body>")
         if (navigation) {
@@ -217,12 +230,15 @@ internal object HtmlRenderer {
         append("</body></html>")
     }
 
+    private const val DARK_THEME = ":root{color-scheme:dark;--paper:#000;--ink:#fff;--dim:#888}"
+    private const val LIGHT_THEME = ":root{color-scheme:light;--paper:#fff;--ink:#000;--dim:#555}"
+
     private const val STYLES = """
-        *{box-sizing:border-box}html{font-family:"Akkurat LL","Helvetica Neue",Arial,sans-serif;color:#000;background:#fff}
+        *{box-sizing:border-box}html{font-family:"Akkurat LL","Helvetica Neue",Arial,sans-serif;color:var(--ink);background:var(--paper)}
         body{margin:0;font-size:18px;line-height:1.35}main,.primary{width:min(100%,760px);margin:0 auto;padding:24px}
         .primary{display:flex;gap:32px;padding-top:18px;padding-bottom:18px}
-        a{color:#000;text-decoration:underline;text-underline-offset:3px}header{padding:20px 0 24px}
-        h1{font-size:32px;line-height:1.1;margin:8px 0}header p,.quiet,small{color:#444}.back{display:inline-block;margin-bottom:16px}
+        a{color:var(--ink);text-decoration:underline;text-underline-offset:3px}header{padding:20px 0 24px}
+        h1{font-size:32px;line-height:1.1;margin:8px 0}header p,.quiet,small{color:var(--dim)}.back{display:inline-block;margin-bottom:16px}
         .list{list-style:none;margin:0;padding:0}.list>li{min-height:92px}
         .row,.entry{display:flex;width:100%;min-height:92px;padding:18px 0;justify-content:space-between;gap:24px;align-items:center}
         .row{text-decoration:none}.row small{display:block;margin-top:5px}.count{font-variant-numeric:tabular-nums}
@@ -230,8 +246,8 @@ internal object HtmlRenderer {
         audio{display:block;width:100%;margin-top:14px}.empty{padding:36px 0}
         .pager{display:grid;grid-template-columns:1fr auto 1fr;gap:20px;padding:28px 0;align-items:center}.pager>*:last-child{text-align:right}
         .tabs{display:flex;gap:24px;margin-bottom:20px}.tabs [aria-current=page]{font-weight:bold;text-decoration-thickness:2px}
-        form{border-top:2px solid #000;padding-top:24px}label{display:block;margin-bottom:8px}input,button{font:inherit;border:2px solid #000;background:#fff;color:#000;border-radius:0;padding:12px}
-        input{width:100%;letter-spacing:.2em}button{width:100%;margin-top:16px;font-weight:bold}.message{border:2px solid #000;padding:12px}
+        form{border-top:2px solid var(--ink);padding-top:24px}label{display:block;margin-bottom:8px}input,button{font:inherit;border:2px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:0;padding:12px}
+        input{width:100%;letter-spacing:.2em}button{width:100%;margin-top:16px;font-weight:bold}.message{border:2px solid var(--ink);padding:12px}
         @media(max-width:520px){main,.primary{padding-left:18px;padding-right:18px}body{font-size:17px}}
     """
 }

@@ -98,6 +98,7 @@
     <string name="notification_reminder_text">Pokojné miesto, kam odložiť to, na čo myslíte.</string>
     <string name="notification_browser_title">Soma v prehliadači</string>
     <string name="developer_title">vývojár</string>
+    <string name="developer_light_mode">svetlý režim</string>
     <string name="developer_demo">demo režim</string>
     <string name="developer_return_home">po opustení návrat domov</string>
     <string name="developer_transcribe_power_saver">prepisovať v režime šetrenia batérie</string>

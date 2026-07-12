@@ -18,6 +18,7 @@ data class LanServerConfig(
     val port: Int = 0,
     val idleTimeout: Duration = Duration.ofMinutes(15),
     val requestReadTimeout: Duration = Duration.ofSeconds(10),
+    val lightMode: Boolean = false,
 ) {
     init {
         require(!bindAddress.isAnyLocalAddress) { "A concrete LAN address is required" }

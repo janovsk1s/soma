@@ -43,10 +43,11 @@ fun BrowserScreen(onBack: () -> Unit) {
     val lifecycleOwner = context as? LifecycleOwner
     val app = context.applicationContext as SomaApplication
     val repositories = remember { app.repositories() }
-    val controller = remember {
+    val lightMode = SomaPrefs.lightMode(context)
+    val controller = remember(lightMode) {
         val audio = EncryptedBrowserViewAudioProvider(app::encryptedAudioFile, app.audioKeyProvider)
         val source = RepositoryBrowserViewDataSource(repositories.notes, repositories.todos, audio)
-        BrowserViewController(source)
+        BrowserViewController(source, lightMode)
     }
     val state by controller.state.collectAsState()
     val scope = rememberCoroutineScope()

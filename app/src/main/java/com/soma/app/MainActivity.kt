@@ -50,26 +50,34 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Match Paka: dark is native/default; Developer light mode is loaded
+        // before the first Compose frame so there is no inverted app flash.
+        SomaPalette.lightMode = SomaPrefs.lightMode(this)
         enableEdgeToEdge()
+        applySystemPalette(SomaPalette.lightMode)
+        setContent { SomaTheme { SomaApp(somaViewModel, homeResetSignal) } }
+    }
+
+    internal fun applySystemPalette(lightMode: Boolean) {
         WindowCompat.getInsetsController(window, window.decorView).apply {
-            isAppearanceLightStatusBars = true
-            isAppearanceLightNavigationBars = true
+            isAppearanceLightStatusBars = lightMode
+            isAppearanceLightNavigationBars = lightMode
         }
+        val color = if (lightMode) android.graphics.Color.WHITE else android.graphics.Color.BLACK
         @Suppress("DEPRECATION")
         setTaskDescription(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 ActivityManager.TaskDescription.Builder()
                     .setLabel(getString(R.string.app_name))
-                    .setPrimaryColor(android.graphics.Color.WHITE)
-                    .setBackgroundColor(android.graphics.Color.WHITE)
-                    .setStatusBarColor(android.graphics.Color.WHITE)
-                    .setNavigationBarColor(android.graphics.Color.WHITE)
+                    .setPrimaryColor(color)
+                    .setBackgroundColor(color)
+                    .setStatusBarColor(color)
+                    .setNavigationBarColor(color)
                     .build()
             } else {
-                ActivityManager.TaskDescription(getString(R.string.app_name), null, android.graphics.Color.WHITE)
+                ActivityManager.TaskDescription(getString(R.string.app_name), null, color)
             },
         )
-        setContent { SomaTheme { SomaApp(somaViewModel, homeResetSignal) } }
     }
 
     override fun onResume() {
@@ -136,6 +144,7 @@ private sealed interface AppRoute {
 private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
     val context = LocalContext.current
     val activity = context as? MainActivity
+    val lightMode = SomaPalette.lightMode
     var route: AppRoute by remember { mutableStateOf(AppRoute.Home) }
     val playback by viewModel.playbackState.collectAsState()
     val liveNote by viewModel.note.collectAsState()
@@ -157,6 +166,9 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
 
     LaunchedEffect(homeResetSignal) {
         if (homeResetSignal > 0) route = AppRoute.Home
+    }
+    LaunchedEffect(activity, lightMode) {
+        activity?.applySystemPalette(lightMode)
     }
     LaunchedEffect(Unit) {
         viewModel.messageEvents.collect { message -> Toast.makeText(context, message, Toast.LENGTH_LONG).show() }

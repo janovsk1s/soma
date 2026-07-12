@@ -24,6 +24,8 @@ accounts, streaks, badges, scores, red dots, analytics, ads, feeds, or cloud AI.
   explicitly marked for return.
 - Pages lists in fixed groups of five, matching Paka. Tap `+` for quick entry;
   long-press it for details; long-press a row for deliberate secondary actions.
+- Uses Paka's native black-screen palette and exact settings gear. Light mode is
+  available only from the hidden Developer screen.
 - Offers one optional daily reminder, off by default, and optional vibration.
 - Supports English, Latvian, Estonian, Lithuanian, Finnish, Swedish, German, and
   Slovak.

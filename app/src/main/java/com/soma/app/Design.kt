@@ -15,10 +15,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -42,9 +47,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.io.File
 
-val Paper = Color(0xFFFFFFFF)
-val Ink = Color(0xFF000000)
-val DimInk = Color(0xFF555555)
+private val Black = Color(0xFF000000)
+private val White = Color(0xFFFFFFFF)
+private val Grey = Color(0xFF888888)
+private val GreyOnPaper = Color(0xFF555555)
+
+/** Paka's screen palette: native dark, with light mode hidden in Developer. */
+object SomaPalette {
+    var lightMode by mutableStateOf(false)
+    val background: Color get() = if (lightMode) White else Black
+    val foreground: Color get() = if (lightMode) Black else White
+    val dim: Color get() = if (lightMode) GreyOnPaper else Grey
+}
+
+val Paper: Color get() = SomaPalette.background
+val Ink: Color get() = SomaPalette.foreground
+val DimInk: Color get() = SomaPalette.dim
 
 private val LocalSomaFontFamily = staticCompositionLocalOf<FontFamily?> { null }
 
@@ -52,15 +70,31 @@ private val LocalSomaFontFamily = staticCompositionLocalOf<FontFamily?> { null }
 fun SomaTheme(content: @Composable () -> Unit) {
     val context = LocalContext.current
     val family = remember(context) { lightPhoneFontFamily(context) }
-    val scheme = MaterialTheme.colorScheme.copy(
-        primary = Ink,
-        onPrimary = Paper,
-        background = Paper,
-        onBackground = Ink,
-        surface = Paper,
-        onSurface = Ink,
-        outline = DimInk,
-    )
+    val scheme = if (SomaPalette.lightMode) {
+        lightColorScheme(
+            primary = Ink,
+            onPrimary = Paper,
+            secondary = Ink,
+            onSecondary = Paper,
+            background = Paper,
+            onBackground = Ink,
+            surface = Paper,
+            onSurface = Ink,
+            outline = DimInk,
+        )
+    } else {
+        darkColorScheme(
+            primary = Ink,
+            onPrimary = Paper,
+            secondary = Ink,
+            onSecondary = Paper,
+            background = Paper,
+            onBackground = Ink,
+            surface = Paper,
+            onSurface = Ink,
+            outline = DimInk,
+        )
+    }
     CompositionLocalProvider(
         LocalSomaFontFamily provides family,
         LocalTextStyle provides LocalTextStyle.current.withSomaFont(family),

@@ -98,6 +98,7 @@
     <string name="notification_reminder_text">Mierīga vieta, kur atstāt to, kas nodarbina prātu.</string>
     <string name="notification_browser_title">Soma pārlūka skats</string>
     <string name="developer_title">izstrādātājam</string>
+    <string name="developer_light_mode">gaišais režīms</string>
     <string name="developer_demo">demo režīms</string>
     <string name="developer_return_home">izejot atgriezties sākumā</string>
     <string name="developer_transcribe_power_saver">transkribēt enerģijas taupīšanas režīmā</string>

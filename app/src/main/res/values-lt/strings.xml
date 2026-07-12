@@ -98,6 +98,7 @@
     <string name="notification_reminder_text">Rami vieta palikti tai, kas sukasi mintyse.</string>
     <string name="notification_browser_title">Soma naršyklės rodinys</string>
     <string name="developer_title">kūrėjui</string>
+    <string name="developer_light_mode">šviesus režimas</string>
     <string name="developer_demo">demo režimas</string>
     <string name="developer_return_home">išėjus grįžti į pradžią</string>
     <string name="developer_transcribe_power_saver">transkribuoti energijos taupymo režimu</string>

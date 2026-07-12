@@ -295,6 +295,7 @@ sealed interface BrowserViewState {
 /** Browser-flavor bridge. The purist flavor defines the exact same public API as a no-op. */
 class BrowserViewController(
     dataSource: BrowserViewDataSource,
+    private val lightMode: Boolean = false,
 ) : AutoCloseable {
     private val lock = Any()
     private val lanDataSource = LanDataSourceAdapter(dataSource)
@@ -332,7 +333,7 @@ class BrowserViewController(
             }
 
             val candidate = LanBrowserServer(
-                config = LanServerConfig(bindAddress = address),
+                config = LanServerConfig(bindAddress = address, lightMode = lightMode),
                 dataSource = lanDataSource,
                 stateListener = LanServerStateListener { lanState -> onLanState(token, lanState) },
             )
