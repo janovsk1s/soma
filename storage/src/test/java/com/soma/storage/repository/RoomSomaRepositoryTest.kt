@@ -1,0 +1,276 @@
+package com.soma.storage.repository
+
+import android.content.Context
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
+import com.soma.core.model.AudioAttachment
+import com.soma.core.model.AudioFormat
+import com.soma.core.model.EntrySource
+import com.soma.core.model.EntryTranscriptionState
+import com.soma.core.model.NoteEntry
+import com.soma.core.model.StillOpenDismissal
+import com.soma.core.model.SupportedLanguage
+import com.soma.core.model.Todo
+import com.soma.core.model.TodoSuggestion
+import com.soma.core.model.TodoSuggestionReason
+import com.soma.core.model.TodoSuggestionState
+import com.soma.core.model.TranscriptSegment
+import com.soma.core.model.TranscriptionFailure
+import com.soma.core.model.TranscriptionFailureCode
+import com.soma.core.model.TranscriptionJob
+import com.soma.core.model.TranscriptionJobState
+import com.soma.core.model.TranscriptionResult
+import com.soma.storage.crypto.AesGcmCipher
+import com.soma.storage.backup.BackupSnapshot
+import com.soma.storage.db.SomaDatabase
+import java.time.Duration
+import java.time.Instant
+import java.time.LocalDate
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
+class RoomSomaRepositoryTest {
+    private lateinit var database: SomaDatabase
+    private lateinit var repository: RoomSomaRepository
+    private val date = LocalDate.of(2026, 7, 12)
+    private val start = Instant.parse("2026-07-12T08:00:00Z")
+
+    @Before
+    fun setUp() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        database = Room.inMemoryDatabaseBuilder(context, SomaDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        repository = RoomSomaRepository(
+            database,
+            AesGcmCipher(ByteArray(AesGcmCipher.KEY_BYTES) { (it * 3).toByte() }),
+        )
+    }
+
+    @After
+    fun tearDown() {
+        database.close()
+    }
+
+    @Test
+    fun `one note per date contains ordered decrypted entries`() = runBlocking {
+        val first = repository.getOrCreate(date, start)
+        val second = repository.getOrCreate(date, start.plusSeconds(500))
+        assertEquals(first.createdAt, second.createdAt)
+
+        val later = NoteEntry.text("entry-2", date, 1, "second thought", start.plusSeconds(2))
+        val earlier = NoteEntry.text("entry-1", date, 0, "first thought", start.plusSeconds(1))
+        assertTrue(repository.insertEntry(later))
+        assertTrue(repository.insertEntry(earlier))
+        assertFalse(repository.insertEntry(earlier.copy(id = "duplicate-position")))
+
+        val observed = repository.observe(date).first()
+        assertEquals(listOf("first thought", "second thought"), observed?.entries?.map { it.text })
+        assertEquals(listOf(date), repository.listBeforeOrOn(date, 5).map { it.date })
+    }
+
+    @Test
+    fun `suggestion acceptance creates todo and resolves suggestion atomically`() = runBlocking {
+        repository.getOrCreate(date, start)
+        repository.insertEntry(NoteEntry.text("entry-1", date, 0, "Need to call Anna", start))
+        val suggestion = TodoSuggestion(
+            id = "suggestion-1",
+            entryId = "entry-1",
+            suggestedText = "call Anna",
+            language = SupportedLanguage.ENGLISH,
+            reason = TodoSuggestionReason.TRIGGER_PHRASE,
+            matchedRule = "need to",
+            state = TodoSuggestionState.PENDING,
+            createdAt = start,
+        )
+        assertTrue(repository.insert(suggestion))
+        val todo = Todo(
+            id = "todo-1",
+            text = "call Anna",
+            createdAt = start.plusSeconds(10),
+            updatedAt = start.plusSeconds(10),
+            source = EntrySource(date, "entry-1"),
+        )
+
+        assertTrue(repository.accept(suggestion.id, todo, start.plusSeconds(11)))
+        assertEquals("call Anna", repository.get(todo.id)?.text)
+        assertTrue(repository.pendingForEntry("entry-1").isEmpty())
+        assertEquals(
+            TodoSuggestionState.ACCEPTED,
+            repository.observeForEntry("entry-1").first().single().state,
+        )
+        assertFalse(repository.accept(suggestion.id, todo.copy(id = "todo-2"), start.plusSeconds(12)))
+        assertNull(repository.get("todo-2"))
+    }
+
+    @Test
+    fun `transcription completion updates job and editable encrypted transcript together`() =
+        runBlocking {
+            repository.getOrCreate(date, start)
+            assertTrue(repository.insertEntry(voiceEntry("voice-1")))
+            assertTrue(repository.enqueue(TranscriptionJob.queued("job-1", "voice-1", start)))
+            val claimed = repository.claimNext("worker", start, Duration.ofMinutes(5))
+            assertEquals(TranscriptionJobState.RUNNING, claimed?.state)
+
+            val result = TranscriptionResult(
+                listOf(
+                    TranscriptSegment(0, 800, "Jāatceras", SupportedLanguage.LATVIAN),
+                    TranscriptSegment(900, 1_500, "call Anna", SupportedLanguage.ENGLISH),
+                ),
+            )
+            assertTrue(repository.complete("job-1", "worker", result, start.plusSeconds(5)))
+
+            val entry = repository.getEntry("voice-1")
+            assertEquals("Jāatceras call Anna", entry?.text)
+            assertEquals(EntryTranscriptionState.SUCCEEDED, entry?.transcription?.state)
+            assertEquals(
+                listOf(SupportedLanguage.LATVIAN, SupportedLanguage.ENGLISH),
+                entry?.transcription?.detectedLanguages,
+            )
+            assertEquals(TranscriptionJobState.SUCCEEDED, repository.getForEntry("voice-1")?.state)
+
+            val raw = database.openHelper.writableDatabase
+                .query("SELECT text_ciphertext FROM entries WHERE id = 'voice-1'")
+            raw.use { cursor ->
+                cursor.moveToFirst()
+                assertFalse(
+                    cursor.getBlob(0).containsSubsequence("Jāatceras call Anna".encodeToByteArray()),
+                )
+            }
+        }
+
+    @Test
+    fun `retryable then terminal transcription failures preserve the recording`() = runBlocking {
+        repository.getOrCreate(date, start)
+        repository.insertEntry(voiceEntry("voice-1"))
+        repository.enqueue(TranscriptionJob.queued("job-1", "voice-1", start))
+        repository.claimNext("worker-1", start, Duration.ofMinutes(1))
+        val retryAt = start.plusSeconds(120)
+        val retryable = TranscriptionFailure(
+            code = TranscriptionFailureCode.ENGINE_UNAVAILABLE,
+            retryable = true,
+            diagnostic = "engine warming up",
+        )
+        assertTrue(
+            repository.recordFailure(
+                "job-1",
+                "worker-1",
+                retryable,
+                start.plusSeconds(10),
+                retryAt,
+            ),
+        )
+        assertEquals(TranscriptionJobState.QUEUED, repository.getForEntry("voice-1")?.state)
+        assertNull(repository.claimNext("too-early", retryAt.minusMillis(1), Duration.ofMinutes(1)))
+
+        repository.claimNext("worker-2", retryAt, Duration.ofMinutes(1))
+        val terminal = retryable.copy(
+            code = TranscriptionFailureCode.MODEL_ERROR,
+            retryable = false,
+            diagnostic = "model rejected audio",
+        )
+        assertTrue(
+            repository.recordFailure(
+                "job-1",
+                "worker-2",
+                terminal,
+                retryAt.plusSeconds(5),
+                retryAt = null,
+            ),
+        )
+
+        val entry = repository.getEntry("voice-1")
+        assertEquals("audio-voice-1", entry?.audio?.fileId)
+        assertEquals(EntryTranscriptionState.FAILED, entry?.transcription?.state)
+        assertEquals(terminal, entry?.transcription?.failure)
+        assertEquals(terminal, repository.getForEntry("voice-1")?.lastFailure)
+    }
+
+    @Test
+    fun `expired leases stop after the maximum attempt instead of retrying forever`() = runBlocking {
+        repository.getOrCreate(date, start)
+        repository.insertEntry(voiceEntry("voice-1"))
+        repository.enqueue(TranscriptionJob.queued("job-1", "voice-1", start))
+
+        var claimAt = start
+        repeat(3) { attempt ->
+            val claimed = repository.claimNext("worker-$attempt", claimAt, Duration.ofSeconds(1))
+            assertEquals(attempt + 1, claimed?.attemptCount)
+            claimAt = claimAt.plusSeconds(2)
+            assertEquals(1, repository.releaseExpiredLeases(claimAt))
+        }
+
+        val job = repository.getForEntry("voice-1")
+        assertEquals(TranscriptionJobState.FAILED, job?.state)
+        assertEquals(TranscriptionFailureCode.CANCELLED, job?.lastFailure?.code)
+        assertEquals(EntryTranscriptionState.FAILED, repository.getEntry("voice-1")?.transcription?.state)
+        assertNull(repository.claimNext("worker-forever", claimAt, Duration.ofSeconds(1)))
+    }
+
+    @Test
+    fun `still-open dismissal round trips by local date`() = runBlocking {
+        val dismissal = StillOpenDismissal(date, start)
+        repository.dismiss(dismissal)
+
+        assertEquals(dismissal, repository.dismissal(date))
+        assertEquals(dismissal, repository.observeDismissal(date).first())
+        assertNull(repository.dismissal(date.plusDays(1)))
+    }
+
+    @Test
+    fun `portable restore atomically replaces existing rows`() = runBlocking {
+        repository.getOrCreate(date.minusDays(1), start)
+        repository.insertEntry(
+            NoteEntry.text("old-entry", date.minusDays(1), 0, "old plaintext", start),
+        )
+        val restoredEntry = NoteEntry.text("new-entry", date, 0, "restored thought", start.plusSeconds(1))
+        val restoredTodo = Todo("new-todo", "restored todo", start, start)
+        repository.replaceAll(
+            BackupSnapshot(
+                exportedAt = start.plusSeconds(2),
+                notes = listOf(com.soma.core.model.DailyNote(date, start, listOf(restoredEntry))),
+                todos = listOf(restoredTodo),
+                suggestions = emptyList(),
+            ),
+        )
+
+        assertNull(repository.get(date.minusDays(1)))
+        assertEquals("restored thought", repository.get(date)?.entries?.single()?.text)
+        assertEquals("restored todo", repository.get("new-todo")?.text)
+    }
+
+    private fun voiceEntry(id: String) = NoteEntry.voice(
+        id = id,
+        noteDate = date,
+        position = 0,
+        audio = AudioAttachment(
+            fileId = "audio-$id",
+            format = AudioFormat.WAV,
+            durationMillis = 1_500,
+            byteCount = 48_044,
+        ),
+        createdAt = start,
+        transcriptionEnabled = true,
+    )
+
+    private fun ByteArray.containsSubsequence(needle: ByteArray): Boolean {
+        if (needle.isEmpty()) return true
+        return indices.any { start ->
+            start + needle.size <= size && needle.indices.all { offset ->
+                this[start + offset] == needle[offset]
+            }
+        }
+    }
+}

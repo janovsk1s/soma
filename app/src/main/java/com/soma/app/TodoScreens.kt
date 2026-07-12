@@ -1,0 +1,228 @@
+package com.soma.app
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.soma.core.model.Todo
+import com.soma.core.model.TodoState
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+
+@Composable
+fun TodosScreen(
+    viewModel: SomaViewModel,
+    onTodoOptions: (Todo) -> Unit,
+    onDetailedAdd: () -> Unit,
+    onSource: (Todo) -> Unit,
+    onBack: () -> Unit,
+) {
+    BackHandler(onBack = onBack)
+    val open by viewModel.openTodos.collectAsState()
+    val closed by viewModel.closedTodos.collectAsState()
+    val prompted by viewModel.promptedTodoIds.collectAsState()
+    var showClosed by remember { mutableStateOf(false) }
+    var quickAdd by remember { mutableStateOf(false) }
+    var input by remember { mutableStateOf("") }
+    val items = if (showClosed) closed else open
+
+    Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding().padding(horizontal = 28.dp)) {
+        TodoHeader(
+            showClosed = showClosed,
+            onToggle = { showClosed = !showClosed },
+            onBack = onBack,
+        )
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            if (items.isEmpty()) {
+                EmptyHint(stringResource(if (showClosed) R.string.done_todos else R.string.todos_empty))
+            } else {
+                PagedList(
+                    items = items,
+                    resetKey = showClosed,
+                    onPageChange = { page -> if (!showClosed) page.forEach(viewModel::todoViewed) },
+                ) { todo ->
+                    TodoRow(
+                        todo = todo,
+                        stalePrompt = todo.id in prompted,
+                        onToggle = { viewModel.toggleTodo(todo) },
+                        onOptions = { onTodoOptions(todo) },
+                        onKeep = { viewModel.keepTodo(todo) },
+                        onLetGo = { viewModel.letGo(todo) },
+                        onSource = { onSource(todo) },
+                    )
+                }
+            }
+        }
+        if (!showClosed) {
+            if (quickAdd) {
+                val focus = remember { FocusRequester() }
+                LaunchedEffect(Unit) { focus.requestFocus() }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    LineInput(
+                        input,
+                        { input = it },
+                        stringResource(R.string.todo_quick_hint),
+                        Modifier.weight(1f).focusRequester(focus),
+                        onDone = {
+                            viewModel.addTodo(input)
+                            input = ""
+                            quickAdd = false
+                        },
+                    )
+                    PlusButton(
+                        onClick = {
+                            viewModel.addTodo(input)
+                            input = ""
+                            quickAdd = false
+                        },
+                        onLongClick = onDetailedAdd,
+                        modifier = Modifier.offset(x = 8.dp),
+                    )
+                }
+            } else {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 18.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    PlusButton(onClick = { quickAdd = true }, onLongClick = onDetailedAdd)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TodoHeader(showClosed: Boolean, onToggle: () -> Unit, onBack: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        BackArrow(Modifier.align(Alignment.CenterStart).offset(x = (-30).dp), onBack)
+        Text(
+            stringResource(if (showClosed) R.string.done_todos else R.string.open_todos),
+            color = Ink,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Normal,
+        )
+        Box(
+            modifier = Modifier.align(Alignment.CenterEnd).width(72.dp).then(tapModifier(onToggle, "todo page")),
+            contentAlignment = Alignment.CenterEnd,
+        ) {
+            Text(
+                stringResource(if (showClosed) R.string.open_todos else R.string.done_todos),
+                color = DimInk,
+                fontSize = 12.sp,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TodoRow(
+    todo: Todo,
+    stalePrompt: Boolean,
+    onToggle: () -> Unit,
+    onOptions: () -> Unit,
+    onKeep: () -> Unit,
+    onLetGo: () -> Unit,
+    onSource: () -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().then(tapLongModifier(onToggle, onOptions, "todo")),
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                todo.text,
+                color = if (todo.state == TodoState.OPEN) Ink else DimInk,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Normal,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                if (todo.state == TodoState.OPEN) "○" else "✓",
+                color = DimInk,
+                fontSize = 22.sp,
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            todo.source?.let { source ->
+                Text(
+                    source.noteDate.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT)),
+                    color = DimInk,
+                    fontSize = 12.sp,
+                    modifier = Modifier.then(tapModifier(onSource, "source note")),
+                )
+            }
+            if (stalePrompt) {
+                Text(stringResource(R.string.keep), color = DimInk, fontSize = 14.sp, modifier = Modifier.then(tapModifier(onKeep, "keep")))
+                Text(stringResource(R.string.let_go), color = DimInk, fontSize = 14.sp, modifier = Modifier.then(tapModifier(onLetGo, "let go")))
+            }
+        }
+    }
+}
+
+private enum class TodoAction { EDIT, TOGGLE, LET_GO }
+
+@Composable
+fun TodoOptionsScreen(
+    todo: Todo,
+    onEdit: () -> Unit,
+    onToggle: () -> Unit,
+    onLetGo: () -> Unit,
+    onBack: () -> Unit,
+) {
+    BackHandler(onBack = onBack)
+    Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding().padding(horizontal = 28.dp)) {
+        SimpleTopBar(stringResource(R.string.todos), onBack)
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            PagedList(TodoAction.entries) { action ->
+                SettingsItem(
+                    label = when (action) {
+                        TodoAction.EDIT -> stringResource(R.string.edit)
+                        TodoAction.TOGGLE -> stringResource(if (todo.state == TodoState.OPEN) R.string.mark_done else R.string.mark_open)
+                        TodoAction.LET_GO -> stringResource(R.string.let_go)
+                    },
+                    onClick = when (action) {
+                        TodoAction.EDIT -> onEdit
+                        TodoAction.TOGGLE -> onToggle
+                        TodoAction.LET_GO -> onLetGo
+                    },
+                )
+            }
+        }
+    }
+}

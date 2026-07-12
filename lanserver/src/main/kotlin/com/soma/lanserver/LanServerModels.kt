@@ -1,0 +1,176 @@
+package com.soma.lanserver
+
+import java.io.InputStream
+import java.net.Inet6Address
+import java.net.InetAddress
+import java.time.Duration
+import java.time.LocalDate
+
+/**
+ * Configuration for the deliberately short-lived, read-only LAN server.
+ *
+ * [bindAddress] must be the concrete Wi-Fi address selected by the caller. The
+ * server intentionally refuses wildcard, loopback, link-local, and public
+ * addresses; it never chooses an interface on the caller's behalf.
+ */
+data class LanServerConfig(
+    val bindAddress: InetAddress,
+    val port: Int = 0,
+    val idleTimeout: Duration = Duration.ofMinutes(15),
+    val requestReadTimeout: Duration = Duration.ofSeconds(10),
+) {
+    init {
+        require(!bindAddress.isAnyLocalAddress) { "A concrete LAN address is required" }
+        require(!bindAddress.isLoopbackAddress) { "Loopback addresses are not allowed" }
+        require(bindAddress.isSiteLocalAddress) { "Only site-local LAN addresses are allowed" }
+        require(port in 0..65_535) { "Port must be between 0 and 65535" }
+        require(!idleTimeout.isZero && !idleTimeout.isNegative) {
+            "Idle timeout must be positive"
+        }
+        require(idleTimeout <= MAX_IDLE_TIMEOUT) {
+            "Idle timeout must not exceed 15 minutes"
+        }
+        require(!requestReadTimeout.isZero && !requestReadTimeout.isNegative) {
+            "Request read timeout must be positive"
+        }
+        require(requestReadTimeout <= MAX_REQUEST_READ_TIMEOUT) {
+            "Request read timeout must not exceed 30 seconds"
+        }
+    }
+
+    private companion object {
+        val MAX_IDLE_TIMEOUT: Duration = Duration.ofMinutes(15)
+        val MAX_REQUEST_READ_TIMEOUT: Duration = Duration.ofSeconds(30)
+    }
+}
+
+/** The address and single-use access code shown on Soma's Browser view screen. */
+data class LanServerEndpoint(
+    val address: InetAddress,
+    val port: Int,
+    val accessCode: String,
+) {
+    val url: String
+        get() {
+            val host = address.hostAddress.substringBefore('%')
+            val urlHost = if (address is Inet6Address) "[$host]" else host
+            return "http://$urlHost:$port"
+        }
+}
+
+enum class LanServerStopReason {
+    REQUESTED,
+    IDLE_TIMEOUT,
+    TOO_MANY_WRONG_CODES,
+    SERVER_ERROR,
+}
+
+sealed interface LanServerState {
+    data object NotStarted : LanServerState
+
+    data class AwaitingAuthentication(
+        val endpoint: LanServerEndpoint,
+        val wrongCodeAttempts: Int,
+    ) : LanServerState
+
+    data class Authenticated(val url: String) : LanServerState
+
+    data class Stopped(val reason: LanServerStopReason) : LanServerState
+}
+
+fun interface LanServerStateListener {
+    fun onStateChanged(state: LanServerState)
+}
+
+/** Injectable to keep authentication tests deterministic. Production uses SecureRandom. */
+fun interface AccessCodeGenerator {
+    fun nextCode(): String
+}
+
+data class PageRequest(val offset: Int, val limit: Int) {
+    init {
+        require(offset >= 0) { "Offset must not be negative" }
+        require(limit > 0) { "Limit must be positive" }
+    }
+}
+
+data class PagedResult<T>(
+    val items: List<T>,
+    val totalCount: Int,
+) {
+    init {
+        require(totalCount >= 0) { "Total count must not be negative" }
+    }
+}
+
+data class BrowserDay(
+    val date: LocalDate,
+    val entryCount: Int,
+    val preview: String = "",
+)
+
+enum class BrowserEntryKind {
+    TEXT,
+    VOICE,
+}
+
+data class BrowserEntry(
+    val id: String,
+    val text: String,
+    val kind: BrowserEntryKind,
+    val audioId: String? = null,
+    val transcriptionPending: Boolean = false,
+    val markedForReturn: Boolean = false,
+)
+
+enum class BrowserTodoState {
+    OPEN,
+    DONE,
+    ARCHIVED,
+}
+
+/** OPEN is the primary list; COMPLETED contains done and silently archived items. */
+enum class BrowserTodoFilter {
+    OPEN,
+    COMPLETED,
+}
+
+data class BrowserTodo(
+    val id: String,
+    val text: String,
+    val createdOn: LocalDate,
+    val state: BrowserTodoState,
+    val sourceDate: LocalDate? = null,
+    val sourceEntryId: String? = null,
+)
+
+/**
+ * A fresh stream must be returned by [openStream] for every request. This lets
+ * encrypted storage decrypt per request without ever caching plaintext on disk.
+ */
+class AudioResource(
+    val contentType: String,
+    val contentLength: Long,
+    val openStream: () -> InputStream,
+) {
+    init {
+        require(contentLength >= 0L) { "Audio length must not be negative" }
+        require(MEDIA_TYPE.matches(contentType)) { "Invalid audio content type" }
+    }
+
+    private companion object {
+        val MEDIA_TYPE = Regex("audio/[A-Za-z0-9!#$&^_.+\\-]+")
+    }
+}
+
+/** Data exposed by the read-only browser flavor. Implementations may decrypt on demand. */
+interface ReadOnlySomaDataSource {
+    fun listDays(request: PageRequest): PagedResult<BrowserDay>
+
+    /** Returns null when [date] has no note. */
+    fun entriesForDay(date: LocalDate, request: PageRequest): PagedResult<BrowserEntry>?
+
+    fun listTodos(filter: BrowserTodoFilter, request: PageRequest): PagedResult<BrowserTodo>
+
+    fun openAudio(audioId: String): AudioResource?
+}

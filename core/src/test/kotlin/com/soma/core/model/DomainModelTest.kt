@@ -1,0 +1,90 @@
+package com.soma.core.model
+
+import java.time.Instant
+import java.time.LocalDate
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class DomainModelTest {
+    private val date = LocalDate.of(2026, 7, 12)
+    private val now = Instant.parse("2026-07-12T10:00:00Z")
+
+    @Test
+    fun `voice factory keeps audio immediately and queues optional transcription`() {
+        val entry = NoteEntry.voice(
+            id = "voice-1",
+            noteDate = date,
+            position = 0,
+            audio = audio(),
+            createdAt = now,
+            transcriptionEnabled = true,
+        )
+
+        assertEquals(EntryKind.VOICE, entry.kind)
+        assertEquals("audio-1", entry.audio!!.fileId)
+        assertEquals(EntryTranscriptionState.QUEUED, entry.transcription!!.state)
+        assertTrue(entry.text.isEmpty())
+        assertFalse(entry.hasTranscript)
+    }
+
+    @Test
+    fun `voice factory can preserve recording with transcription disabled`() {
+        val entry = NoteEntry.voice(
+            id = "voice-1",
+            noteDate = date,
+            position = 0,
+            audio = audio(),
+            createdAt = now,
+            transcriptionEnabled = false,
+        )
+
+        assertEquals(EntryTranscriptionState.DISABLED, entry.transcription!!.state)
+        assertEquals(audio(), entry.audio)
+    }
+
+    @Test
+    fun `daily note accepts only ordered entries from its date`() {
+        val first = NoteEntry.text("one", date, 1, "One", now)
+        val second = NoteEntry.text("two", date, 2, "Two", now)
+
+        assertEquals(listOf(first, second), DailyNote(date, now, listOf(first, second)).entries)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `daily note rejects duplicate positions`() {
+        DailyNote(
+            date,
+            now,
+            listOf(
+                NoteEntry.text("one", date, 1, "One", now),
+                NoteEntry.text("two", date, 1, "Two", now),
+            ),
+        )
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `daily note rejects entry from another date`() {
+        DailyNote(
+            date,
+            now,
+            listOf(NoteEntry.text("one", date.minusDays(1), 0, "One", now)),
+        )
+    }
+
+    @Test
+    fun `language tags accept regional variants and reject unsupported languages`() {
+        assertEquals(SupportedLanguage.GERMAN, SupportedLanguage.fromLanguageTag("de-AT"))
+        assertEquals(SupportedLanguage.LATVIAN, SupportedLanguage.fromLanguageTag("LV-lv"))
+        assertNull(SupportedLanguage.fromLanguageTag("fr-FR"))
+    }
+
+    private fun audio(): AudioAttachment = AudioAttachment(
+        fileId = "audio-1",
+        format = AudioFormat.WAV,
+        durationMillis = 1_000,
+        byteCount = 32_044,
+    )
+}

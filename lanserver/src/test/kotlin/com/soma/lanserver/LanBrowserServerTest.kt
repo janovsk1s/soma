@@ -1,0 +1,405 @@
+package com.soma.lanserver
+
+import java.io.ByteArrayInputStream
+import java.net.InetAddress
+import java.net.NetworkInterface
+import java.net.Socket
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.util.Collections
+import java.util.concurrent.CopyOnWriteArrayList
+import org.junit.After
+import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+
+class LanBrowserServerTest {
+    private lateinit var address: InetAddress
+    private val servers = mutableListOf<LanBrowserServer>()
+
+    @Before
+    fun findLanAddress() {
+        address = Collections.list(NetworkInterface.getNetworkInterfaces())
+            .asSequence()
+            .filter { it.isUp }
+            .flatMap { Collections.list(it.inetAddresses).asSequence() }
+            .first { it.isSiteLocalAddress && !it.isLoopbackAddress && !it.isAnyLocalAddress }
+    }
+
+    @After
+    fun stopServers() {
+        servers.forEach(LanBrowserServer::close)
+    }
+
+    @Test
+    fun `configuration requires a concrete site-local address`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            LanServerConfig(InetAddress.getByName("0.0.0.0"))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            LanServerConfig(InetAddress.getLoopbackAddress())
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            LanServerConfig(InetAddress.getByName("203.0.113.1"))
+        }
+        assertEquals(address, LanServerConfig(address).bindAddress)
+    }
+
+    @Test
+    fun `one-time code creates a random strict session and unlocks read-only pages`() {
+        val data = FakeDataSource()
+        val server = server(data)
+        val endpoint = server.start()
+
+        val unauthorized = request(endpoint, "GET", "/days")
+        assertEquals(401, unauthorized.status)
+        assertEquals(0, data.daysRequests.size)
+
+        val authenticated = authenticate(endpoint)
+        assertEquals(303, authenticated.response.status)
+        assertEquals("/days", authenticated.response.headers["location"])
+        val setCookie = authenticated.response.headers["set-cookie"]
+        assertNotNull(setCookie)
+        val cookieHeader = requireNotNull(setCookie)
+        assertTrue(cookieHeader.contains("HttpOnly"))
+        assertTrue(cookieHeader.contains("SameSite=Strict"))
+        assertTrue(cookieHeader.contains("Max-Age=900"))
+        assertFalse(cookieHeader.contains("123456"))
+        assertTrue(authenticated.cookie.substringAfter('=').length >= 40)
+
+        val days = request(endpoint, "GET", "/days", cookie = authenticated.cookie)
+        assertEquals(200, days.status)
+        assertEquals("no-store", days.headers["cache-control"])
+        assertEquals("DENY", days.headers["x-frame-options"])
+        assertTrue(days.headers.getValue("content-security-policy").contains("default-src 'none'"))
+        assertEquals(1, data.daysRequests.size)
+
+        val reusedCode = request(
+            endpoint,
+            "POST",
+            "/auth",
+            body = "code=123456",
+            contentType = "application/x-www-form-urlencoded",
+        )
+        assertEquals(401, reusedCode.status)
+        assertTrue(reusedCode.text.contains("expired"))
+    }
+
+    @Test
+    fun `fifth incorrect code stops the server`() {
+        val states = CopyOnWriteArrayList<LanServerState>()
+        val server = server(FakeDataSource(), listener = LanServerStateListener(states::add))
+        val endpoint = server.start()
+
+        repeat(4) {
+            val response = request(
+                endpoint,
+                "POST",
+                "/auth",
+                body = "code=000000",
+                contentType = "application/x-www-form-urlencoded",
+            )
+            assertEquals(401, response.status)
+        }
+        val fifth = request(
+            endpoint,
+            "POST",
+            "/auth",
+            body = "code=000000",
+            contentType = "application/x-www-form-urlencoded",
+        )
+        assertEquals(429, fifth.status)
+        waitUntil { server.state == LanServerState.Stopped(LanServerStopReason.TOO_MANY_WRONG_CODES) }
+        assertTrue(states.contains(LanServerState.Stopped(LanServerStopReason.TOO_MANY_WRONG_CODES)))
+        assertEquals(listOf(0, 1, 2, 3, 4), states.filterIsInstance<LanServerState.AwaitingAuthentication>().map { it.wrongCodeAttempts })
+    }
+
+    @Test
+    fun `host must match the bound numeric address and port`() {
+        val server = server(FakeDataSource())
+        val endpoint = server.start()
+
+        val response = rawRequest(
+            endpoint,
+            "GET / HTTP/1.1\r\nHost: attacker.invalid\r\nConnection: close\r\n\r\n",
+        )
+        assertEquals(421, response.status)
+    }
+
+    @Test
+    fun `SSR escapes stored text and pages in groups of exactly five`() {
+        val malicious = "<script>alert(\"x\")</script> & 'quoted'"
+        val days = (1..12).map { index ->
+            BrowserDay(
+                date = LocalDate.of(2026, 7, 13).minusDays(index.toLong()),
+                entryCount = index,
+                preview = if (index == 6) malicious else "DAY-$index",
+            )
+        }
+        val data = FakeDataSource(days = days)
+        val server = server(data)
+        val endpoint = server.start()
+        val cookie = authenticate(endpoint).cookie
+
+        val response = request(endpoint, "GET", "/days?page=2", cookie = cookie)
+        assertEquals(200, response.status)
+        assertEquals(PageRequest(offset = 5, limit = 5), data.daysRequests.single())
+        assertEquals(5, Regex("<li>").findAll(response.text).count())
+        assertTrue(response.text.contains("2 / 3"))
+        assertTrue(response.text.contains("Previous"))
+        assertTrue(response.text.contains("Next"))
+        assertFalse(response.text.contains("<script>alert"))
+        assertTrue(response.text.contains("&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp; &#39;quoted&#39;"))
+    }
+
+    @Test
+    fun `day and todo routes stay read-only and cap a misbehaving source at five items`() {
+        val date = LocalDate.of(2026, 7, 12)
+        val entries = (1..6).map { index ->
+            BrowserEntry(
+                id = "entry-$index",
+                text = if (index == 1) "<b>ENTRY-$index</b>" else "ENTRY-$index",
+                kind = BrowserEntryKind.TEXT,
+            )
+        }
+        val todos = (1..6).map { index ->
+            BrowserTodo("todo-$index", "TODO-$index", date, BrowserTodoState.OPEN)
+        }
+        val data = FakeDataSource(entries = entries, todos = todos, ignoreRequestedLimit = true)
+        val server = server(data)
+        val endpoint = server.start()
+        val cookie = authenticate(endpoint).cookie
+
+        val day = request(endpoint, "GET", "/day/$date", cookie = cookie)
+        assertEquals(200, day.status)
+        assertEquals(5, Regex("<li>").findAll(day.text).count())
+        assertFalse(day.text.contains("ENTRY-6"))
+        assertTrue(day.text.contains("&lt;b&gt;ENTRY-1&lt;/b&gt;"))
+
+        val todoPage = request(endpoint, "GET", "/todos", cookie = cookie)
+        assertEquals(200, todoPage.status)
+        assertEquals(5, Regex("<li>").findAll(todoPage.text).count())
+        assertFalse(todoPage.text.contains("TODO-6"))
+
+        val attemptedWrite = request(endpoint, "POST", "/todos", cookie = cookie)
+        assertEquals(405, attemptedWrite.status)
+    }
+
+    @Test
+    fun `audio is never opened before authentication and supports a single byte range`() {
+        val audio = "0123456789".toByteArray()
+        val data = FakeDataSource(audio = audio)
+        val server = server(data)
+        val endpoint = server.start()
+
+        val unauthorized = request(endpoint, "GET", "/audio/voice-1")
+        assertEquals(401, unauthorized.status)
+        assertEquals(0, data.audioOpenCount)
+
+        val cookie = authenticate(endpoint).cookie
+        val ranged = request(
+            endpoint,
+            "GET",
+            "/audio/voice-1",
+            cookie = cookie,
+            extraHeaders = mapOf("Range" to "bytes=2-5"),
+        )
+        assertEquals(206, ranged.status)
+        assertEquals("bytes 2-5/10", ranged.headers["content-range"])
+        assertArrayEquals("2345".toByteArray(), ranged.body)
+        assertEquals(1, data.audioOpenCount)
+    }
+
+    @Test
+    fun `only authenticated activity refreshes the idle deadline`() {
+        val clock = MutableClock(Instant.parse("2026-07-12T08:00:00Z"))
+        val server = server(FakeDataSource(), clock = clock)
+        val endpoint = server.start()
+
+        clock.advance(Duration.ofMinutes(14).plusSeconds(59))
+        assertEquals(200, request(endpoint, "GET", "/").status)
+        clock.advance(Duration.ofSeconds(2))
+        assertTrue(server.checkIdleNow())
+        assertEquals(LanServerState.Stopped(LanServerStopReason.IDLE_TIMEOUT), server.state)
+    }
+
+    @Test
+    fun `authenticated reads refresh the idle deadline`() {
+        val clock = MutableClock(Instant.parse("2026-07-12T08:00:00Z"))
+        val server = server(FakeDataSource(), clock = clock)
+        val endpoint = server.start()
+        val cookie = authenticate(endpoint).cookie
+
+        clock.advance(Duration.ofMinutes(10))
+        assertEquals(200, request(endpoint, "GET", "/days", cookie = cookie).status)
+        clock.advance(Duration.ofMinutes(10))
+        assertFalse(server.checkIdleNow())
+        clock.advance(Duration.ofMinutes(6))
+        assertTrue(server.checkIdleNow())
+    }
+
+    private fun server(
+        data: FakeDataSource,
+        listener: LanServerStateListener = LanServerStateListener {},
+        clock: Clock = Clock.systemUTC(),
+    ): LanBrowserServer = LanBrowserServer(
+        config = LanServerConfig(address),
+        dataSource = data,
+        stateListener = listener,
+        clock = clock,
+        accessCodeGenerator = AccessCodeGenerator { "123456" },
+    ).also(servers::add)
+
+    private fun authenticate(endpoint: LanServerEndpoint): Authentication {
+        val response = request(
+            endpoint,
+            "POST",
+            "/auth",
+            body = "code=123456",
+            contentType = "application/x-www-form-urlencoded",
+        )
+        val cookieHeader = response.headers["set-cookie"]
+        assertNotNull(cookieHeader)
+        val cookie = requireNotNull(cookieHeader).substringBefore(';')
+        assertNotEquals("soma_session=123456", cookie)
+        return Authentication(response, cookie)
+    }
+
+    private fun request(
+        endpoint: LanServerEndpoint,
+        method: String,
+        target: String,
+        cookie: String? = null,
+        body: String = "",
+        contentType: String? = null,
+        extraHeaders: Map<String, String> = emptyMap(),
+    ): TestResponse {
+        val bodyBytes = body.toByteArray(Charsets.UTF_8)
+        val raw = buildString {
+            append("$method $target HTTP/1.1\r\n")
+            append("Host: ${endpoint.address.hostAddress}:${endpoint.port}\r\n")
+            append("Connection: close\r\n")
+            cookie?.let { append("Cookie: $it\r\n") }
+            contentType?.let { append("Content-Type: $it\r\n") }
+            extraHeaders.forEach { (name, value) -> append("$name: $value\r\n") }
+            if (bodyBytes.isNotEmpty() || method == "POST") append("Content-Length: ${bodyBytes.size}\r\n")
+            append("\r\n")
+            append(body)
+        }
+        return rawRequest(endpoint, raw)
+    }
+
+    private fun rawRequest(endpoint: LanServerEndpoint, raw: String): TestResponse {
+        val bytes = Socket(endpoint.address, endpoint.port).use { socket ->
+            socket.soTimeout = 5_000
+            socket.getOutputStream().write(raw.toByteArray(Charsets.UTF_8))
+            socket.getOutputStream().flush()
+            socket.getInputStream().readBytes()
+        }
+        val separator = "\r\n\r\n".toByteArray(Charsets.ISO_8859_1)
+        val split = bytes.indexOf(separator)
+        assertTrue("Response had no header terminator", split >= 0)
+        val head = bytes.copyOfRange(0, split).toString(Charsets.ISO_8859_1)
+        val lines = head.split("\r\n")
+        val status = lines.first().split(' ')[1].toInt()
+        val headers = lines.drop(1).associate { line ->
+            val colon = line.indexOf(':')
+            line.substring(0, colon).lowercase() to line.substring(colon + 1).trim()
+        }
+        val body = bytes.copyOfRange(split + separator.size, bytes.size)
+        assertEquals(headers["content-length"]?.toLong(), body.size.toLong())
+        return TestResponse(status, headers, body)
+    }
+
+    private fun ByteArray.indexOf(needle: ByteArray): Int {
+        outer@ for (index in 0..size - needle.size) {
+            for (needleIndex in needle.indices) {
+                if (this[index + needleIndex] != needle[needleIndex]) continue@outer
+            }
+            return index
+        }
+        return -1
+    }
+
+    private fun waitUntil(predicate: () -> Boolean) {
+        repeat(100) {
+            if (predicate()) return
+            Thread.sleep(10)
+        }
+        assertTrue("Condition was not reached", predicate())
+    }
+
+    private data class Authentication(val response: TestResponse, val cookie: String)
+
+    private data class TestResponse(
+        val status: Int,
+        val headers: Map<String, String>,
+        val body: ByteArray,
+    ) {
+        val text: String get() = body.toString(Charsets.UTF_8)
+    }
+
+    private class MutableClock(
+        private var current: Instant,
+        private val zone: ZoneId = ZoneOffset.UTC,
+    ) : Clock() {
+        override fun getZone(): ZoneId = zone
+
+        override fun withZone(zone: ZoneId): Clock = MutableClock(current, zone)
+
+        override fun instant(): Instant = current
+
+        fun advance(duration: Duration) {
+            current = current.plus(duration)
+        }
+    }
+
+    private class FakeDataSource(
+        private val days: List<BrowserDay> = emptyList(),
+        private val entries: List<BrowserEntry> = emptyList(),
+        private val todos: List<BrowserTodo> = emptyList(),
+        private val audio: ByteArray? = null,
+        private val ignoreRequestedLimit: Boolean = false,
+    ) : ReadOnlySomaDataSource {
+        val daysRequests = CopyOnWriteArrayList<PageRequest>()
+
+        @Volatile
+        var audioOpenCount = 0
+
+        override fun listDays(request: PageRequest): PagedResult<BrowserDay> {
+            daysRequests += request
+            return PagedResult(page(days, request), days.size)
+        }
+
+        override fun entriesForDay(
+            date: LocalDate,
+            request: PageRequest,
+        ): PagedResult<BrowserEntry> = PagedResult(page(entries, request), entries.size)
+
+        override fun listTodos(
+            filter: BrowserTodoFilter,
+            request: PageRequest,
+        ): PagedResult<BrowserTodo> = PagedResult(page(todos, request), todos.size)
+
+        override fun openAudio(audioId: String): AudioResource? {
+            audioOpenCount++
+            val content = audio ?: return null
+            return AudioResource("audio/wav", content.size.toLong()) { ByteArrayInputStream(content) }
+        }
+
+        private fun <T> page(values: List<T>, request: PageRequest): List<T> {
+            if (ignoreRequestedLimit) return values
+            return values.drop(request.offset).take(request.limit)
+        }
+    }
+}
