@@ -34,6 +34,8 @@ import androidx.compose.ui.unit.sp
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.TodoSuggestion
+import com.soma.core.policy.StillOpenPolicy
+import com.soma.core.policy.StillOpenTarget
 import com.soma.voice.PlaybackState
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -78,19 +80,30 @@ fun HomeScreen(
                 onNewer = viewModel::showNewerDay,
             ),
         ) {
-            if (
-                date == viewModel.today() &&
-                !stillOpenDismissed &&
-                (openTodos.isNotEmpty() || returnLater.isNotEmpty())
-            ) {
+            val stillOpen = if (date == viewModel.today() && !stillOpenDismissed) {
+                StillOpenPolicy.content(
+                    today = viewModel.today(),
+                    todos = openTodos,
+                    entries = returnLater,
+                    dismissal = null,
+                )
+            } else {
+                null
+            }
+            if (stillOpen != null) {
                 StillOpenBlock(
-                    openCount = openTodos.size,
-                    returnCount = returnLater.size,
+                    openCount = stillOpen.openTodoCount,
+                    returnCount = stillOpen.returnLaterItems.size,
                     onOpen = {
-                        returnLater.firstOrNull()?.let { entry ->
+                        val target = stillOpen.defaultTarget
+                        val entry = (target as? StillOpenTarget.Entry)
+                            ?.let { open -> returnLater.firstOrNull { it.id == open.entryId } }
+                        if (entry != null) {
                             viewModel.showDay(entry.noteDate)
                             onReadEntry(entry)
-                        } ?: onTodos()
+                        } else {
+                            onTodos()
+                        }
                     },
                     onDismiss = {
                         stillOpenDismissed = true

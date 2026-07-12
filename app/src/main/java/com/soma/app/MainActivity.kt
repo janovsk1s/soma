@@ -133,9 +133,13 @@ private sealed interface AppRoute {
     data object Developer : AppRoute
     data object Language : AppRoute
     data object AddTodo : AppRoute
-    data class ReadEntry(val entry: NoteEntry) : AppRoute
-    data class EntryOptions(val entry: NoteEntry, val returnToRead: Boolean = false) : AppRoute
-    data class EditEntry(val entry: NoteEntry) : AppRoute
+    data class ReadEntry(val entry: NoteEntry, val fromTodos: Boolean = false) : AppRoute
+    data class EntryOptions(
+        val entry: NoteEntry,
+        val returnToRead: Boolean = false,
+        val fromTodos: Boolean = false,
+    ) : AppRoute
+    data class EditEntry(val entry: NoteEntry, val fromTodos: Boolean = false) : AppRoute
     data class TodoOptions(val todo: Todo) : AppRoute
     data class EditTodo(val todo: Todo) : AppRoute
 }
@@ -202,7 +206,9 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             onSource = { todo ->
                 todo.source?.let { source ->
                     viewModel.showDay(source.noteDate)
-                    viewModel.findEntry(source.entryId) { route = AppRoute.ReadEntry(it) }
+                    viewModel.findEntry(source.entryId) {
+                        route = AppRoute.ReadEntry(it, fromTodos = true)
+                    }
                 }
             },
             onBack = { route = AppRoute.Home },
@@ -249,34 +255,42 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
         )
         is AppRoute.ReadEntry -> {
             val entry = liveEntry(current.entry)
+            val origin: AppRoute = if (current.fromTodos) AppRoute.Todos else AppRoute.Home
             EntryReadScreen(
                 entry = entry,
                 playing = (playback as? PlaybackState.Playing)?.audioId == entry.audio?.fileId,
                 onPlay = { viewModel.togglePlayback(entry) },
-                onOptions = { route = AppRoute.EntryOptions(entry, returnToRead = true) },
-                onBack = { route = AppRoute.Home },
+                onOptions = {
+                    route = AppRoute.EntryOptions(entry, returnToRead = true, fromTodos = current.fromTodos)
+                },
+                onBack = { route = origin },
             )
         }
         is AppRoute.EntryOptions -> {
             val entry = liveEntry(current.entry)
+            val origin: AppRoute = if (current.fromTodos) AppRoute.Todos else AppRoute.Home
             EntryOptionsScreen(
                 entry = entry,
-                onEdit = { route = AppRoute.EditEntry(entry) },
+                onEdit = { route = AppRoute.EditEntry(entry, fromTodos = current.fromTodos) },
                 onReturn = {
                     viewModel.toggleReturnLater(entry)
-                    route = AppRoute.Home
+                    route = origin
                 },
                 onPlay = { viewModel.togglePlayback(entry) },
                 onDeleteAudio = {
                     viewModel.deleteAudio(entry)
-                    route = AppRoute.Home
+                    route = origin
                 },
                 onDeleteEntry = {
                     viewModel.deleteEntry(entry)
-                    route = AppRoute.Home
+                    route = origin
                 },
                 onBack = {
-                    route = if (current.returnToRead) AppRoute.ReadEntry(entry) else AppRoute.Home
+                    route = if (current.returnToRead) {
+                        AppRoute.ReadEntry(entry, current.fromTodos)
+                    } else {
+                        origin
+                    }
                 },
             )
         }
@@ -287,9 +301,9 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
                 initialText = entry.text,
                 onSave = {
                     viewModel.editEntry(entry, it)
-                    route = AppRoute.Home
+                    route = if (current.fromTodos) AppRoute.Todos else AppRoute.Home
                 },
-                onBack = { route = AppRoute.EntryOptions(entry) },
+                onBack = { route = AppRoute.EntryOptions(entry, fromTodos = current.fromTodos) },
             )
         }
         is AppRoute.TodoOptions -> TodoOptionsScreen(
