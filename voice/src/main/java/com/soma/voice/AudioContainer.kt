@@ -79,14 +79,15 @@ class EncryptedAudioWriter(
         dataKey = SecretKeySpec(keyBytes, AES)
         Arrays.fill(keyBytes, 0)
 
-        val wrapNonce = ByteArray(GCM_NONCE_BYTES).also(random::nextBytes)
-        val wrappedKey = crypt(
-            mode = Cipher.ENCRYPT_MODE,
-            key = wrappingKeyProvider.getOrCreate(),
-            nonce = wrapNonce,
-            aad = wrapAad(audioId, sampleRate, channelCount, bitsPerSample),
-            input = dataKey.encoded,
-        )
+        // Android Keystore keys with randomized encryption prohibit caller
+        // nonces on encrypt (CALLER_NONCE_PROHIBITED), so the wrap nonce must
+        // come from the cipher itself. Decrypt with a stored nonce is allowed.
+        val wrapCipher = Cipher.getInstance(AES_GCM)
+        wrapCipher.init(Cipher.ENCRYPT_MODE, wrappingKeyProvider.getOrCreate())
+        wrapCipher.updateAAD(wrapAad(audioId, sampleRate, channelCount, bitsPerSample))
+        val wrappedKey = wrapCipher.doFinal(dataKey.encoded)
+        val wrapNonce = wrapCipher.iv
+        check(wrapNonce.size == GCM_NONCE_BYTES) { "Unexpected GCM nonce length from wrapping key" }
 
         outputStream = FileOutputStream(partialFile)
         output = DataOutputStream(BufferedOutputStream(outputStream)).apply {
