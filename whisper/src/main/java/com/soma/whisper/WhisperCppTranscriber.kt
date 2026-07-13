@@ -31,7 +31,7 @@ class WhisperCppTranscriber(
                 val results = try {
                     val pointer = contextPointer()
                     chunks.map { chunk ->
-                        val native = WhisperNative.transcribe(pointer, chunk.samples, threadCount)
+                        val native = WhisperNative.transcribe(pointer, chunk.samples, threadCount, ALLOWED_LANGUAGES)
                         check(native.size == 2) { "Unexpected Whisper response" }
                         TranscribedChunk(
                             text = cleanWhisperTranscript(native[1]),
@@ -75,6 +75,10 @@ class WhisperCppTranscriber(
     private companion object {
         const val SAMPLE_RATE = 16_000
         const val MODEL_ASSET = "ggml-tiny-q5_1.bin"
+
+        /** Language identification may only pick from the app's supported set. */
+        val ALLOWED_LANGUAGES: Array<String> =
+            com.soma.core.model.SupportedLanguage.entries.map { it.languageTag }.toTypedArray()
 
         fun preferredThreadCount(): Int =
             (Runtime.getRuntime().availableProcessors() - 1).coerceIn(1, 3)

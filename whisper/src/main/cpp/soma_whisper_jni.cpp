@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <mutex>
 #include <string>
+#include <vector>
 
 #include "whisper.h"
 
@@ -110,13 +111,56 @@ Java_com_soma_whisper_WhisperNative_createContext(
     return reinterpret_cast<jlong>(context);
 }
 
+namespace {
+
+// Restricts tiny-model language identification to the app's supported set.
+// Unconstrained auto-detection over ~99 languages misfires on short
+// utterances (German audio scoring as Russian); the argmax over the allowed
+// subset of the detector's probabilities cannot leave that set.
+const char *detect_allowed_language(
+    JNIEnv *env,
+    whisper_context *context,
+    const jfloat *samples,
+    jsize count,
+    int threads,
+    jobjectArray java_allowed
+) {
+    if (java_allowed == nullptr) return nullptr;
+    const jsize allowed_count = env->GetArrayLength(java_allowed);
+    if (allowed_count <= 0) return nullptr;
+
+    if (whisper_pcm_to_mel(context, samples, count, threads) != 0) return nullptr;
+    std::vector<float> probabilities(whisper_lang_max_id() + 1, 0.0f);
+    if (whisper_lang_auto_detect(context, 0, threads, probabilities.data()) < 0) return nullptr;
+
+    int best_id = -1;
+    float best_probability = -1.0f;
+    for (jsize index = 0; index < allowed_count; ++index) {
+        auto code = static_cast<jstring>(env->GetObjectArrayElement(java_allowed, index));
+        if (code == nullptr) continue;
+        const char *code_chars = env->GetStringUTFChars(code, nullptr);
+        const int lang_id = code_chars == nullptr ? -1 : whisper_lang_id(code_chars);
+        if (code_chars != nullptr) env->ReleaseStringUTFChars(code, code_chars);
+        env->DeleteLocalRef(code);
+        if (lang_id >= 0 && lang_id < static_cast<int>(probabilities.size()) &&
+            probabilities[lang_id] > best_probability) {
+            best_id = lang_id;
+            best_probability = probabilities[lang_id];
+        }
+    }
+    return best_id >= 0 ? whisper_lang_str(best_id) : nullptr;
+}
+
+}  // namespace
+
 extern "C" JNIEXPORT jobjectArray JNICALL
 Java_com_soma_whisper_WhisperNative_transcribe(
     JNIEnv *env,
     jobject,
     jlong pointer,
     jfloatArray java_samples,
-    jint requested_threads
+    jint requested_threads,
+    jobjectArray java_allowed_languages
 ) {
     auto *context = reinterpret_cast<whisper_context *>(pointer);
     if (context == nullptr) {
@@ -144,6 +188,10 @@ Java_com_soma_whisper_WhisperNative_transcribe(
     params.print_timestamps = false;
     params.language = "auto";
     params.detect_language = false;
+
+    const char *constrained = detect_allowed_language(
+        env, context, samples, count, params.n_threads, java_allowed_languages);
+    if (constrained != nullptr) params.language = constrained;
 
     const int result = whisper_full(context, params, samples, count);
     env->ReleaseFloatArrayElements(java_samples, samples, JNI_ABORT);
