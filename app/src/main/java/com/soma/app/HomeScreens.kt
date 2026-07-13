@@ -3,15 +3,20 @@ package com.soma.app
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -25,8 +30,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -361,6 +375,7 @@ fun EntryOptionsScreen(
     }
 }
 
+/** A faithful port of Paka's focused full-screen text editor. */
 @Composable
 fun TextEditorScreen(
     title: String,
@@ -369,23 +384,71 @@ fun TextEditorScreen(
     onBack: () -> Unit,
 ) {
     var text by remember(initialText) { mutableStateOf(initialText) }
+    val canSave = text.isNotBlank()
+    val focusRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
     BackHandler(onBack = onBack)
-    Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding().padding(horizontal = 28.dp)) {
-        SimpleTopBar(title, onBack, trailing = stringResource(R.string.save))
-        LineInput(
-            value = text,
-            onValueChange = { text = it },
-            placeholder = stringResource(R.string.entry_hint),
-            singleLine = false,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-        )
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Paper)
+            .systemBarsPadding()
+            .imePadding()
+            .padding(horizontal = 28.dp),
+    ) {
+        SimpleTopBar(title, onBack)
+        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+            Column {
+                BasicTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    singleLine = false,
+                    textStyle = TextStyle(
+                        color = Ink,
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.Normal,
+                    ).withSomaFont(),
+                    cursorBrush = SolidColor(Ink),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Default,
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.72f)
+                        .heightIn(max = 180.dp)
+                        .focusRequester(focusRequester)
+                        .semantics { contentDescription = title },
+                )
+                Spacer(Modifier.height(10.dp))
+                Box(Modifier.fillMaxWidth().height(1.dp).background(Ink))
+            }
+        }
         Box(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 18.dp).then(
-                tapModifier({ if (text.isNotBlank()) onSave(text) }, stringResource(R.string.save)),
-            ),
-            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(
+                    if (canSave) {
+                        tapModifier(
+                            {
+                                keyboard?.hide()
+                                onSave(text.trim())
+                            },
+                            stringResource(R.string.save),
+                        )
+                    } else {
+                        Modifier
+                    },
+                )
+                .heightIn(min = 48.dp),
+            contentAlignment = Alignment.CenterStart,
         ) {
-            Text(stringResource(R.string.save), color = Ink, fontSize = 20.sp)
+            Text(
+                stringResource(R.string.save),
+                color = if (canSave) Ink else DimInk,
+                fontSize = 18.sp,
+            )
         }
     }
 }

@@ -4,7 +4,19 @@ Notable changes to Soma are documented here.
 
 ## Unreleased
 
+### Fixed
+
+- Transcription language identification is constrained to the eight supported
+  languages, picking the most probable among them per utterance. Short German
+  speech can no longer surface as Russian or any other unsupported language.
+
 ### Changed
+
+- The full-screen text editor is a faithful port of Paka's: it focuses itself
+  when opened, keeps the save action visible above the keyboard, dims save
+  while the text is empty, and saves trimmed text on Done or save.
+- Entry timestamps sit on their own small line above each entry, so the text
+  uses the full width of the screen.
 
 - The home screen now shows the day as one continuous, information-dense note:
   entries flow with a faint creation time in a left gutter, transcribed voice
