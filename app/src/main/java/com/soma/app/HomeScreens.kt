@@ -24,7 +24,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
@@ -459,6 +458,8 @@ fun EntryOptionsScreen(
 fun TextEditorScreen(
     title: String,
     initialText: String,
+    persistedDraft: String? = null,
+    onDraftChange: ((String) -> Unit)? = null,
     saving: Boolean = false,
     saveFailed: Boolean = false,
     allowBlank: Boolean = false,
@@ -466,9 +467,12 @@ fun TextEditorScreen(
     onSave: (String) -> Unit,
     onBack: () -> Unit,
 ) {
-    // Saved so an interrupted draft survives process death; paired with the
-    // saved Capture/add-todo route so the editor is actually restored.
-    var text by rememberSaveable(initialText) { mutableStateOf(initialText) }
+    // Capture and Important-add editors hoist text to an encrypted local store.
+    // Other editors keep transient text in memory; no user-authored text enters
+    // Android's size-limited saved-instance-state Bundle.
+    var localText by remember(initialText) { mutableStateOf(initialText) }
+    val text = persistedDraft ?: localText
+    val updateText: (String) -> Unit = onDraftChange ?: { localText = it }
     val canSave = !saving && if (allowBlank) text != initialText else text.isNotBlank()
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -496,7 +500,7 @@ fun TextEditorScreen(
         Box(Modifier.weight(1f).fillMaxWidth()) {
             BasicTextField(
                 value = text,
-                onValueChange = { text = it },
+                onValueChange = updateText,
                 singleLine = false,
                 textStyle = TextStyle(
                     color = Ink,

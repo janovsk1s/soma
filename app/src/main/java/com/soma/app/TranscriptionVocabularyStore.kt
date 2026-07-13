@@ -50,7 +50,7 @@ class TranscriptionVocabularyStore(context: Context) {
     }
 }
 
-private class EncryptedTextPreference(
+internal class EncryptedTextPreference(
     context: Context,
     preferencesName: String,
     private val keyAlias: String,

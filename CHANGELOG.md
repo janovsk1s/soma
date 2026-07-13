@@ -2,6 +2,30 @@
 
 Notable changes to Soma are documented here.
 
+## 0.1.0-preview.13 — 2026-07-14
+
+### Added
+
+- Capture and manual Important drafts survive process recreation in a dedicated
+  AES-256-GCM store protected by their own Android Keystore key. Draft text never
+  enters Android's size-limited saved-instance-state Bundle.
+- Light Phone Tool SDK readiness and remaining integration work are documented.
+
+### Changed
+
+- Day-flow text measurement is bounded per entry, and inactive Room observers
+  stop after a short grace period to reduce idle work.
+- Cloud settings disclose that provider requests may use cellular by default;
+  the network policy now has cloud-flavor regression tests.
+
+### Fixed
+
+- Enabling `Wi-Fi only` now binds provider connections to Android's concrete
+  Wi-Fi network instead of merely checking that Wi-Fi exists while an unbound
+  request could still follow LightOS's cellular default route.
+- Unfinished long-form drafts are persisted off the UI thread rather than copied
+  into a Bundle that could overflow and crash during state saving.
+
 ## 0.1.0-preview.12 — 2026-07-13
 
 ### Changed

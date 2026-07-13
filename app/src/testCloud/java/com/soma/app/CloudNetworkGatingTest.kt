@@ -26,6 +26,9 @@ class CloudNetworkGatingTest {
         assertTrue(cloudNetworkAllowed(wifiOnly = true, onWifi = true))
         // The only case that blocks a request: Wi-Fi only on and no Wi-Fi.
         assertFalse(cloudNetworkAllowed(wifiOnly = true, onWifi = false))
+        assertEquals(CloudConnectionRoute.DEFAULT, cloudConnectionRoute(wifiOnly = false, onWifi = false))
+        assertEquals(CloudConnectionRoute.WIFI, cloudConnectionRoute(wifiOnly = true, onWifi = true))
+        assertEquals(CloudConnectionRoute.BLOCKED, cloudConnectionRoute(wifiOnly = true, onWifi = false))
     }
 
     @Test
@@ -38,6 +41,7 @@ class CloudNetworkGatingTest {
             languagePolicy = anyLanguagePolicy(),
             vocabulary = emptyList(),
             networkStatus = NetworkStatus { false },
+            connectionOpener = CloudConnectionOpener { error("Cloud connection must stay blocked") },
             localFactory = { local },
         )
 
@@ -58,6 +62,7 @@ class CloudNetworkGatingTest {
             languagePolicy = anyLanguagePolicy(),
             vocabulary = emptyList(),
             networkStatus = NetworkStatus { true },
+            connectionOpener = CloudConnectionOpener { error("Missing key must not open a connection") },
             localFactory = { local },
         )
 

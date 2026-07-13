@@ -71,6 +71,9 @@ private class AndroidCloudFeatureController(private val context: Context) : Clou
         if (!setting.transcriptionEnabled) return localFactory()
         return FallbackCloudTranscriber(
             networkStatus = NetworkStatus { context.isOnWifi() },
+            connectionOpener = CloudConnectionOpener { url ->
+                context.openCloudConnection(url, setting.wifiOnly)
+            },
             provider = setting.provider,
             apiKey = key,
             wifiOnly = setting.wifiOnly,
@@ -85,9 +88,11 @@ private class AndroidCloudFeatureController(private val context: Context) : Clou
 
     override suspend fun extractTodoCandidates(text: String): List<String> {
         if (!SomaPrefs.aiTodoSuggestions(context) || text.isBlank()) return emptyList()
-        if (!cloudNetworkAllowed(SomaPrefs.cloudWifiOnly(context), context.isOnWifi())) return emptyList()
+        val wifiOnly = SomaPrefs.cloudWifiOnly(context)
+        if (!cloudNetworkAllowed(wifiOnly, context.isOnWifi())) return emptyList()
         val key = secrets.read(CloudSpeechProvider.GROQ) ?: return emptyList()
-        return runCatching { CloudHttp.extractTodos(key, text) }.getOrDefault(emptyList())
+        val connectionOpener = CloudConnectionOpener { url -> context.openCloudConnection(url, wifiOnly) }
+        return runCatching { CloudHttp.extractTodos(key, text, connectionOpener) }.getOrDefault(emptyList())
     }
 }
 
@@ -98,6 +103,7 @@ internal class FallbackCloudTranscriber(
     private val languagePolicy: CloudSpeechLanguagePolicy,
     private val vocabulary: List<String>,
     private val networkStatus: NetworkStatus,
+    private val connectionOpener: CloudConnectionOpener,
     private val localFactory: () -> Transcriber,
     private val vad: VoiceActivityDetector = VoiceActivityDetector(),
 ) : Transcriber {
@@ -176,12 +182,14 @@ internal class FallbackCloudTranscriber(
                     wav,
                     languagePolicy.requestCode(provider),
                     vocabulary,
+                    connectionOpener,
                 )
                 CloudSpeechProvider.ELEVENLABS -> CloudHttp.transcribeElevenLabs(
                     key,
                     wav,
                     languagePolicy.requestCode(provider),
                     vocabulary,
+                    connectionOpener,
                 )
             }
             check(response.text.isNotBlank()) { "Cloud provider returned an empty transcript" }
@@ -224,6 +232,7 @@ private object CloudHttp {
         wav: ByteArray,
         language: String?,
         vocabulary: List<String>,
+        connectionOpener: CloudConnectionOpener,
     ): CloudTranscript = withContext(Dispatchers.IO) {
         val fields = linkedMapOf(
             "model" to "whisper-large-v3",
@@ -237,6 +246,7 @@ private object CloudHttp {
             headers = mapOf("Authorization" to "Bearer $apiKey"),
             fields = fields.map { it.toPair() },
             wav = wav,
+            connectionOpener = connectionOpener,
         )
         CloudTranscript(
             text = json.getString("text"),
@@ -249,6 +259,7 @@ private object CloudHttp {
         wav: ByteArray,
         language: String?,
         keyterms: List<String>,
+        connectionOpener: CloudConnectionOpener,
     ): CloudTranscript =
         withContext(Dispatchers.IO) {
             val fields = buildList {
@@ -263,6 +274,7 @@ private object CloudHttp {
                 headers = mapOf("xi-api-key" to apiKey),
                 fields = fields,
                 wav = wav,
+                connectionOpener = connectionOpener,
             )
             CloudTranscript(
                 text = json.getString("text"),
@@ -270,7 +282,11 @@ private object CloudHttp {
             )
         }
 
-    suspend fun extractTodos(apiKey: String, text: String): List<String> = withContext(Dispatchers.IO) {
+    suspend fun extractTodos(
+        apiKey: String,
+        text: String,
+        connectionOpener: CloudConnectionOpener,
+    ): List<String> = withContext(Dispatchers.IO) {
         val schema = JSONObject()
             .put("type", "object")
             .put(
@@ -317,6 +333,7 @@ private object CloudHttp {
             "https://api.groq.com/openai/v1/chat/completions",
             mapOf("Authorization" to "Bearer $apiKey"),
             body,
+            connectionOpener,
         )
         val content = response.getJSONArray("choices").getJSONObject(0)
             .getJSONObject("message").getString("content")
@@ -333,6 +350,7 @@ private object CloudHttp {
         headers: Map<String, String>,
         fields: List<Pair<String, String>>,
         wav: ByteArray,
+        connectionOpener: CloudConnectionOpener,
     ): JSONObject {
         val boundary = "soma-${UUID.randomUUID()}"
         val request = ByteArrayOutputStream()
@@ -351,25 +369,45 @@ private object CloudHttp {
         }
         val bytes = request.toByteArray()
         return try {
-            execute(url, headers + ("Content-Type" to "multipart/form-data; boundary=$boundary"), bytes)
+            execute(
+                url,
+                headers + ("Content-Type" to "multipart/form-data; boundary=$boundary"),
+                bytes,
+                connectionOpener,
+            )
         } finally {
             bytes.fill(0)
         }
     }
 
-    private fun jsonPost(url: String, headers: Map<String, String>, body: JSONObject): JSONObject {
+    private fun jsonPost(
+        url: String,
+        headers: Map<String, String>,
+        body: JSONObject,
+        connectionOpener: CloudConnectionOpener,
+    ): JSONObject {
         // The request carries the user's otherwise-encrypted note text; wipe it
         // after the connection has consumed it, mirroring the audio multipart path.
         val bytes = body.toString().toByteArray()
         return try {
-            execute(url, headers + ("Content-Type" to "application/json; charset=utf-8"), bytes)
+            execute(
+                url,
+                headers + ("Content-Type" to "application/json; charset=utf-8"),
+                bytes,
+                connectionOpener,
+            )
         } finally {
             bytes.fill(0)
         }
     }
 
-    private fun execute(url: String, headers: Map<String, String>, body: ByteArray): JSONObject {
-        val connection = URL(url).openConnection() as HttpURLConnection
+    private fun execute(
+        url: String,
+        headers: Map<String, String>,
+        body: ByteArray,
+        connectionOpener: CloudConnectionOpener,
+    ): JSONObject {
+        val connection = connectionOpener.open(URL(url))
         try {
             connection.requestMethod = "POST"
             connection.connectTimeout = CONNECT_TIMEOUT_MILLIS
@@ -481,18 +519,52 @@ internal fun interface NetworkStatus {
     fun isOnWifi(): Boolean
 }
 
+internal fun interface CloudConnectionOpener {
+    fun open(url: URL): HttpURLConnection
+}
+
+internal enum class CloudConnectionRoute {
+    DEFAULT,
+    WIFI,
+    BLOCKED,
+}
+
 /**
  * Cellular is permitted unless the user restricted cloud requests to Wi-Fi in
  * Developer settings. Kept as a pure function so the preview-12 default (cellular
  * allowed) is covered by a fast, deterministic test.
  */
-internal fun cloudNetworkAllowed(wifiOnly: Boolean, onWifi: Boolean): Boolean = !wifiOnly || onWifi
+internal fun cloudConnectionRoute(wifiOnly: Boolean, onWifi: Boolean): CloudConnectionRoute = when {
+    !wifiOnly -> CloudConnectionRoute.DEFAULT
+    onWifi -> CloudConnectionRoute.WIFI
+    else -> CloudConnectionRoute.BLOCKED
+}
+
+internal fun cloudNetworkAllowed(wifiOnly: Boolean, onWifi: Boolean): Boolean =
+    cloudConnectionRoute(wifiOnly, onWifi) != CloudConnectionRoute.BLOCKED
+
+/**
+ * Wi-Fi-only is a transport guarantee, not merely a connectivity check. When
+ * enabled, [android.net.Network.openConnection] binds DNS and HTTP traffic to
+ * the selected Wi-Fi network even if LightOS keeps cellular as its default route.
+ */
+private fun Context.openCloudConnection(url: URL, wifiOnly: Boolean): HttpURLConnection {
+    val wifi = if (wifiOnly) wifiNetwork() else null
+    return when (cloudConnectionRoute(wifiOnly, wifi != null)) {
+        CloudConnectionRoute.DEFAULT -> url.openConnection() as HttpURLConnection
+        CloudConnectionRoute.WIFI -> checkNotNull(wifi).openConnection(url) as HttpURLConnection
+        CloudConnectionRoute.BLOCKED -> throw IOException("Wi-Fi is required for this cloud request")
+    }
+}
 
 @Suppress("DEPRECATION")
-private fun Context.isOnWifi(): Boolean {
-    val connectivity = getSystemService(ConnectivityManager::class.java) ?: return false
-    return connectivity.allNetworks.any { network ->
-        val capabilities = connectivity.getNetworkCapabilities(network) ?: return@any false
+private fun Context.isOnWifi(): Boolean = wifiNetwork() != null
+
+@Suppress("DEPRECATION")
+private fun Context.wifiNetwork(): android.net.Network? {
+    val connectivity = getSystemService(ConnectivityManager::class.java) ?: return null
+    return connectivity.allNetworks.firstOrNull { network ->
+        val capabilities = connectivity.getNetworkCapabilities(network) ?: return@firstOrNull false
         capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
             capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }

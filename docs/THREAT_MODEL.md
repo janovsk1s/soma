@@ -128,11 +128,17 @@ settings are off by default. It isolates platform `HttpsURLConnection` calls in
 are encrypted with AES-256-GCM under the separate non-exportable Keystore alias
 `soma.cloud.credentials.v1`, are never included in backups, and may be deleted
 from the screen. Provider requests use the phone's active connection, including
-cellular, by default; the optional Wi-Fi-only Developer setting restricts them to
-Wi-Fi. Audio is split locally on silence
+cellular, by default; the optional Wi-Fi-only Developer setting opens provider
+connections through Android's concrete Wi-Fi `Network`, preventing a cellular
+default route from carrying them. Audio is split locally on silence
 for Groq requests; ElevenLabs receives the complete recording so Scribe v2 can
 retain language context across pauses. AI Important extraction sends only the new or
 edited entry and still creates a suggestion requiring a tap, never an item.
+
+Unfinished Capture and Important-editor drafts are kept out of Android saved
+instance state. They are encrypted under the separate non-exportable Keystore
+alias `soma.editor.drafts.v1`, written off the UI thread, excluded from exports,
+and deleted after the corresponding item is saved.
 
 The optional transcription vocabulary is encrypted under the distinct alias
 `soma.transcription.vocabulary.v1`. It is sent with audio when a cloud provider

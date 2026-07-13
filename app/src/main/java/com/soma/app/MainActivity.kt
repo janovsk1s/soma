@@ -100,6 +100,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        somaViewModel.flushEditorDrafts()
         somaViewModel.stopRecording()
         if (!externalFlowActive && SomaPrefs.returnHome(this)) returnHomeOnResume = true
         super.onStop()
@@ -287,11 +288,14 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             onBack = { route = AppRoute.Developer },
         )
         AppRoute.Capture -> {
+            val draft by viewModel.captureDraft.collectAsState()
             var saving by remember { mutableStateOf(false) }
             var saveFailed by remember { mutableStateOf(false) }
             TextEditorScreen(
                 title = stringResourceCompat(R.string.add_entry),
                 initialText = "",
+                persistedDraft = draft,
+                onDraftChange = viewModel::updateCaptureDraft,
                 saving = saving,
                 saveFailed = saveFailed,
                 onSave = { text ->
@@ -300,7 +304,12 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
                         saveFailed = false
                         viewModel.addText(text) { saved ->
                             saving = false
-                            if (saved) route = AppRoute.Home else saveFailed = true
+                            if (saved) {
+                                viewModel.clearCaptureDraft()
+                                route = AppRoute.Home
+                            } else {
+                                saveFailed = true
+                            }
                         }
                     }
                 },
@@ -316,11 +325,14 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             onBack = { route = AppRoute.Home },
         )
         AppRoute.AddTodo -> {
+            val draft by viewModel.importantDraft.collectAsState()
             var saving by remember { mutableStateOf(false) }
             var saveFailed by remember { mutableStateOf(false) }
             TextEditorScreen(
                 title = stringResourceCompat(R.string.add_details),
                 initialText = "",
+                persistedDraft = draft,
+                onDraftChange = viewModel::updateImportantDraft,
                 saving = saving,
                 saveFailed = saveFailed,
                 onSave = { text ->
@@ -329,7 +341,12 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
                         saveFailed = false
                         viewModel.addTodo(text) { saved ->
                             saving = false
-                            if (saved) route = AppRoute.Todos else saveFailed = true
+                            if (saved) {
+                                viewModel.clearImportantDraft()
+                                route = AppRoute.Todos
+                            } else {
+                                saveFailed = true
+                            }
                         }
                     }
                 },
@@ -487,9 +504,10 @@ private fun rememberLiveEntry(viewModel: SomaViewModel, initial: NoteEntry): Not
 
 /**
  * Persists navigation across process death for routes that carry no in-memory
- * payload — notably the Capture and add-todo editors, so an interrupted draft
- * (kept with rememberSaveable) is restored. Entry/todo-specific routes cannot be
- * rebuilt from a saved key alone and safely fall back to Home.
+ * payload — notably the Capture and add-Important editors. Their text lives in
+ * [EditorDraftStore], while saved instance state contains only this small route
+ * key. Entry/todo-specific routes cannot be rebuilt from a key alone and safely
+ * fall back to Home.
  */
 private val AppRouteSaver: Saver<AppRoute, String> = Saver(
     save = { route ->

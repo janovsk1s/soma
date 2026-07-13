@@ -39,6 +39,8 @@ import java.util.UUID
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -64,9 +66,19 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     private val mutableSuggestions = MutableStateFlow<Map<String, TodoSuggestion>>(emptyMap())
     private val mutablePromptedTodos = MutableStateFlow<Set<String>>(emptySet())
     private val mutableRecordingEntryId = MutableStateFlow<String?>(null)
+    private val draftStore = EditorDraftStore(app)
+    private val mutableCaptureDraft = MutableStateFlow("")
+    private val mutableImportantDraft = MutableStateFlow("")
     private val messages = Channel<String>(Channel.BUFFERED)
     private val entryAppendMutex = Mutex()
     private val recordingMutex = Mutex()
+    private val draftWriteMutex = Mutex()
+    private var captureDraftLoaded = false
+    private var importantDraftLoaded = false
+    private var captureDraftTouched = false
+    private var importantDraftTouched = false
+    private var captureDraftSaveJob: Job? = null
+    private var importantDraftSaveJob: Job? = null
     private var recordingStartInProgress = false
     private var stopRecordingRequested = false
     private var stopRecordingInProgress = false
@@ -89,6 +101,8 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     val promptedTodoIds: StateFlow<Set<String>> = mutablePromptedTodos.asStateFlow()
     val recordingState: StateFlow<RecordingState> = recorder.state
     val recordingEntryId: StateFlow<String?> = mutableRecordingEntryId.asStateFlow()
+    val captureDraft: StateFlow<String> = mutableCaptureDraft.asStateFlow()
+    val importantDraft: StateFlow<String> = mutableImportantDraft.asStateFlow()
     val playbackState: StateFlow<PlaybackState> = player.state
     val messageEvents = messages.receiveAsFlow()
     val isDemo: Boolean get() = SomaPrefs.demoMode(app)
@@ -102,6 +116,17 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repositories.notes.getOrCreate(today(), clock.instant())
             recoverInterruptedRecordings()
+        }
+        viewModelScope.launch {
+            val (capture, important) = withContext(Dispatchers.IO) {
+                draftWriteMutex.withLock {
+                    draftStore.read(EditorDraftKind.CAPTURE) to draftStore.read(EditorDraftKind.IMPORTANT)
+                }
+            }
+            if (!captureDraftTouched) mutableCaptureDraft.value = capture
+            if (!importantDraftTouched) mutableImportantDraft.value = important
+            captureDraftLoaded = true
+            importantDraftLoaded = true
         }
         viewModelScope.launch {
             combine(note, repositories.suggestions.observePending()) { current, pending ->
@@ -119,6 +144,61 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     fun today(): LocalDate = clock.instant().atZone(ZoneId.systemDefault()).toLocalDate()
 
     fun isToday(date: LocalDate = selectedDate.value): Boolean = date == today()
+
+    fun updateCaptureDraft(value: String) {
+        captureDraftTouched = true
+        mutableCaptureDraft.value = value
+        captureDraftSaveJob?.cancel()
+        captureDraftSaveJob = scheduleDraftWrite(EditorDraftKind.CAPTURE, value)
+    }
+
+    fun updateImportantDraft(value: String) {
+        importantDraftTouched = true
+        mutableImportantDraft.value = value
+        importantDraftSaveJob?.cancel()
+        importantDraftSaveJob = scheduleDraftWrite(EditorDraftKind.IMPORTANT, value)
+    }
+
+    fun clearCaptureDraft() {
+        captureDraftTouched = true
+        mutableCaptureDraft.value = ""
+        captureDraftSaveJob?.cancel()
+        captureDraftSaveJob = persistDraft(EditorDraftKind.CAPTURE, "")
+    }
+
+    fun clearImportantDraft() {
+        importantDraftTouched = true
+        mutableImportantDraft.value = ""
+        importantDraftSaveJob?.cancel()
+        importantDraftSaveJob = persistDraft(EditorDraftKind.IMPORTANT, "")
+    }
+
+    /** Flushes the latest editor values without doing encryption or disk I/O on the UI thread. */
+    fun flushEditorDrafts() {
+        captureDraftSaveJob?.cancel()
+        importantDraftSaveJob?.cancel()
+        if (captureDraftLoaded || captureDraftTouched) {
+            captureDraftSaveJob = persistDraft(EditorDraftKind.CAPTURE, mutableCaptureDraft.value)
+        }
+        if (importantDraftLoaded || importantDraftTouched) {
+            importantDraftSaveJob = persistDraft(EditorDraftKind.IMPORTANT, mutableImportantDraft.value)
+        }
+    }
+
+    private fun scheduleDraftWrite(kind: EditorDraftKind, value: String): Job = viewModelScope.launch {
+        delay(DRAFT_WRITE_DEBOUNCE_MILLIS)
+        writeDraft(kind, value)
+    }
+
+    private fun persistDraft(kind: EditorDraftKind, value: String): Job = viewModelScope.launch {
+        writeDraft(kind, value)
+    }
+
+    private suspend fun writeDraft(kind: EditorDraftKind, value: String) {
+        withContext(Dispatchers.IO) {
+            draftWriteMutex.withLock { runCatching { draftStore.write(kind, value) } }
+        }
+    }
 
     fun refreshCalendar(returnHome: Boolean) {
         viewModelScope.launch {
@@ -696,5 +776,6 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
 
     private companion object {
         const val FLOW_STOP_TIMEOUT_MILLIS = 5_000L
+        const val DRAFT_WRITE_DEBOUNCE_MILLIS = 250L
     }
 }
