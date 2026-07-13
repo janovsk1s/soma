@@ -183,7 +183,7 @@ class PortableBackupCodec(
                 throw BackupFormatException("Unsupported backup container version: $containerVersion")
             }
             val payloadVersion = input.readInt()
-            if (payloadVersion != BackupSnapshot.CURRENT_PAYLOAD_VERSION) {
+            if (payloadVersion !in BackupSnapshot.SUPPORTED_PAYLOAD_VERSIONS) {
                 throw BackupFormatException("Unsupported backup payload version: $payloadVersion")
             }
             if (input.readAscii() != KDF_ID) throw BackupFormatException("Unsupported backup KDF")

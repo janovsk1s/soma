@@ -1,24 +1,25 @@
 # Data and backup formats
 
-This document describes Soma format version 1 as implemented in the source.
+This document describes Soma's current formats as implemented in the source.
 Integers in the binary formats are signed and big-endian unless a field says
 otherwise. Lengths are validated before allocation, and unknown format versions
 are rejected rather than guessed.
 
 ## On-device Room database
 
-The Room database is `soma.db`, schema version 1, using write-ahead logging. Its
-exported schema is checked in at
-`storage/schemas/com.soma.storage.db.SomaDatabase/1.json`.
+The Room database is `soma.db`, schema version 2, using write-ahead logging. Its
+exported schemas are checked in under
+`storage/schemas/com.soma.storage.db.SomaDatabase/`.
 
-The six tables are:
+The seven tables are:
 
 - `daily_notes`, with one unique `epoch_day` per note;
 - `entries`, ordered by the unique pair `(note_id, position)`;
 - `todos`, including optional source-note/source-entry links;
 - `todo_suggestions`, including rule, language, and decision state;
 - `still_open_dismissals`, keyed by day; and
-- `transcription_jobs`, including retry and lease state.
+- `transcription_jobs`, including retry and lease state; and
+- `entry_revisions`, containing encrypted previous text for deliberate user edits.
 
 User-authored entry text, todo text, suggestion text and matched rule, and
 transcription failure diagnostics are stored as encrypted BLOBs. Structural
@@ -53,7 +54,7 @@ crypto_version
 ```
 
 Version 1 field names are `entry.text`, `entry.transcriptionFailure`,
-`todo.text`, `suggestion.text`, `suggestion.matchedRule`, and
+`entryRevision.text`, `todo.text`, `suggestion.text`, `suggestion.matchedRule`, and
 `transcription.lastFailure`. Moving a ciphertext to another row or protected
 field fails GCM authentication.
 
@@ -137,7 +138,7 @@ so identical snapshots produce different files.
 | --- | --- |
 | Magic | 8 ASCII bytes: `SOMABACK` |
 | Container version | 32-bit integer, currently `1` |
-| Payload version | 32-bit integer, currently `1` |
+| Payload version | 32-bit integer, currently `2` |
 | KDF id | 32-bit length + ASCII `PBKDF2-HMAC-SHA256` |
 | PBKDF2 iterations | 32-bit integer, `600000` |
 | Derived key size | 32-bit integer, `256` bits |
@@ -153,7 +154,7 @@ authentication. Trailing bytes and truncated inputs are rejected. A wrong
 passphrase and authenticated-byte corruption intentionally report the same
 authentication error.
 
-### Plaintext payload, version 1
+### Plaintext payload, versions 1 and 2
 
 The encrypted payload is a deterministic `DataOutputStream` serialization in
 this order:
@@ -164,7 +165,8 @@ this order:
 4. todo suggestions and their rule/language/decision state;
 5. per-day still-open dismissals;
 6. transcription jobs and failure state; and
-7. optional portable WAV byte sequences.
+7. optional portable WAV byte sequences; and
+8. in payload version 2, encrypted-at-source user edit revisions.
 
 Each list begins with a 32-bit count. Strings use a 32-bit byte length followed
 by strict UTF-8, not Java modified UTF. Instants use epoch seconds plus
@@ -182,6 +184,23 @@ retaining voice-entry metadata.
 The codec clears mutable passphrase copies, derived keys, plaintext serialization
 buffers, and temporary byte arrays where the JVM permits. Domain strings are
 immutable and cannot be reliably erased from managed memory.
+
+## Readable archive
+
+The optional `Soma-readable-YYYY-MM-DD.zip` export is a standard, deliberately
+unencrypted ZIP intended for long-term independence from Soma. It contains:
+
+- `README.txt` and `manifest.json`;
+- one `notes/YYYY-MM-DD.md` file per daily note;
+- `todos.csv`;
+- `data/notes.json` with exact ids, order, types, timestamps, text, and audio metadata;
+- `data/history.jsonl` with every preserved user edit revision; and
+- optional standard 16 kHz mono `audio/*.wav` files.
+
+Structured timestamps are ISO-8601 UTC instants. The archive can be consumed by
+ordinary text, spreadsheet, JSON, and audio tools without an app-specific codec.
+Because it is not encrypted, exporting it moves plaintext outside Soma's trust
+boundary. It is not accepted by the restore flow; use `.soma` for restoration.
 
 ## Bundled transcription model
 

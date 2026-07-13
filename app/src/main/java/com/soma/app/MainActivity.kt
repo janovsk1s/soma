@@ -131,6 +131,7 @@ private sealed interface AppRoute {
     data object About : AppRoute
     data object Licenses : AppRoute
     data object Developer : AppRoute
+    data object CloudDeveloper : AppRoute
     data object Language : AppRoute
     data object AddTodo : AppRoute
     data class ReadEntry(val entry: NoteEntry, val fromTodos: Boolean = false) : AppRoute
@@ -229,6 +230,7 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
         AppRoute.Licenses -> LicensesScreen { route = AppRoute.About }
         AppRoute.Developer -> DeveloperScreen(
             onLanguage = { route = AppRoute.Language },
+            onCloud = { route = AppRoute.CloudDeveloper },
             onRestart = {
                 activity?.let {
                     val restart = Intent(it, MainActivity::class.java).addFlags(
@@ -240,6 +242,7 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             },
             onBack = { route = AppRoute.About },
         )
+        AppRoute.CloudDeveloper -> CloudDeveloperScreen { route = AppRoute.Developer }
         AppRoute.Language -> LanguageScreen(
             onSelected = { language -> activity?.switchLanguage(language) },
             onBack = { route = AppRoute.Developer },

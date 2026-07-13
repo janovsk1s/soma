@@ -17,6 +17,7 @@ import com.soma.core.model.TranscriptionJobState
 import com.soma.storage.backup.BackupAudioContainer
 import com.soma.storage.backup.BackupSnapshot
 import com.soma.storage.backup.PortableBackupCodec
+import com.soma.storage.backup.ReadableArchiveExporter
 import com.soma.storage.repository.RoomSomaRepository
 import com.soma.voice.EncryptedAudioReader
 import com.soma.voice.EncryptedAudioWriter
@@ -31,11 +32,21 @@ import kotlinx.coroutines.withContext
 class BackupCoordinator(
     private val app: SomaApplication,
     private val codec: PortableBackupCodec = PortableBackupCodec(),
+    private val readableExporter: ReadableArchiveExporter = ReadableArchiveExporter(),
 ) {
     suspend fun export(passphrase: CharArray, includeAudio: Boolean): ByteArray = withContext(Dispatchers.IO) {
         val snapshot = createSnapshot(includeAudio)
         try {
             codec.encode(snapshot, passphrase)
+        } finally {
+            snapshot.audioContainers.forEach { it.clearPortableBytes() }
+        }
+    }
+
+    suspend fun exportReadable(includeAudio: Boolean): ByteArray = withContext(Dispatchers.IO) {
+        val snapshot = createSnapshot(includeAudio)
+        try {
+            readableExporter.encode(snapshot)
         } finally {
             snapshot.audioContainers.forEach { it.clearPortableBytes() }
         }

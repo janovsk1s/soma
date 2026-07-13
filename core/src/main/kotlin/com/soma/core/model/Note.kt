@@ -78,6 +78,8 @@ data class NoteEntry(
     val text: String,
     val createdAt: Instant,
     val updatedAt: Instant,
+    /** Last deliberate user text edit; system updates such as transcription do not change it. */
+    val lastUserEditedAt: Instant? = null,
     val returnLater: Boolean = false,
     val audio: AudioAttachment? = null,
     val transcription: TranscriptionInfo? = null,
@@ -86,6 +88,9 @@ data class NoteEntry(
         require(id.isNotBlank()) { "Entry id must not be blank" }
         require(position >= 0) { "Entry position must not be negative" }
         require(!updatedAt.isBefore(createdAt)) { "Entry update cannot precede creation" }
+        require(lastUserEditedAt == null || !lastUserEditedAt.isBefore(createdAt)) {
+            "Entry edit cannot precede creation"
+        }
         require(kind == EntryKind.VOICE || audio == null) { "Text entries cannot have audio" }
         require(kind == EntryKind.VOICE || transcription == null) {
             "Text entries cannot have transcription state"
@@ -138,6 +143,19 @@ data class NoteEntry(
                 updatedAt = createdAt,
             ),
         )
+    }
+}
+
+/** One encrypted text snapshot created by a deliberate user edit. */
+data class EntryRevision(
+    val entryId: String,
+    val revision: Long,
+    val text: String,
+    val editedAt: Instant,
+) {
+    init {
+        require(entryId.isNotBlank()) { "Revision entry id must not be blank" }
+        require(revision > 0) { "User revision numbers start at one" }
     }
 }
 

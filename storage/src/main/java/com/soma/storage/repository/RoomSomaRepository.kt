@@ -5,6 +5,7 @@ import androidx.room.withTransaction
 import com.soma.core.model.DailyNote
 import com.soma.core.model.DEFAULT_TRANSCRIPTION_MAX_ATTEMPTS
 import com.soma.core.model.EntryKind
+import com.soma.core.model.EntryRevision
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.Todo
@@ -56,6 +57,7 @@ class RoomSomaRepository(
     private val mapper = EntityMapper(textCipher)
     private val noteDao = database.dailyNoteDao()
     private val entryDao = database.entryDao()
+    private val revisionDao = database.entryRevisionDao()
     private val todoDao = database.todoDao()
     private val suggestionDao = database.todoSuggestionDao()
     private val dismissalDao = database.stillOpenDismissalDao()
@@ -133,6 +135,31 @@ class RoomSomaRepository(
             noteDao.touch(existing.noteId, entry.updatedAt.toEpochMilli())
             true
         }
+
+    override suspend fun editEntryText(
+        entryId: String,
+        text: String,
+        editedAt: Instant,
+    ): EntryMutationResult? = database.withTransaction {
+        val existing = entryDao.getById(entryId) ?: return@withTransaction null
+        val note = noteDao.getById(existing.noteId) ?: return@withTransaction null
+        val previous = mapper.entryFromEntity(existing, LocalDate.ofEpochDay(note.epochDay))
+        if (previous.text == text) return@withTransaction EntryMutationResult(previous, previous)
+        val at = maxOf(previous.updatedAt, editedAt)
+        val current = previous.copy(text = text, updatedAt = at, lastUserEditedAt = at)
+        val revision = existing.revision + 1
+        // Preserve the wording being replaced. The current wording remains on the
+        // entry itself, so together they form a complete, exportable edit history.
+        revisionDao.insert(mapper.revisionToEntity(EntryRevision(entryId, revision, previous.text, at)))
+        check(entryDao.update(mapper.entryToEntity(current, existing.noteId, revision)) == 1) {
+            "Entry disappeared during user edit"
+        }
+        noteDao.touch(existing.noteId, at.toEpochMilli())
+        EntryMutationResult(previous, current)
+    }
+
+    override suspend fun listEntryRevisions(entryId: String): List<EntryRevision> =
+        revisionDao.listForEntry(entryId).map(mapper::revisionFromEntity)
 
     override suspend fun mutateEntry(
         entryId: String,
@@ -469,6 +496,7 @@ class RoomSomaRepository(
             )
         }
         val jobs = jobDao.listAll().take(maximumRows).map(mapper::jobFromEntity)
+        val revisions = revisionDao.listAll().take(maximumRows).map(mapper::revisionFromEntity)
         check(noteEntities.size < maximumRows || noteDao.listBeforeOrOn(LocalDate.MAX.toEpochDay(), 1, maximumRows).isEmpty()) {
             "Backup row limit exceeded"
         }
@@ -480,9 +508,11 @@ class RoomSomaRepository(
         check(suggestionDao.listAll().size <= maximumRows) { "Backup row limit exceeded" }
         check(dismissalDao.listAll().size <= maximumRows) { "Backup row limit exceeded" }
         check(jobDao.listAll().size <= maximumRows) { "Backup row limit exceeded" }
+        check(revisionDao.listAll().size <= maximumRows) { "Backup row limit exceeded" }
         BackupSnapshot(
             exportedAt = exportedAt,
             notes = notes,
+            entryRevisions = revisions,
             todos = todos,
             suggestions = suggestions,
             stillOpenDismissals = dismissals,
@@ -500,6 +530,8 @@ class RoomSomaRepository(
         dismissalDao.clear()
         noteDao.clear()
 
+        val revisionMaxByEntry = snapshot.entryRevisions.groupBy(EntryRevision::entryId)
+            .mapValues { (_, values) -> values.maxOf(EntryRevision::revision) }
         snapshot.notes.sortedBy { it.date }.forEach { note ->
             val noteId = NoteIds.fromDate(note.date)
             check(
@@ -514,11 +546,17 @@ class RoomSomaRepository(
                 ) != INSERT_CONFLICT,
             ) { "Duplicate note in backup" }
             note.entries.sortedBy { it.position }.forEach { entry ->
-                check(entryDao.insert(mapper.entryToEntity(entry, noteId, revision = 0)) != INSERT_CONFLICT) {
+                check(
+                    entryDao.insert(
+                        mapper.entryToEntity(entry, noteId, revision = revisionMaxByEntry[entry.id] ?: 0),
+                    ) != INSERT_CONFLICT,
+                ) {
                     "Duplicate entry in backup"
                 }
             }
         }
+        snapshot.entryRevisions.sortedWith(compareBy(EntryRevision::entryId, EntryRevision::revision))
+            .forEach { revisionDao.insert(mapper.revisionToEntity(it)) }
         snapshot.todos.forEach { todo ->
             check(todoDao.insert(mapper.todoToEntity(todo)) != INSERT_CONFLICT) { "Duplicate todo in backup" }
         }

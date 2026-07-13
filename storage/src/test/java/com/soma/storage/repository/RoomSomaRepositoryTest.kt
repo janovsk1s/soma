@@ -82,6 +82,26 @@ class RoomSomaRepositoryTest {
     }
 
     @Test
+    fun `user edits keep position and store encrypted revision timestamps`() = runBlocking {
+        repository.getOrCreate(date, start)
+        repository.insertEntry(NoteEntry.text("entry-1", date, 0, "first wording", start))
+        val editedAt = start.plusSeconds(90)
+
+        val mutation = repository.editEntryText("entry-1", "better wording", editedAt)
+
+        assertEquals(0, mutation?.current?.position)
+        assertEquals(start, mutation?.current?.createdAt)
+        assertEquals(editedAt, mutation?.current?.lastUserEditedAt)
+        assertEquals("first wording", repository.listEntryRevisions("entry-1").single().text)
+        database.openHelper.writableDatabase
+            .query("SELECT text_ciphertext FROM entry_revisions WHERE entry_id = 'entry-1'")
+            .use { cursor ->
+                cursor.moveToFirst()
+                assertFalse(cursor.getBlob(0).containsSubsequence("first wording".encodeToByteArray()))
+            }
+    }
+
+    @Test
     fun `suggestion acceptance creates todo and resolves suggestion atomically`() = runBlocking {
         repository.getOrCreate(date, start)
         repository.insertEntry(NoteEntry.text("entry-1", date, 0, "Need to call Anna", start))

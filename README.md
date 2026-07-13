@@ -6,7 +6,9 @@ still matters. It is a companion to [Paka](https://github.com/janovsk1s/paka) by
 the same author and deliberately shares Paka's visual and interaction language.
 
 Soma is a thinking tool, not an archive or engagement product. There are no
-accounts, streaks, badges, scores, red dots, analytics, ads, feeds, or cloud AI.
+accounts, streaks, badges, scores, red dots, analytics, ads, or feeds. The normal
+build remains fully local; a separate experimental build can use user-supplied
+cloud API keys only when explicitly enabled in Developer settings.
 
 ## What it does
 
@@ -16,6 +18,9 @@ accounts, streaks, badges, scores, red dots, analytics, ads, feeds, or cloud AI.
 - Keeps encrypted audio playable even if transcription fails.
 - Transcribes locally with whisper.cpp and a bundled multilingual tiny Q5_1
   model; pause-based VAD performs language detection per utterance.
+- Shows a quiet creation time on every entry. User edits keep the entry in its
+  original position, record an encrypted revision, and expose the edit time when
+  the entry is opened.
 - Suggests possible todos with explicit, testable language rules. A suggestion
   becomes a todo only after a tap.
 - Keeps one flat, oldest-first list of open todos. After 30 untouched days, one
@@ -29,15 +34,18 @@ accounts, streaks, badges, scores, red dots, analytics, ads, feeds, or cloud AI.
 - Offers one optional daily reminder, off by default, and optional vibration.
 - Supports English, Latvian, Estonian, Lithuanian, Finnish, Swedish, German, and
   Slovak.
+- Exports either a restorable encrypted `.soma` backup or a standard readable
+  ZIP containing Markdown, CSV, JSON/JSONL edit history, and optional WAV audio.
 
 Transcription is intentionally modest. The small local model can be inaccurate,
 especially during dense mid-sentence language switching. Transcripts remain
-editable; Soma never sends audio or text elsewhere for a “better” answer.
+editable. The `browser` and `purist` builds never send audio or text elsewhere.
 
 ## Privacy by design
 
-- Soma has no account, cloud service, analytics, advertising, crash reporting,
-  update checker, Google Play Services dependency, or outbound HTTP client.
+- The normal `browser` and `purist` builds have no cloud service, analytics,
+  advertising, crash reporting, update checker, Google Play Services dependency,
+  outbound HTTP client library, or outbound implementation.
 - Note text, transcripts, todo text, rule suggestions, and protected diagnostics
   are encrypted at rest with AES-256-GCM and a non-exportable Android Keystore
   key. Ciphertext is authenticated against its row and field.
@@ -48,6 +56,8 @@ editable; Soma never sends audio or text elsewhere for a “better” answer.
   encrypted and authenticated offline with a key derived from the user's
   passphrase. Audio is optional and stays plaintext only in memory inside the
   passphrase-encrypted export/import path.
+- A readable ZIP is deliberately not encrypted and leaves Soma's trust boundary.
+  Store it only somewhere you trust.
 - Developer demo data lives only in memory and never opens the real Room or
   audio stores.
 
@@ -64,9 +74,10 @@ recover a forgotten backup passphrase.
 
 | Permission | Flavor | When and why |
 | --- | --- | --- |
-| `RECORD_AUDIO` | both | Requested only when the user first starts a recording. |
-| `POST_NOTIFICATIONS` | both | Requested only when enabling the optional reminder or starting Browser view. Android 13+ requires it; denial leaves the requested feature off. |
-| `INTERNET` | `browser` only | Allows the explicitly started inbound LAN HTTP server. No runtime code makes outbound connections. |
+| `RECORD_AUDIO` | all | Requested only when the user first starts a recording. |
+| `POST_NOTIFICATIONS` | all | Requested only when enabling the optional reminder or starting Browser view. Android 13+ requires it; denial leaves the requested feature off. |
+| `INTERNET` | `browser` | Allows the explicitly started inbound LAN HTTP server. No runtime code makes outbound connections. |
+| `INTERNET`, `ACCESS_NETWORK_STATE` | `cloud` | Adds Browser view plus opt-in provider requests and Wi-Fi-only enforcement. |
 
 The `purist` flavor has no LAN module and no `INTERNET` permission. The
 permission audit script rejects unexpected Android platform permissions (while
@@ -83,6 +94,10 @@ repository. Choose one flavor:
 - `browser` is the normal build and includes the explicitly started LAN Browser
   view.
 - `purist` removes the LAN module and the `INTERNET` permission entirely.
+- `cloud` is a separate experimental build that can replace the normal build
+  while preserving its data when signed with the same key. Developer settings can
+  enable Groq Whisper Large v3 or ElevenLabs Scribe v2 transcription and Groq
+  GPT-OSS todo suggestions. It is off by default and requires the user's keys.
 
 Download the chosen APK on the phone, allow installation from that file source
 when Android asks, and open the APK to install it. Preview artifacts are signed
@@ -121,11 +136,13 @@ browser certificate warnings would undermine the intended simple workflow.
 | `storage` | Room schema/repositories, field encryption, and portable passphrase-encrypted backups |
 | `voice` | Direct encrypted recording, interrupted-tail recovery, WAV streaming, and playback |
 | `whisper` | Isolated `Transcriber` interface, energy VAD, JNI bridge, vendored whisper.cpp, and bundled model |
-| `lanserver` | Dependency-free, inbound-only, read-only HTTP/1.1 server used only by the `browser` flavor |
+| `lanserver` | Dependency-free, inbound-only, read-only HTTP/1.1 server used by the `browser` and `cloud` flavors |
 
-The runtime graph intentionally contains no HTTP client library. The LAN server
-uses a `ServerSocket` and does not expose a general-purpose client API. All model
-inference, todo detection, storage, and backup work happens locally.
+Every runtime graph intentionally contains no third-party HTTP client library.
+The `browser`/`purist` source sets contain no outbound implementation. Only the
+separate `cloud` source set uses the Android platform HTTPS connection API; API
+keys are AES-GCM encrypted under a dedicated Android Keystore key and are never
+exported. Local Whisper remains the failure fallback.
 
 ## Building and verification
 
@@ -138,7 +155,11 @@ Release builds currently target Light Phone III's `arm64-v8a` ABI.
 tools/check_no_outbound_clients.sh
 tools/check_apk_permissions.sh browser app/build/outputs/apk/browser/debug/app-browser-debug.apk
 tools/check_apk_permissions.sh purist app/build/outputs/apk/purist/debug/app-purist-debug.apk
+tools/check_apk_permissions.sh cloud app/build/outputs/apk/cloud/debug/app-cloud-debug.apk
 ```
+
+The provider comparison harness and corpus layout are documented in
+[`tools/STT_BENCHMARK.md`](tools/STT_BENCHMARK.md).
 
 `check_no_outbound_clients.sh` audits both flavor runtime graphs and first-party
 source for known client APIs, Google service SDKs, analytics, and reporting

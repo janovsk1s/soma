@@ -22,7 +22,7 @@ find_android_tool() {
   return 1
 }
 
-[ "$#" -ge 2 ] || die "usage: $0 <browser|purist> path/to/app.apk [path/to/another.apk...]"
+[ "$#" -ge 2 ] || die "usage: $0 <browser|purist|cloud> path/to/app.apk [path/to/another.apk...]"
 
 flavor="$1"
 shift
@@ -36,8 +36,14 @@ android.permission.RECORD_AUDIO"
     expected_permissions="android.permission.POST_NOTIFICATIONS
 android.permission.RECORD_AUDIO"
     ;;
+  cloud)
+    expected_permissions="android.permission.ACCESS_NETWORK_STATE
+android.permission.INTERNET
+android.permission.POST_NOTIFICATIONS
+android.permission.RECORD_AUDIO"
+    ;;
   *)
-    die "first argument must be browser or purist"
+    die "first argument must be browser, purist, or cloud"
     ;;
 esac
 

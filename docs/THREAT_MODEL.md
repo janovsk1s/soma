@@ -102,9 +102,9 @@ files. Startup and post-commit cleanup remove unreferenced files. No fragile
 cross-filesystem directory swap is used, and a damaged import is never merged
 into live rows.
 
-## No outbound traffic
+## Offline flavors and experimental cloud boundary
 
-The default runtime dependency graph contains no HTTP client. There is no
+The `browser` and `purist` runtime dependency graphs contain no HTTP client. There is no
 OkHttp, Retrofit, Volley, Cronet, Ktor client, Apache HTTP client, analytics SDK,
 or crash reporter. The transcription engine and its fixed model are bundled in
 the APK; no model or language data is downloaded. WorkManager jobs do not ask
@@ -121,6 +121,20 @@ HTTP library.
 The `purist` flavor omits the LAN module and the `INTERNET` permission entirely,
 which is the strongest choice for users who do not need browser access. Build
 tool downloads are development-time traffic and are not app runtime behavior.
+
+The separately installed `cloud` flavor is an explicit exception. Its Developer
+settings are off by default. It isolates platform `HttpsURLConnection` calls in
+`app/src/cloud`; neither offline flavor compiles that source. Provider API keys
+are encrypted with AES-256-GCM under the separate non-exportable Keystore alias
+`soma.cloud.credentials.v1`, are never included in backups, and may be deleted
+from the screen. Wi-Fi-only is the default. Audio is split locally on silence
+before each provider request; AI todo extraction sends only the new or edited
+entry and still creates a suggestion requiring a tap, never a todo.
+
+Groq is the default provider candidate because all customers can enable Zero
+Data Retention in Groq's controls. ElevenLabs may retain request content unless
+the account is eligible for its Enterprise-only zero-retention mode. Cloud
+failure falls back to bundled Whisper and never deletes the encrypted recording.
 
 ## Browser view
 

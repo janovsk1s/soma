@@ -4,6 +4,7 @@ import com.soma.core.model.AudioAttachment
 import com.soma.core.model.AudioFormat
 import com.soma.core.model.DailyNote
 import com.soma.core.model.EntryKind
+import com.soma.core.model.EntryRevision
 import com.soma.core.model.EntrySource
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.NoteEntry
@@ -49,6 +50,7 @@ internal object BackupPayloadCodec {
                 output.writeList(snapshot.stillOpenDismissals, ::writeDismissal)
                 output.writeList(snapshot.transcriptionJobs, ::writeJob)
                 output.writeList(snapshot.audioContainers, ::writeAudioContainer)
+                output.writeList(snapshot.entryRevisions, ::writeEntryRevision)
             }
             buffer.copyBytes()
         } finally {
@@ -60,18 +62,34 @@ internal object BackupPayloadCodec {
         val byteInput = ByteArrayInputStream(plaintext)
         val input = DataInputStream(byteInput)
         val payloadVersion = input.readInt()
-        if (payloadVersion != expectedVersion || payloadVersion != BackupSnapshot.CURRENT_PAYLOAD_VERSION) {
+        if (payloadVersion != expectedVersion || payloadVersion !in BackupSnapshot.SUPPORTED_PAYLOAD_VERSIONS) {
             throw BackupFormatException("Unsupported backup payload version: $payloadVersion")
+        }
+        val exportedAt = input.readInstant()
+        val rawNotes = input.readList(::readNote)
+        val todos = input.readList(::readTodo)
+        val suggestions = input.readList(::readSuggestion)
+        val dismissals = input.readList(::readDismissal)
+        val jobs = input.readList(::readJob)
+        val audio = input.readList(::readAudioContainer)
+        val revisions = if (payloadVersion >= 2) input.readList(::readEntryRevision) else emptyList()
+        val lastEdits = revisions.groupBy(EntryRevision::entryId)
+            .mapValues { (_, values) -> values.maxBy(EntryRevision::editedAt).editedAt }
+        val notes = rawNotes.map { note ->
+            note.copy(entries = note.entries.map { entry ->
+                entry.copy(lastUserEditedAt = lastEdits[entry.id])
+            })
         }
         val snapshot = BackupSnapshot(
             payloadVersion = payloadVersion,
-            exportedAt = input.readInstant(),
-            notes = input.readList(::readNote),
-            todos = input.readList(::readTodo),
-            suggestions = input.readList(::readSuggestion),
-            stillOpenDismissals = input.readList(::readDismissal),
-            transcriptionJobs = input.readList(::readJob),
-            audioContainers = input.readList(::readAudioContainer),
+            exportedAt = exportedAt,
+            notes = notes,
+            entryRevisions = revisions,
+            todos = todos,
+            suggestions = suggestions,
+            stillOpenDismissals = dismissals,
+            transcriptionJobs = jobs,
+            audioContainers = audio,
         )
         if (byteInput.available() != 0) {
             throw BackupFormatException("Backup payload has trailing bytes")
@@ -126,6 +144,20 @@ internal object BackupPayloadCodec {
         returnLater = input.readBooleanByte(),
         audio = input.readNullable(::readAudioAttachment),
         transcription = input.readNullable(::readTranscriptionInfo),
+    )
+
+    private fun writeEntryRevision(output: DataOutput, revision: EntryRevision) {
+        output.writeString(revision.entryId)
+        output.writeLong(revision.revision)
+        output.writeString(revision.text)
+        output.writeInstant(revision.editedAt)
+    }
+
+    private fun readEntryRevision(input: DataInput): EntryRevision = EntryRevision(
+        entryId = input.readString(),
+        revision = input.readLong(),
+        text = input.readString(),
+        editedAt = input.readInstant(),
     )
 
     private fun writeAudioAttachment(output: DataOutput, audio: AudioAttachment) {

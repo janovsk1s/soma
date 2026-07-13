@@ -112,6 +112,18 @@ interface EntryDao {
 }
 
 @Dao
+interface EntryRevisionDao {
+    @Query("SELECT * FROM entry_revisions WHERE entry_id = :entryId ORDER BY revision ASC")
+    suspend fun listForEntry(entryId: String): List<EntryRevisionEntity>
+
+    @Query("SELECT * FROM entry_revisions ORDER BY edited_at_millis ASC, entry_id ASC, revision ASC")
+    suspend fun listAll(): List<EntryRevisionEntity>
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insert(revision: EntryRevisionEntity)
+}
+
+@Dao
 interface TodoDao {
     @Query("DELETE FROM todos")
     suspend fun clear(): Int

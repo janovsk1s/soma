@@ -21,7 +21,6 @@ import com.soma.core.todo.RuleBasedTodoDetector
 import com.soma.voice.EncryptedAudioReader
 import com.soma.whisper.WhisperCppTranscriber
 import com.soma.whisper.WhisperModelException
-import com.soma.whisper.Transcriber
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.time.Clock
@@ -66,7 +65,7 @@ class TranscriptionDrainWorker(
         val startedAt = SystemClock.elapsedRealtime()
         var shouldRetry = false
 
-        createTranscriber(app).use { transcriber ->
+        cloudFeatures(app).createTranscriber { WhisperCppTranscriber(app) }.use { transcriber ->
             while (!isStopped && SystemClock.elapsedRealtime() - startedAt < INTERNAL_BUDGET_MILLIS) {
                 if (power?.isPowerSaveMode == true && !SomaPrefs.transcribeInBatterySaver(app)) {
                     shouldRetry = true
@@ -165,7 +164,8 @@ class TranscriptionDrainWorker(
         val repositories = app.repositories()
         val detector = RuleBasedTodoDetector()
         val languages = transcription.detectedLanguages.toSet()
-        detector.detect(transcription.text, languages).forEach { candidate ->
+        val localCandidates = detector.detect(transcription.text, languages)
+        localCandidates.forEach { candidate ->
             repositories.suggestions.insert(
                 TodoSuggestion(
                     id = UUID.randomUUID().toString(),
@@ -179,12 +179,27 @@ class TranscriptionDrainWorker(
                 ),
             )
         }
+        if (localCandidates.isEmpty()) {
+            cloudFeatures(app).extractTodoCandidates(transcription.text).forEach { text ->
+                repositories.suggestions.insert(
+                    TodoSuggestion(
+                        id = UUID.randomUUID().toString(),
+                        entryId = entryId,
+                        suggestedText = text,
+                        language = languages.firstOrNull() ?: SomaPrefs.language(app),
+                        reason = com.soma.core.model.TodoSuggestionReason.AI_EXTRACTED,
+                        matchedRule = "cloud:groq:openai/gpt-oss-20b",
+                        state = TodoSuggestionState.PENDING,
+                        createdAt = Instant.now(),
+                    ),
+                )
+            }
+        }
     }
 
     private companion object {
         const val INTERNAL_BUDGET_MILLIS = 8 * 60 * 1_000L
 
-        fun createTranscriber(context: Context): Transcriber = WhisperCppTranscriber(context)
     }
 }
 

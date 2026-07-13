@@ -191,11 +191,12 @@ fun LicensesScreen(onBack: () -> Unit) {
     }
 }
 
-private enum class DeveloperAction { LIGHT_MODE, DEMO, RETURN_HOME, BATTERY_SAVER, LANGUAGE }
+private enum class DeveloperAction { LIGHT_MODE, DEMO, RETURN_HOME, BATTERY_SAVER, LANGUAGE, CLOUD }
 
 @Composable
 fun DeveloperScreen(
     onLanguage: () -> Unit,
+    onCloud: () -> Unit,
     onRestart: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -216,6 +217,7 @@ fun DeveloperScreen(
                         DeveloperAction.RETURN_HOME -> stringResource(R.string.developer_return_home)
                         DeveloperAction.BATTERY_SAVER -> stringResource(R.string.developer_transcribe_power_saver)
                         DeveloperAction.LANGUAGE -> stringResource(R.string.developer_language)
+                        DeveloperAction.CLOUD -> stringResource(R.string.developer_cloud)
                     },
                     trailing = when (action) {
                         DeveloperAction.LIGHT_MODE -> stringResource(if (lightMode) R.string.on else R.string.off)
@@ -223,6 +225,9 @@ fun DeveloperScreen(
                         DeveloperAction.RETURN_HOME -> stringResource(if (returnHome) R.string.on else R.string.off)
                         DeveloperAction.BATTERY_SAVER -> stringResource(if (batterySaver) R.string.on else R.string.off)
                         DeveloperAction.LANGUAGE -> SomaPrefs.language(context).languageTag
+                        DeveloperAction.CLOUD -> stringResource(
+                            if (BuildConfig.CLOUD_FEATURES_AVAILABLE) R.string.developer_experimental else R.string.developer_unavailable,
+                        )
                     },
                     onClick = {
                         when (action) {
@@ -246,11 +251,136 @@ fun DeveloperScreen(
                                 SomaPrefs.setTranscribeInBatterySaver(context, batterySaver)
                             }
                             DeveloperAction.LANGUAGE -> onLanguage()
+                            DeveloperAction.CLOUD -> onCloud()
                         }
                     },
                 )
             }
         }
+    }
+}
+
+private enum class CloudDeveloperAction { TRANSCRIPTION, PROVIDER, WIFI_ONLY, AI_TODOS, GROQ_KEY, ELEVENLABS_KEY }
+
+@Composable
+fun CloudDeveloperScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val controller = remember { cloudFeatures(context) }
+    var settings by remember { mutableStateOf(controller.settings()) }
+    var editingKey by remember { mutableStateOf<CloudSpeechProvider?>(null) }
+    var keyText by remember { mutableStateOf("") }
+
+    fun navigateBack() {
+        if (editingKey != null) {
+            keyText = ""
+            editingKey = null
+        } else {
+            onBack()
+        }
+    }
+    BackHandler(onBack = ::navigateBack)
+
+    fun refresh() {
+        settings = controller.settings()
+    }
+
+    Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding().padding(horizontal = 28.dp)) {
+        SimpleTopBar(
+            stringResource(R.string.developer_cloud),
+            ::navigateBack,
+        )
+        if (editingKey != null) {
+            Column(Modifier.weight(1f).fillMaxWidth().padding(top = 24.dp)) {
+                Text(
+                    stringResource(
+                        if (editingKey == CloudSpeechProvider.GROQ) R.string.developer_groq_key else R.string.developer_elevenlabs_key,
+                    ),
+                    color = Ink,
+                    fontSize = 20.sp,
+                )
+                LineInput(
+                    value = keyText,
+                    onValueChange = { keyText = it },
+                    placeholder = stringResource(R.string.developer_api_key_hint),
+                    modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+                    password = true,
+                )
+                Text(
+                    stringResource(R.string.developer_key_storage),
+                    color = DimInk,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    modifier = Modifier.padding(top = 22.dp),
+                )
+            }
+            BackupBottomAction(stringResource(R.string.save)) {
+                val provider = editingKey ?: return@BackupBottomAction
+                controller.setApiKey(provider, keyText.toCharArray())
+                keyText = ""
+                editingKey = null
+                refresh()
+            }
+            return@Column
+        }
+
+        if (!settings.available) {
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text(
+                    stringResource(R.string.developer_cloud_flavor_required),
+                    color = DimInk,
+                    fontSize = 18.sp,
+                    lineHeight = 25.sp,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            return@Column
+        }
+
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            PagedList(CloudDeveloperAction.entries) { action ->
+                SettingsItem(
+                    label = when (action) {
+                        CloudDeveloperAction.TRANSCRIPTION -> stringResource(R.string.developer_cloud_transcription)
+                        CloudDeveloperAction.PROVIDER -> stringResource(R.string.developer_provider)
+                        CloudDeveloperAction.WIFI_ONLY -> stringResource(R.string.developer_wifi_only)
+                        CloudDeveloperAction.AI_TODOS -> stringResource(R.string.developer_ai_todos)
+                        CloudDeveloperAction.GROQ_KEY -> stringResource(R.string.developer_groq_key)
+                        CloudDeveloperAction.ELEVENLABS_KEY -> stringResource(R.string.developer_elevenlabs_key)
+                    },
+                    trailing = when (action) {
+                        CloudDeveloperAction.TRANSCRIPTION -> stringResource(if (settings.transcriptionEnabled) R.string.on else R.string.off)
+                        CloudDeveloperAction.PROVIDER -> when (settings.provider) {
+                            CloudSpeechProvider.GROQ -> "Groq"
+                            CloudSpeechProvider.ELEVENLABS -> "ElevenLabs"
+                        }
+                        CloudDeveloperAction.WIFI_ONLY -> stringResource(if (settings.wifiOnly) R.string.on else R.string.off)
+                        CloudDeveloperAction.AI_TODOS -> stringResource(if (settings.aiTodoSuggestions) R.string.on else R.string.off)
+                        CloudDeveloperAction.GROQ_KEY -> stringResource(if (settings.hasGroqKey) R.string.developer_key_saved else R.string.developer_key_missing)
+                        CloudDeveloperAction.ELEVENLABS_KEY -> stringResource(if (settings.hasElevenLabsKey) R.string.developer_key_saved else R.string.developer_key_missing)
+                    },
+                    onClick = {
+                        when (action) {
+                            CloudDeveloperAction.TRANSCRIPTION -> controller.setTranscriptionEnabled(!settings.transcriptionEnabled)
+                            CloudDeveloperAction.PROVIDER -> controller.setProvider(
+                                if (settings.provider == CloudSpeechProvider.GROQ) CloudSpeechProvider.ELEVENLABS else CloudSpeechProvider.GROQ,
+                            )
+                            CloudDeveloperAction.WIFI_ONLY -> controller.setWifiOnly(!settings.wifiOnly)
+                            CloudDeveloperAction.AI_TODOS -> controller.setAiTodoSuggestions(!settings.aiTodoSuggestions)
+                            CloudDeveloperAction.GROQ_KEY -> editingKey = CloudSpeechProvider.GROQ
+                            CloudDeveloperAction.ELEVENLABS_KEY -> editingKey = CloudSpeechProvider.ELEVENLABS
+                        }
+                        refresh()
+                    },
+                )
+            }
+        }
+        Text(
+            stringResource(R.string.developer_cloud_privacy),
+            color = DimInk,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
+            modifier = Modifier.padding(bottom = 16.dp),
+        )
     }
 }
 

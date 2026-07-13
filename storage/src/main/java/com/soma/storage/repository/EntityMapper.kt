@@ -3,6 +3,7 @@ package com.soma.storage.repository
 import com.soma.core.model.AudioAttachment
 import com.soma.core.model.AudioFormat
 import com.soma.core.model.EntryKind
+import com.soma.core.model.EntryRevision
 import com.soma.core.model.EntrySource
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.NoteEntry
@@ -20,6 +21,7 @@ import com.soma.core.model.TranscriptionJobState
 import com.soma.storage.crypto.StorageAad
 import com.soma.storage.crypto.TextCipher
 import com.soma.storage.db.EntryEntity
+import com.soma.storage.db.EntryRevisionEntity
 import com.soma.storage.db.TodoEntity
 import com.soma.storage.db.TodoSuggestionEntity
 import com.soma.storage.db.TranscriptionJobEntity
@@ -60,6 +62,7 @@ internal class EntityMapper(
             returnLater = entry.returnLater,
             createdAtMillis = entry.createdAt.toEpochMilli(),
             updatedAtMillis = entry.updatedAt.toEpochMilli(),
+            lastUserEditedAtMillis = entry.lastUserEditedAt?.toEpochMilli(),
             revision = revision,
         )
     }
@@ -109,6 +112,7 @@ internal class EntityMapper(
             }.orEmpty(),
             createdAt = Instant.ofEpochMilli(entity.createdAtMillis),
             updatedAt = Instant.ofEpochMilli(entity.updatedAtMillis),
+            lastUserEditedAt = entity.lastUserEditedAtMillis?.let(Instant::ofEpochMilli),
             returnLater = entity.returnLater,
             audio = audio,
             transcription = transcription,
@@ -225,6 +229,29 @@ internal class EntityMapper(
 
     fun encryptEntryText(entryId: String, text: String): ByteArray = encrypt(entryId, ENTRY_TEXT, text)
 
+    fun revisionToEntity(revision: EntryRevision): EntryRevisionEntity {
+        val revisionId = revisionId(revision.entryId, revision.revision)
+        return EntryRevisionEntity(
+            entryId = revision.entryId,
+            revision = revision.revision,
+            textCiphertext = encrypt(revisionId, ENTRY_REVISION_TEXT, revision.text),
+            cryptoVersion = CRYPTO_VERSION,
+            editedAtMillis = revision.editedAt.toEpochMilli(),
+        )
+    }
+
+    fun revisionFromEntity(entity: EntryRevisionEntity): EntryRevision = EntryRevision(
+        entryId = entity.entryId,
+        revision = entity.revision,
+        text = decrypt(
+            revisionId(entity.entryId, entity.revision),
+            ENTRY_REVISION_TEXT,
+            entity.cryptoVersion,
+            entity.textCiphertext,
+        ),
+        editedAt = Instant.ofEpochMilli(entity.editedAtMillis),
+    )
+
     fun encryptEntryFailure(entryId: String, diagnostic: String): ByteArray =
         encrypt(entryId, ENTRY_TRANSCRIPTION_FAILURE, diagnostic)
 
@@ -243,9 +270,12 @@ internal class EntityMapper(
         ?.map(SupportedLanguage::valueOf)
         .orEmpty()
 
+    private fun revisionId(entryId: String, revision: Long): String = "$entryId:$revision"
+
     companion object {
         const val CRYPTO_VERSION = 1
         private const val ENTRY_TEXT = "entry.text"
+        private const val ENTRY_REVISION_TEXT = "entryRevision.text"
         private const val ENTRY_TRANSCRIPTION_FAILURE = "entry.transcriptionFailure"
         private const val TODO_TEXT = "todo.text"
         private const val SUGGESTION_TEXT = "suggestion.text"

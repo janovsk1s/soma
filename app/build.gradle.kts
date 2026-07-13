@@ -18,8 +18,8 @@ android {
         applicationId = "com.soma.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.1.0-preview.3"
+        versionCode = 4
+        versionName = "0.1.0-preview.4"
     }
 
     flavorDimensions += "network"
@@ -27,13 +27,27 @@ android {
         create("browser") {
             dimension = "network"
             buildConfigField("Boolean", "BROWSER_VIEW_AVAILABLE", "true")
+            buildConfigField("Boolean", "CLOUD_FEATURES_AVAILABLE", "false")
         }
         create("purist") {
             dimension = "network"
             applicationIdSuffix = ".purist"
             versionNameSuffix = "-purist"
             buildConfigField("Boolean", "BROWSER_VIEW_AVAILABLE", "false")
+            buildConfigField("Boolean", "CLOUD_FEATURES_AVAILABLE", "false")
         }
+        create("cloud") {
+            dimension = "network"
+            versionNameSuffix = "-cloud"
+            buildConfigField("Boolean", "BROWSER_VIEW_AVAILABLE", "true")
+            buildConfigField("Boolean", "CLOUD_FEATURES_AVAILABLE", "true")
+        }
+    }
+
+    sourceSets {
+        getByName("browser").kotlin.srcDir("src/offline/java")
+        getByName("purist").kotlin.srcDir("src/offline/java")
+        getByName("cloud").kotlin.srcDir("src/browser/java")
     }
 
     buildTypes {
@@ -91,6 +105,7 @@ dependencies {
     implementation(project(":voice"))
     implementation(project(":whisper"))
     "browserImplementation"(project(":lanserver"))
+    "cloudImplementation"(project(":lanserver"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

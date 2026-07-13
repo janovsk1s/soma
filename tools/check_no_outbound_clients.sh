@@ -16,7 +16,7 @@ fi
 command -v rg >/dev/null 2>&1 || die "ripgrep (rg) is required"
 [ -x ./gradlew ] || die "Gradle wrapper not found"
 
-for configuration in browserReleaseRuntimeClasspath puristReleaseRuntimeClasspath; do
+for configuration in browserReleaseRuntimeClasspath puristReleaseRuntimeClasspath cloudReleaseRuntimeClasspath; do
   dependencies="$(./gradlew -q :app:dependencies --configuration "$configuration")"
   forbidden_dependencies="$(printf '%s\n' "$dependencies" | rg -i \
     '(^|[:/ .+\\-])(okhttp3?|retrofit2?|volley|cronet|ktor-client|apache[^: ]*httpclient|httpclient5?|fuel|firebase|play-services|sentry|bugsnag|appcenter|amplitude|mixpanel|segment-analytics|datadog)([:/ .+\\-]|$)' || true)"
@@ -38,7 +38,11 @@ source_matches="$(rg -n -i \
 
 if [ -n "$source_matches" ]; then
   printf '%s\n' "$source_matches" >&2
-  die "outbound client API reference found in first-party source"
+  die "outbound client API reference found in offline first-party source"
 fi
 
-printf 'No outbound client API references found in first-party source.\n'
+printf 'No outbound client API references found in browser/purist first-party source.\n'
+cloud_connections="$(rg -l 'java\.net\.(URL|HttpURLConnection)' app/src/cloud --glob '*.{kt,java}' || true)"
+[ "$cloud_connections" = "app/src/cloud/java/com/soma/app/CloudFeatureFactory.kt" ] || \
+  die "experimental cloud connection code escaped its single reviewed boundary"
+printf 'Experimental cloud connection code remains isolated to its reviewed source file.\n'

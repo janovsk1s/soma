@@ -77,6 +77,7 @@ enum class TodoSuggestionState {
 enum class TodoSuggestionReason {
     TRIGGER_PHRASE,
     IMPERATIVE,
+    AI_EXTRACTED,
 }
 
 data class TodoSuggestion(

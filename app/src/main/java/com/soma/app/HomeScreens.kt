@@ -37,6 +37,7 @@ import com.soma.core.policy.StillOpenPolicy
 import com.soma.core.policy.StillOpenTarget
 import com.soma.voice.PlaybackState
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
@@ -69,7 +70,6 @@ fun HomeScreen(
             date = date,
             today = viewModel.today(),
             demo = viewModel.isDemo,
-            onSettings = onSettings,
             onTodos = onTodos,
         )
         Column(
@@ -139,11 +139,12 @@ fun HomeScreen(
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            GearButton(onSettings)
             LineInput(
                 value = input,
                 onValueChange = { input = it },
                 placeholder = stringResource(R.string.entry_hint),
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
                 onDone = {
                     val submitted = input
                     input = ""
@@ -170,14 +171,12 @@ private fun HomeHeader(
     date: LocalDate,
     today: LocalDate,
     demo: Boolean,
-    onSettings: () -> Unit,
     onTodos: () -> Unit,
 ) {
     Box(
         modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
-        GearButton(onSettings, Modifier.align(Alignment.CenterStart).offset(x = (-10).dp))
         val title = when {
             demo -> stringResource(R.string.demo_title)
             date == today -> stringResource(R.string.today)
@@ -241,6 +240,12 @@ private fun EntryRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f).padding(end = 4.dp)) {
+            Text(
+                entry.createdAt.atZone(ZoneId.systemDefault()).format(ENTRY_TIME_FORMATTER),
+                color = DimInk,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Light,
+            )
             val displayed = when {
                 recording -> stringResource(R.string.recording_now)
                 entry.text.isNotBlank() -> entry.text
@@ -284,6 +289,31 @@ fun EntryReadScreen(
     BackHandler(onBack = onBack)
     Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding().padding(horizontal = 28.dp)) {
         SimpleTopBar(entry.noteDate.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)), onBack)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            Text(
+                stringResource(
+                    R.string.entry_added_at,
+                    entry.createdAt.atZone(ZoneId.systemDefault()).format(ENTRY_TIME_FORMATTER),
+                ),
+                color = DimInk,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Light,
+            )
+            entry.lastUserEditedAt?.let { editedAt ->
+                Text(
+                    stringResource(
+                        R.string.entry_edited_at,
+                        editedAt.atZone(ZoneId.systemDefault()).format(ENTRY_TIME_FORMATTER),
+                    ),
+                    color = DimInk,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Light,
+                )
+            }
+        }
         Box(
             modifier = Modifier.weight(1f).fillMaxWidth()
                 .verticalScroll(rememberScrollState())
@@ -313,6 +343,8 @@ fun EntryReadScreen(
         }
     }
 }
+
+private val ENTRY_TIME_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
 
 private enum class EntryAction { EDIT, RETURN, PLAY, DELETE_AUDIO, DELETE_ENTRY }
 

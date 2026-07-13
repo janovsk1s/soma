@@ -5,6 +5,7 @@ import com.soma.core.model.DailyNote
 import com.soma.core.model.AudioAttachment
 import com.soma.core.model.DEFAULT_TRANSCRIPTION_MAX_ATTEMPTS
 import com.soma.core.model.EntrySource
+import com.soma.core.model.EntryRevision
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.SupportedLanguage
@@ -91,6 +92,7 @@ class InMemorySomaRepository private constructor(
     private val suggestions = MutableStateFlow<Map<String, TodoSuggestion>>(emptyMap())
     private val dismissals = MutableStateFlow<Map<LocalDate, StillOpenDismissal>>(emptyMap())
     private val jobs = MutableStateFlow<Map<String, TranscriptionJob>>(emptyMap())
+    private val revisions = mutableMapOf<String, MutableList<EntryRevision>>()
 
     override suspend fun getOrCreate(date: LocalDate, createdAt: Instant): DailyNote = mutex.withLock {
         notes.value[date] ?: DailyNote(date, createdAt).also { created ->
@@ -126,6 +128,28 @@ class InMemorySomaRepository private constructor(
         true
     }
 
+    override suspend fun editEntryText(
+        entryId: String,
+        text: String,
+        editedAt: Instant,
+    ): EntryMutationResult? = mutex.withLock {
+        val note = notes.value.values.firstOrNull { candidate -> candidate.entries.any { it.id == entryId } }
+            ?: return@withLock null
+        val previous = note.entries.first { it.id == entryId }
+        if (previous.text == text) return@withLock EntryMutationResult(previous, previous)
+        val at = maxOf(previous.updatedAt, editedAt)
+        val current = previous.copy(text = text, updatedAt = at, lastUserEditedAt = at)
+        val nextRevision = (revisions[entryId]?.lastOrNull()?.revision ?: 0L) + 1L
+        revisions.getOrPut(entryId, ::mutableListOf) += EntryRevision(entryId, nextRevision, previous.text, at)
+        notes.value = notes.value + (
+            note.date to note.copy(entries = note.entries.map { if (it.id == entryId) current else it })
+        )
+        EntryMutationResult(previous, current)
+    }
+
+    override suspend fun listEntryRevisions(entryId: String): List<EntryRevision> =
+        revisions[entryId].orEmpty().toList()
+
     override suspend fun mutateEntry(
         entryId: String,
         transform: (NoteEntry) -> NoteEntry?,
@@ -138,6 +162,7 @@ class InMemorySomaRepository private constructor(
             notes.value = notes.value + (note.date to note.copy(entries = note.entries.filterNot { it.id == entryId }))
             suggestions.value = suggestions.value.filterValues { it.entryId != entryId }
             jobs.value = jobs.value.filterValues { it.entryId != entryId }
+            revisions.remove(entryId)
         } else {
             require(current.id == previous.id && current.noteDate == previous.noteDate) {
                 "An entry mutation cannot change identity or date"
@@ -157,6 +182,7 @@ class InMemorySomaRepository private constructor(
             ?: return@withLock false
         notes.value = notes.value + (note.date to note.copy(entries = note.entries.filterNot { it.id == entryId }))
         suggestions.value = suggestions.value.filterValues { it.entryId != entryId }
+        revisions.remove(entryId)
         true
     }
 

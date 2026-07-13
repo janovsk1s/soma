@@ -170,17 +170,13 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
         val clean = text.trim()
         if (clean.isEmpty() || recordingOperationEntryId == entry.id) return
         viewModelScope.launch {
-            val mutation = repositories.notes.mutateEntry(entry.id) { current ->
-                if (current.transcription?.state in setOf(
-                        EntryTranscriptionState.QUEUED,
-                        EntryTranscriptionState.RUNNING,
-                    )
-                ) {
-                    current
-                } else {
-                    current.copy(text = clean, updatedAt = maxOf(current.updatedAt, clock.instant()))
-                }
-            } ?: return@launch
+            val current = repositories.notes.getEntry(entry.id) ?: return@launch
+            if (current.transcription?.state in setOf(
+                    EntryTranscriptionState.QUEUED,
+                    EntryTranscriptionState.RUNNING,
+                )
+            ) return@launch
+            val mutation = repositories.notes.editEntryText(entry.id, clean, clock.instant()) ?: return@launch
             val updated = mutation.current ?: return@launch
             if (updated.text == clean && mutation.previous.text != clean) {
                 dismissPendingSuggestions(entry.id)
@@ -452,6 +448,22 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                     createdAt = clock.instant(),
                 ),
             )
+        }
+        if (candidates.isEmpty()) {
+            cloudFeatures(app).extractTodoCandidates(entry.text).forEach { text ->
+                repositories.suggestions.insert(
+                    TodoSuggestion(
+                        id = UUID.randomUUID().toString(),
+                        entryId = entry.id,
+                        suggestedText = text,
+                        language = SomaPrefs.language(app),
+                        reason = com.soma.core.model.TodoSuggestionReason.AI_EXTRACTED,
+                        matchedRule = "cloud:groq:openai/gpt-oss-20b",
+                        state = TodoSuggestionState.PENDING,
+                        createdAt = clock.instant(),
+                    ),
+                )
+            }
         }
         refreshSuggestions(listOf(entry))
     }

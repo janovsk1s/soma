@@ -171,6 +171,7 @@ class SomaDatabaseTest {
         returnLater = false,
         createdAtMillis = 1_000,
         updatedAtMillis = 1_000,
+        lastUserEditedAtMillis = null,
         revision = 0,
     )
 

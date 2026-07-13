@@ -1,6 +1,7 @@
 package com.soma.core.repository
 
 import com.soma.core.model.DailyNote
+import com.soma.core.model.EntryRevision
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.Todo
@@ -43,6 +44,12 @@ interface DailyNoteRepository {
 
     /** Replaces the entry with the same id. Returns false when it no longer exists. */
     suspend fun updateEntry(entry: NoteEntry): Boolean
+
+    /** Atomically stores a deliberate user edit and its encrypted revision snapshot. */
+    suspend fun editEntryText(entryId: String, text: String, editedAt: Instant): EntryMutationResult?
+
+    /** User-authored revisions oldest-first. */
+    suspend fun listEntryRevisions(entryId: String): List<EntryRevision>
 
     /** Atomically reads and transforms one current entry; a null transform result deletes it. */
     suspend fun mutateEntry(

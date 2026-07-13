@@ -37,8 +37,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class BackupRoute { MENU, EXPORT, IMPORT_UNLOCK, IMPORT_CONFIRM }
-private enum class BackupAction { EXPORT, IMPORT }
+private enum class BackupRoute { MENU, EXPORT, READABLE_EXPORT, IMPORT_UNLOCK, IMPORT_CONFIRM }
+private enum class BackupAction { EXPORT, READABLE_EXPORT, IMPORT }
 
 @Composable
 fun BackupScreen(viewModel: SomaViewModel, onBack: () -> Unit) {
@@ -57,6 +57,8 @@ fun BackupScreen(viewModel: SomaViewModel, onBack: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     val exportedMessage = stringResource(R.string.backup_exported)
     val exportFailedMessage = stringResource(R.string.backup_export_failed)
+    val readableExportedMessage = stringResource(R.string.backup_readable_exported)
+    val readableExportFailedMessage = stringResource(R.string.backup_readable_export_failed)
     val invalidBackupMessage = stringResource(R.string.backup_wrong_or_damaged)
     val shortPassphraseMessage = stringResource(R.string.backup_short_passphrase)
     val passphraseMismatchMessage = stringResource(R.string.backup_passphrases_mismatch)
@@ -113,6 +115,32 @@ fun BackupScreen(viewModel: SomaViewModel, onBack: () -> Unit) {
             busy = false
         }
     }
+    val readableExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri ->
+        context.setExternalFlowActive(false)
+        if (uri == null) return@rememberLauncherForActivityResult
+        busy = true
+        status = null
+        scope.launch {
+            runCatching {
+                val encoded = coordinator.exportReadable(includeAudio)
+                try {
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(uri, "w")?.use { it.write(encoded) }
+                            ?: error("Could not open archive destination")
+                    }
+                } finally {
+                    encoded.fill(0)
+                }
+            }.onSuccess {
+                status = readableExportedMessage
+            }.onFailure {
+                status = readableExportFailedMessage
+            }
+            busy = false
+        }
+    }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         context.setExternalFlowActive(false)
         if (uri == null) return@rememberLauncherForActivityResult
@@ -138,6 +166,7 @@ fun BackupScreen(viewModel: SomaViewModel, onBack: () -> Unit) {
             when (route) {
                 BackupRoute.MENU -> stringResource(R.string.backup_title)
                 BackupRoute.EXPORT -> stringResource(R.string.backup_export)
+                BackupRoute.READABLE_EXPORT -> stringResource(R.string.backup_readable_export)
                 BackupRoute.IMPORT_UNLOCK, BackupRoute.IMPORT_CONFIRM -> stringResource(R.string.backup_import)
             },
             ::navigateBack,
@@ -159,13 +188,20 @@ fun BackupScreen(viewModel: SomaViewModel, onBack: () -> Unit) {
                     PagedList(BackupAction.entries) { action ->
                         SettingsItem(
                             label = stringResource(
-                                if (action == BackupAction.EXPORT) R.string.backup_export else R.string.backup_import,
+                                when (action) {
+                                    BackupAction.EXPORT -> R.string.backup_export
+                                    BackupAction.READABLE_EXPORT -> R.string.backup_readable_export
+                                    BackupAction.IMPORT -> R.string.backup_import
+                                },
                             ),
                             onClick = {
-                                if (action == BackupAction.EXPORT) route = BackupRoute.EXPORT
-                                else {
-                                    context.setExternalFlowActive(true)
-                                    importLauncher.launch(arrayOf("application/x-soma-backup", "application/octet-stream", "*/*"))
+                                when (action) {
+                                    BackupAction.EXPORT -> route = BackupRoute.EXPORT
+                                    BackupAction.READABLE_EXPORT -> route = BackupRoute.READABLE_EXPORT
+                                    BackupAction.IMPORT -> {
+                                        context.setExternalFlowActive(true)
+                                        importLauncher.launch(arrayOf("application/x-soma-backup", "application/octet-stream", "*/*"))
+                                    }
                                 }
                             },
                         )
@@ -208,6 +244,35 @@ fun BackupScreen(viewModel: SomaViewModel, onBack: () -> Unit) {
                         context.setExternalFlowActive(true)
                         exportLauncher.launch("Soma-${LocalDate.now()}.soma")
                     }
+                }
+            }
+            BackupRoute.READABLE_EXPORT -> {
+                Column(Modifier.weight(1f).fillMaxWidth().padding(top = 24.dp)) {
+                    Text(
+                        stringResource(R.string.backup_readable_explanation),
+                        color = DimInk,
+                        fontSize = 16.sp,
+                        lineHeight = 22.sp,
+                    )
+                    SettingsItem(
+                        label = stringResource(R.string.backup_include_audio),
+                        trailing = stringResource(if (includeAudio) R.string.on else R.string.off),
+                        onClick = { includeAudio = !includeAudio },
+                    )
+                    Text(
+                        stringResource(R.string.backup_readable_privacy),
+                        color = DimInk,
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                    )
+                    status?.let { Text(it, color = DimInk, fontSize = 16.sp, modifier = Modifier.padding(top = 24.dp)) }
+                }
+                BackupBottomAction(
+                    if (busy) stringResource(R.string.backup_working) else stringResource(R.string.backup_readable_export),
+                ) {
+                    if (busy) return@BackupBottomAction
+                    context.setExternalFlowActive(true)
+                    readableExportLauncher.launch("Soma-readable-${LocalDate.now()}.zip")
                 }
             }
             BackupRoute.IMPORT_UNLOCK -> {
@@ -279,7 +344,7 @@ fun BackupScreen(viewModel: SomaViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun BackupBottomAction(label: String, onClick: () -> Unit) {
+internal fun BackupBottomAction(label: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier.fillMaxWidth().padding(bottom = 18.dp).then(tapModifier(onClick, label)),
         contentAlignment = Alignment.Center,

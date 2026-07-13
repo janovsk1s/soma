@@ -58,7 +58,29 @@ data class EntryEntity(
     @ColumnInfo(name = "return_later") val returnLater: Boolean,
     @ColumnInfo(name = "created_at_millis") val createdAtMillis: Long,
     @ColumnInfo(name = "updated_at_millis") val updatedAtMillis: Long,
+    @ColumnInfo(name = "last_user_edited_at_millis") val lastUserEditedAtMillis: Long?,
     @ColumnInfo(name = "revision") val revision: Long,
+)
+
+@Entity(
+    tableName = "entry_revisions",
+    primaryKeys = ["entry_id", "revision"],
+    foreignKeys = [
+        ForeignKey(
+            entity = EntryEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["entry_id"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index(value = ["entry_id"])],
+)
+data class EntryRevisionEntity(
+    @ColumnInfo(name = "entry_id") val entryId: String,
+    @ColumnInfo(name = "revision") val revision: Long,
+    @ColumnInfo(name = "text_ciphertext", typeAffinity = ColumnInfo.BLOB) val textCiphertext: ByteArray,
+    @ColumnInfo(name = "crypto_version") val cryptoVersion: Int,
+    @ColumnInfo(name = "edited_at_millis") val editedAtMillis: Long,
 )
 
 @Entity(
