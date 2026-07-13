@@ -37,6 +37,7 @@
     <string name="microphone_permission_needed">Juurdepääsu mikrofonile on vaja ainult lindistamise ajal.</string>
     <string name="still_open">veel lahti</string>
     <string name="still_open_summary">olulisi: %1$d · naasmismärkeid: %2$d</string>
+    <string name="still_open_summary_scheduled">täna: %1$d · olulisi: %2$d · hilisemaks: %3$d</string>
     <string name="dismiss_today">peida tänaseks</string>
     <string name="return_later">naase hiljem</string>
     <string name="returned">eemalda naasmismärge</string>
@@ -51,6 +52,13 @@
     <string name="add_to_important">lisa Olulisse</string>
     <string name="important_list">nimekiri</string>
     <string name="important_excerpt">väljavõte</string>
+    <string name="important_reference">viide</string>
+    <string name="show_again">näita uuesti</string>
+    <string name="show_again_date">uuesti %1$s</string>
+    <string name="tomorrow_date">homme · %1$s</string>
+    <string name="in_one_week_date">ühe nädala pärast · %1$s</string>
+    <string name="in_one_month_date">ühe kuu pärast · %1$s</string>
+    <string name="clear_show_again">eemalda kuupäev</string>
     <string name="add">lisa</string>
     <string name="add_details">lisa koos üksikasjadega</string>
     <string name="mark_done">märgi tehtuks</string>

@@ -1,6 +1,7 @@
 package com.soma.core.policy
 
 import com.soma.core.model.NoteEntry
+import com.soma.core.model.ImportantKind
 import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.Todo
 import com.soma.core.model.TodoState
@@ -13,8 +14,16 @@ data class ReturnLaterItem(
     val preview: String,
 )
 
+data class ResurfacingImportantItem(
+    val todoId: String,
+    val showAgainOn: LocalDate,
+    val preview: String,
+)
+
 sealed interface StillOpenTarget {
     data object Todos : StillOpenTarget
+
+    data class Important(val todoId: String) : StillOpenTarget
 
     data class Entry(
         val entryId: String,
@@ -25,6 +34,7 @@ sealed interface StillOpenTarget {
 data class StillOpenContent(
     val openTodoCount: Int,
     val returnLaterItems: List<ReturnLaterItem>,
+    val resurfacingItems: List<ResurfacingImportantItem> = emptyList(),
 ) {
     init {
         require(openTodoCount >= 0) { "Open todo count must not be negative" }
@@ -32,6 +42,7 @@ data class StillOpenContent(
 
     val defaultTarget: StillOpenTarget?
         get() = when {
+            resurfacingItems.isNotEmpty() -> StillOpenTarget.Important(resurfacingItems.first().todoId)
             openTodoCount > 0 -> StillOpenTarget.Todos
             returnLaterItems.isNotEmpty() -> returnLaterItems.first().let {
                 StillOpenTarget.Entry(entryId = it.entryId, noteDate = it.noteDate)
@@ -55,7 +66,24 @@ object StillOpenPolicy {
         require(previewLength > 0) { "Preview length must be positive" }
         if (dismissal?.date == today) return null
 
-        val openTodoCount = todos.count { it.state == TodoState.OPEN }
+        val openTodos = todos.filter { it.state == TodoState.OPEN }
+        val resurfacingItems = openTodos.asSequence()
+            .filter { it.resurfaceOn != null && !it.resurfaceOn.isAfter(today) }
+            .sortedWith(compareBy({ it.resurfaceOn }, Todo::createdAt))
+            .map { todo ->
+                ResurfacingImportantItem(
+                    todoId = todo.id,
+                    showAgainOn = requireNotNull(todo.resurfaceOn),
+                    preview = todo.text.trim().replace(Regex("\\s+"), " ").take(previewLength),
+                )
+            }
+            .toList()
+        // References and excerpts are safely kept in Important, but are not
+        // unresolved work. They return to Today only when explicitly scheduled.
+        // A future show-again date also snoozes an action/list from this count.
+        val openTodoCount = openTodos.count {
+            it.kind in ACTIONABLE_KINDS && (it.resurfaceOn == null || !it.resurfaceOn.isAfter(today))
+        }
         val markedEntries = entries
             .asSequence()
             .filter { it.returnLater && !it.noteDate.isAfter(today) }
@@ -73,10 +101,13 @@ object StillOpenPolicy {
             }
             .toList()
 
-        if (openTodoCount == 0 && markedEntries.isEmpty()) return null
+        if (openTodoCount == 0 && markedEntries.isEmpty() && resurfacingItems.isEmpty()) return null
         return StillOpenContent(
             openTodoCount = openTodoCount,
             returnLaterItems = markedEntries,
+            resurfacingItems = resurfacingItems,
         )
     }
+
+    private val ACTIONABLE_KINDS = setOf(ImportantKind.ACTION, ImportantKind.LIST)
 }

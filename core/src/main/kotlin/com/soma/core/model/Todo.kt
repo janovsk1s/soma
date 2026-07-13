@@ -18,6 +18,8 @@ enum class ImportantKind {
     ACTION,
     LIST,
     EXCERPT,
+    /** A phone, booking, order, tracking, or other deliberate reference number. */
+    REFERENCE,
 }
 
 data class EntrySource(
@@ -41,6 +43,8 @@ data class Todo(
     val closedAt: Instant? = null,
     /** Non-null after the one quiet "keep / let go" prompt has been shown. */
     val stalePromptShownAt: Instant? = null,
+    /** Optional local day on which this item should be brought back to Today. */
+    val resurfaceOn: LocalDate? = null,
 ) {
     init {
         require(id.isNotBlank()) { "Todo id must not be blank" }
@@ -57,6 +61,7 @@ data class Todo(
         updatedAt = at,
         lastTouchedAt = at,
         closedAt = at,
+        resurfaceOn = null,
     )
 
     fun reopen(at: Instant): Todo = copy(
@@ -71,10 +76,23 @@ data class Todo(
         updatedAt = at,
         lastTouchedAt = at,
         closedAt = at,
+        resurfaceOn = null,
     )
 
     fun edit(newText: String, at: Instant): Todo = copy(
         text = newText.trim(),
+        updatedAt = at,
+        lastTouchedAt = at,
+    )
+
+    fun showAgainOn(date: LocalDate, at: Instant): Todo = copy(
+        resurfaceOn = date,
+        updatedAt = at,
+        lastTouchedAt = at,
+    )
+
+    fun clearShowAgain(at: Instant): Todo = copy(
+        resurfaceOn = null,
         updatedAt = at,
         lastTouchedAt = at,
     )
@@ -90,6 +108,7 @@ enum class TodoSuggestionReason {
     TRIGGER_PHRASE,
     IMPERATIVE,
     LIST_PATTERN,
+    REFERENCE_PATTERN,
     AI_EXTRACTED,
 }
 

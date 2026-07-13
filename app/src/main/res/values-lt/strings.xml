@@ -37,6 +37,7 @@
     <string name="microphone_permission_needed">Prieigos prie mikrofono reikia tik įrašant.</string>
     <string name="still_open">vis dar atvira</string>
     <string name="still_open_summary">svarbių: %1$d · grįžimo žymų: %2$d</string>
+    <string name="still_open_summary_scheduled">šiandien: %1$d · svarbių: %2$d · vėliau: %3$d</string>
     <string name="dismiss_today">paslėpti šiandienai</string>
     <string name="return_later">grįžti vėliau</string>
     <string name="returned">pašalinti grįžimo žymą</string>
@@ -51,6 +52,13 @@
     <string name="add_to_important">pridėti prie Svarbu</string>
     <string name="important_list">sąrašas</string>
     <string name="important_excerpt">ištrauka</string>
+    <string name="important_reference">nuoroda</string>
+    <string name="show_again">parodyti vėl</string>
+    <string name="show_again_date">vėl %1$s</string>
+    <string name="tomorrow_date">rytoj · %1$s</string>
+    <string name="in_one_week_date">po savaitės · %1$s</string>
+    <string name="in_one_month_date">po mėnesio · %1$s</string>
+    <string name="clear_show_again">pašalinti datą</string>
     <string name="add">pridėti</string>
     <string name="add_details">pridėti su informacija</string>
     <string name="mark_done">pažymėti kaip atliktą</string>

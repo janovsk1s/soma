@@ -47,6 +47,7 @@
     <string name="microphone_permission_needed">Microphone access is needed only while recording.</string>
     <string name="still_open">still open</string>
     <string name="still_open_summary">%1$d important · %2$d to return to</string>
+    <string name="still_open_summary_scheduled">%1$d for today · %2$d important · %3$d to return to</string>
     <string name="dismiss_today">dismiss today</string>
     <string name="return_later">return later</string>
     <string name="returned">remove return marker</string>
@@ -61,6 +62,13 @@
     <string name="add_to_important">add to Important</string>
     <string name="important_list">list</string>
     <string name="important_excerpt">excerpt</string>
+    <string name="important_reference">reference</string>
+    <string name="show_again">show again</string>
+    <string name="show_again_date">again %1$s</string>
+    <string name="tomorrow_date">tomorrow · %1$s</string>
+    <string name="in_one_week_date">in one week · %1$s</string>
+    <string name="in_one_month_date">in one month · %1$s</string>
+    <string name="clear_show_again">remove show-again date</string>
     <string name="add">add</string>
     <string name="add_details">add with details</string>
     <string name="mark_done">mark done</string>

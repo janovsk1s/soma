@@ -37,6 +37,7 @@
     <string name="microphone_permission_needed">Mikrofonin käyttöoikeutta tarvitaan vain nauhoituksen aikana.</string>
     <string name="still_open">yhä avoinna</string>
     <string name="still_open_summary">tärkeitä: %1$d · myöhemmäksi merkittyjä: %2$d</string>
+    <string name="still_open_summary_scheduled">tänään: %1$d · tärkeitä: %2$d · myöhemmäksi: %3$d</string>
     <string name="dismiss_today">piilota tältä päivältä</string>
     <string name="return_later">palaa myöhemmin</string>
     <string name="returned">poista paluumerkintä</string>
@@ -51,6 +52,13 @@
     <string name="add_to_important">lisää Tärkeisiin</string>
     <string name="important_list">lista</string>
     <string name="important_excerpt">ote</string>
+    <string name="important_reference">viite</string>
+    <string name="show_again">näytä uudelleen</string>
+    <string name="show_again_date">uudelleen %1$s</string>
+    <string name="tomorrow_date">huomenna · %1$s</string>
+    <string name="in_one_week_date">viikon kuluttua · %1$s</string>
+    <string name="in_one_month_date">kuukauden kuluttua · %1$s</string>
+    <string name="clear_show_again">poista päivämäärä</string>
     <string name="add">lisää</string>
     <string name="add_details">lisää tietojen kanssa</string>
     <string name="mark_done">merkitse tehdyksi</string>

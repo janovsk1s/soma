@@ -37,6 +37,7 @@
     <string name="microphone_permission_needed">Piekļuve mikrofonam ir vajadzīga tikai ierakstīšanas laikā.</string>
     <string name="still_open">vēl atvērts</string>
     <string name="still_open_summary">svarīgi: %1$d · pie kā atgriezties: %2$d</string>
+    <string name="still_open_summary_scheduled">šodien: %1$d · svarīgi: %2$d · vēlākam: %3$d</string>
     <string name="dismiss_today">šodien vairs nerādīt</string>
     <string name="return_later">atgriezties vēlāk</string>
     <string name="returned">noņemt atgriešanās atzīmi</string>
@@ -51,6 +52,13 @@
     <string name="add_to_important">pievienot Svarīgajam</string>
     <string name="important_list">saraksts</string>
     <string name="important_excerpt">fragments</string>
+    <string name="important_reference">atsauce</string>
+    <string name="show_again">parādīt atkal</string>
+    <string name="show_again_date">atkal %1$s</string>
+    <string name="tomorrow_date">rīt · %1$s</string>
+    <string name="in_one_week_date">pēc nedēļas · %1$s</string>
+    <string name="in_one_month_date">pēc mēneša · %1$s</string>
+    <string name="clear_show_again">noņemt datumu</string>
     <string name="add">pievienot</string>
     <string name="add_details">pievienot ar informāciju</string>
     <string name="mark_done">atzīmēt kā pabeigtu</string>

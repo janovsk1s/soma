@@ -170,6 +170,7 @@ class PortableBackupCodecTest {
                     updatedAt = START.plusSeconds(5),
                     kind = ImportantKind.EXCERPT,
                     source = EntrySource(DATE, TEXT_ENTRY.id),
+                    resurfaceOn = DATE.plusWeeks(1),
                 ),
                 Todo(
                     id = "todo-done",

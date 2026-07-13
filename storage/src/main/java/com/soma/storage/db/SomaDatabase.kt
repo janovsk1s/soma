@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         StillOpenDismissalEntity::class,
         TranscriptionJobEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class SomaDatabase : RoomDatabase() {
@@ -34,7 +34,7 @@ abstract class SomaDatabase : RoomDatabase() {
 
         fun build(context: Context, name: String = DEFAULT_DATABASE_NAME): SomaDatabase =
             Room.databaseBuilder(context.applicationContext, SomaDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
                 .build()
 
@@ -74,6 +74,12 @@ abstract class SomaDatabase : RoomDatabase() {
                 db.execSQL(
                     "ALTER TABLE todo_suggestions ADD COLUMN suggested_kind TEXT NOT NULL DEFAULT 'ACTION'",
                 )
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE todos ADD COLUMN resurface_epoch_day INTEGER")
             }
         }
     }

@@ -226,6 +226,7 @@ internal object BackupPayloadCodec {
         output.writeNullable(todo.closedAt) { target, value -> target.writeInstant(value) }
         output.writeNullable(todo.stalePromptShownAt) { target, value -> target.writeInstant(value) }
         output.writeEnum(todo.kind)
+        output.writeNullable(todo.resurfaceOn) { target, value -> target.writeLong(value.toEpochDay()) }
     }
 
     private fun readTodo(input: DataInput, payloadVersion: Int): Todo {
@@ -239,6 +240,11 @@ internal object BackupPayloadCodec {
         val closedAt = input.readNullable { it.readInstant() }
         val stalePromptShownAt = input.readNullable { it.readInstant() }
         val kind = if (payloadVersion >= 5) input.readEnum<ImportantKind>() else ImportantKind.ACTION
+        val resurfaceOn = if (payloadVersion >= 6) {
+            input.readNullable { LocalDate.ofEpochDay(it.readLong()) }
+        } else {
+            null
+        }
         return Todo(
             id = id,
             text = text,
@@ -250,6 +256,7 @@ internal object BackupPayloadCodec {
             source = source,
             closedAt = closedAt,
             stalePromptShownAt = stalePromptShownAt,
+            resurfaceOn = resurfaceOn,
         )
     }
 

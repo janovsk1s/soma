@@ -14,6 +14,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -121,6 +122,40 @@ class SomaDatabaseTest {
             ).use { cursor ->
                 cursor.moveToFirst()
                 assertEquals(ImportantKindValue.ACTION, cursor.getString(0))
+            }
+        } finally {
+            helper.close()
+            context.deleteDatabase(databaseName)
+        }
+    }
+
+    @Test
+    fun `schema four migration adds an empty show again date`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val databaseName = "soma-migration-${System.nanoTime()}.db"
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(databaseName)
+                .callback(
+                    object : SupportSQLiteOpenHelper.Callback(4) {
+                        override fun onCreate(db: SupportSQLiteDatabase) {
+                            db.execSQL("CREATE TABLE todos (id TEXT NOT NULL PRIMARY KEY)")
+                        }
+
+                        override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+                    },
+                )
+                .build(),
+        )
+        try {
+            val sqlite = helper.writableDatabase
+            sqlite.execSQL("INSERT INTO todos (id) VALUES ('existing-todo')")
+
+            SomaDatabase.MIGRATION_4_5.migrate(sqlite)
+
+            sqlite.query("SELECT resurface_epoch_day FROM todos WHERE id = 'existing-todo'").use { cursor ->
+                cursor.moveToFirst()
+                assertTrue(cursor.isNull(0))
             }
         } finally {
             helper.close()

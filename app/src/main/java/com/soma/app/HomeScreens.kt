@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.drawBehind
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.NoteEntry
+import com.soma.core.model.Todo
 import com.soma.core.model.TranscriptionEngine
 import com.soma.core.model.TranscriptionFallbackReason
 import com.soma.core.model.TranscriptionProvenance
@@ -61,6 +62,7 @@ import java.time.format.FormatStyle
 fun HomeScreen(
     viewModel: SomaViewModel,
     onTodos: () -> Unit,
+    onResurfacedImportant: (Todo) -> Unit,
     onSettings: () -> Unit,
     onCalendar: () -> Unit,
     onCapture: () -> Unit,
@@ -111,11 +113,17 @@ fun HomeScreen(
                 StillOpenBlock(
                     openCount = stillOpen.openTodoCount,
                     returnCount = stillOpen.returnLaterItems.size,
+                    resurfacingCount = stillOpen.resurfacingItems.size,
                     onOpen = {
                         val target = stillOpen.defaultTarget
+                        val important = (target as? StillOpenTarget.Important)
+                            ?.let { open -> openTodos.firstOrNull { it.id == open.todoId } }
                         val entry = (target as? StillOpenTarget.Entry)
                             ?.let { open -> returnLater.firstOrNull { it.id == open.entryId } }
-                        if (entry != null) {
+                        if (important != null) {
+                            viewModel.acknowledgeResurfacedTodo(important)
+                            onResurfacedImportant(important)
+                        } else if (entry != null) {
                             viewModel.showDay(entry.noteDate)
                             onReadEntry(entry)
                         } else {
@@ -249,6 +257,7 @@ private fun HomeHeader(
 private fun StillOpenBlock(
     openCount: Int,
     returnCount: Int,
+    resurfacingCount: Int,
     onOpen: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -259,7 +268,11 @@ private fun StillOpenBlock(
         Column(modifier = Modifier.weight(1f).then(tapModifier(onOpen, "still open"))) {
             Text(stringResource(R.string.still_open), color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Normal)
             Text(
-                stringResource(R.string.still_open_summary, openCount, returnCount),
+                if (resurfacingCount > 0) {
+                    stringResource(R.string.still_open_summary_scheduled, resurfacingCount, openCount, returnCount)
+                } else {
+                    stringResource(R.string.still_open_summary, openCount, returnCount)
+                },
                 color = DimInk,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Light,

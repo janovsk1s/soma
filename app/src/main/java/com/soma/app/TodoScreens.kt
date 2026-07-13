@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.soma.core.model.ImportantKind
 import com.soma.core.model.Todo
 import com.soma.core.model.TodoState
-import java.time.ZoneId
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
@@ -167,7 +167,9 @@ private fun TodoRow(
     Column(
         modifier = Modifier.fillMaxSize().then(
             tapLongModifier(
-                if (todo.kind == ImportantKind.EXCERPT) onSource else onToggle,
+                if (todo.kind in SOURCE_KINDS && todo.source != null) onSource
+                else if (todo.kind in ACTIONABLE_KINDS) onToggle
+                else onOptions,
                 onOptions,
                 "important item",
             ),
@@ -189,6 +191,7 @@ private fun TodoRow(
                     todo.state != TodoState.OPEN -> "✓"
                     todo.kind == ImportantKind.ACTION -> "○"
                     todo.kind == ImportantKind.LIST -> "≡"
+                    todo.kind == ImportantKind.REFERENCE -> "#"
                     else -> "↗"
                 },
                 color = DimInk,
@@ -200,7 +203,11 @@ private fun TodoRow(
             if (todo.kind != ImportantKind.ACTION) {
                 Text(
                     stringResource(
-                        if (todo.kind == ImportantKind.LIST) R.string.important_list else R.string.important_excerpt,
+                        when (todo.kind) {
+                            ImportantKind.LIST -> R.string.important_list
+                            ImportantKind.REFERENCE -> R.string.important_reference
+                            else -> R.string.important_excerpt
+                        },
                     ),
                     color = DimInk,
                     fontSize = 12.sp,
@@ -214,6 +221,16 @@ private fun TodoRow(
                     modifier = Modifier.then(tapModifier(onSource, "source note")),
                 )
             }
+            todo.resurfaceOn?.let { date ->
+                Text(
+                    stringResource(
+                        R.string.show_again_date,
+                        date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT)),
+                    ),
+                    color = DimInk,
+                    fontSize = 12.sp,
+                )
+            }
             if (stalePrompt) {
                 Text(stringResource(R.string.keep), color = DimInk, fontSize = 14.sp, modifier = Modifier.then(tapModifier(onKeep, "keep")))
                 Text(stringResource(R.string.let_go), color = DimInk, fontSize = 14.sp, modifier = Modifier.then(tapModifier(onLetGo, "let go")))
@@ -222,12 +239,13 @@ private fun TodoRow(
     }
 }
 
-private enum class TodoAction { EDIT, TOGGLE, LET_GO }
+private enum class TodoAction { EDIT, RESURFACE, TOGGLE, LET_GO }
 
 @Composable
 fun TodoOptionsScreen(
     todo: Todo,
     onEdit: () -> Unit,
+    onResurface: () -> Unit,
     onToggle: () -> Unit,
     onLetGo: () -> Unit,
     onBack: () -> Unit,
@@ -235,7 +253,8 @@ fun TodoOptionsScreen(
     BackHandler(onBack = onBack)
     val actions = buildList {
         add(TodoAction.EDIT)
-        if (todo.kind != ImportantKind.EXCERPT) add(TodoAction.TOGGLE)
+        if (todo.state == TodoState.OPEN) add(TodoAction.RESURFACE)
+        if (todo.kind in ACTIONABLE_KINDS) add(TodoAction.TOGGLE)
         add(TodoAction.LET_GO)
     }
     Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding().padding(horizontal = 28.dp)) {
@@ -245,11 +264,13 @@ fun TodoOptionsScreen(
                 SettingsItem(
                     label = when (action) {
                         TodoAction.EDIT -> stringResource(R.string.edit)
+                        TodoAction.RESURFACE -> stringResource(R.string.show_again)
                         TodoAction.TOGGLE -> stringResource(if (todo.state == TodoState.OPEN) R.string.mark_done else R.string.mark_open)
                         TodoAction.LET_GO -> stringResource(R.string.let_go)
                     },
                     onClick = when (action) {
                         TodoAction.EDIT -> onEdit
+                        TodoAction.RESURFACE -> onResurface
                         TodoAction.TOGGLE -> onToggle
                         TodoAction.LET_GO -> onLetGo
                     },
@@ -258,3 +279,51 @@ fun TodoOptionsScreen(
         }
     }
 }
+
+private enum class ResurfaceChoice { TOMORROW, WEEK, MONTH, CLEAR }
+
+/**
+ * Deliberately small preset set: useful postponement without turning Important
+ * into another calendar or due-date manager.
+ */
+@Composable
+fun TodoResurfaceScreen(
+    todo: Todo,
+    today: LocalDate,
+    onSelect: (LocalDate?) -> Unit,
+    onBack: () -> Unit,
+) {
+    BackHandler(onBack = onBack)
+    val choices = buildList {
+        add(ResurfaceChoice.TOMORROW)
+        add(ResurfaceChoice.WEEK)
+        add(ResurfaceChoice.MONTH)
+        if (todo.resurfaceOn != null) add(ResurfaceChoice.CLEAR)
+    }
+    val format = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
+    Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding().padding(horizontal = 28.dp)) {
+        SimpleTopBar(stringResource(R.string.show_again), onBack)
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            PagedList(choices) { choice ->
+                val date = when (choice) {
+                    ResurfaceChoice.TOMORROW -> today.plusDays(1)
+                    ResurfaceChoice.WEEK -> today.plusWeeks(1)
+                    ResurfaceChoice.MONTH -> today.plusMonths(1)
+                    ResurfaceChoice.CLEAR -> null
+                }
+                SettingsItem(
+                    label = when (choice) {
+                        ResurfaceChoice.TOMORROW -> stringResource(R.string.tomorrow_date, date!!.format(format))
+                        ResurfaceChoice.WEEK -> stringResource(R.string.in_one_week_date, date!!.format(format))
+                        ResurfaceChoice.MONTH -> stringResource(R.string.in_one_month_date, date!!.format(format))
+                        ResurfaceChoice.CLEAR -> stringResource(R.string.clear_show_again)
+                    },
+                    onClick = { onSelect(date) },
+                )
+            }
+        }
+    }
+}
+
+private val ACTIONABLE_KINDS = setOf(ImportantKind.ACTION, ImportantKind.LIST)
+private val SOURCE_KINDS = setOf(ImportantKind.EXCERPT, ImportantKind.REFERENCE)

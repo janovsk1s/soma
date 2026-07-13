@@ -36,8 +36,10 @@ cloud API keys only when explicitly enabled in Developer settings.
 - Lets the user open an entry, select an exact word or phrase with Android's
   native handles, and copy it into Important without moving or changing the
   original note. The copied excerpt keeps its source link.
-- Keeps one flat, oldest-first Important section for actions, lists, and saved
-  excerpts. After 30 untouched days, one
+- Keeps one flat, oldest-first Important section for actions, lists, saved
+  excerpts, and locally detected phone/reference numbers. Grocery and ingredient
+  headings or bullet points stay grouped as one list. Any Important item can be
+  asked to return tomorrow, in one week, or in one month. After 30 untouched days, one
   quiet “keep / let go” choice appears when the item is viewed.
 - Starts each day with an optional, dismissible summary of current Important items and notes
   explicitly marked for return.

@@ -166,6 +166,58 @@ class RuleBasedTodoDetectorTest {
     }
 
     @Test
+    fun `spoken grocery heading without punctuation remains one list`() {
+        val candidate = detector.detect(
+            "Grocery list milk, rice, bananas",
+            SupportedLanguage.ENGLISH,
+        ).single()
+
+        assertEquals(ImportantKind.LIST, candidate.kind)
+        assertEquals(listOf("milk", "rice", "bananas"), candidate.suggestedText.lines())
+    }
+
+    @Test
+    fun `phone numbers and deliberate number sequences become references`() {
+        val candidates = detector.detect(
+            "Call Anna on +371 20 001 234. Locker number 83910427.",
+            SupportedLanguage.ENGLISH,
+        )
+
+        assertEquals(
+            listOf("+371 20 001 234", "83910427"),
+            candidates.filter { it.kind == ImportantKind.REFERENCE }.map { it.suggestedText },
+        )
+        assertTrue(candidates.filter { it.kind == ImportantKind.REFERENCE }.all {
+            it.reason == TodoSuggestionReason.REFERENCE_PATTERN
+        })
+    }
+
+    @Test
+    fun `labelled reference codes are recognized in every supported language`() {
+        val examples = mapOf(
+            SupportedLanguage.ENGLISH to "Booking code H7K2P9",
+            SupportedLanguage.LATVIAN to "Rezervācijas kods H7K2P9",
+            SupportedLanguage.ESTONIAN to "Broneeringukood H7K2P9",
+            SupportedLanguage.LITHUANIAN to "Rezervacijos kodas H7K2P9",
+            SupportedLanguage.FINNISH to "Varauskoodi H7K2P9",
+            SupportedLanguage.SWEDISH to "Bokningskod H7K2P9",
+            SupportedLanguage.GERMAN to "Buchungscode H7K2P9",
+            SupportedLanguage.SLOVAK to "Rezervačný kód H7K2P9",
+        )
+
+        examples.forEach { (language, text) ->
+            val candidate = detector.detect(text, language).single()
+            assertEquals("Expected a reference for $language", ImportantKind.REFERENCE, candidate.kind)
+            assertEquals(TodoSuggestionReason.REFERENCE_PATTERN, candidate.reason)
+        }
+    }
+
+    @Test
+    fun `calendar dates do not become number references`() {
+        assertTrue(detector.detect("2026-07-14", SupportedLanguage.ENGLISH).isEmpty())
+    }
+
+    @Test
     fun `two bullet lines become one bounded list`() {
         val candidate = detector.detect("- milk\n- rice\n- bananas", SupportedLanguage.ENGLISH).single()
 

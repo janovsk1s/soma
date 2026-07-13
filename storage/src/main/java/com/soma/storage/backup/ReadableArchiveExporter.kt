@@ -117,7 +117,7 @@ class ReadableArchiveExporter {
     }
 
     private fun todosCsv(snapshot: BackupSnapshot): String = buildString {
-        appendLine("id,text,kind,state,created_at,updated_at,closed_at,source_date,source_entry_id")
+        appendLine("id,text,kind,state,created_at,updated_at,closed_at,show_again_on,source_date,source_entry_id")
         snapshot.todos.sortedBy { it.createdAt }.forEach { todo ->
             appendLine(
                 listOf(
@@ -128,6 +128,7 @@ class ReadableArchiveExporter {
                     todo.createdAt.toString(),
                     todo.updatedAt.toString(),
                     todo.closedAt?.toString().orEmpty(),
+                    todo.resurfaceOn?.toString().orEmpty(),
                     todo.source?.noteDate?.toString().orEmpty(),
                     todo.source?.entryId.orEmpty(),
                 ).joinToString(",", transform = ::csv),
@@ -306,7 +307,7 @@ class ReadableArchiveExporter {
     }
 
     private companion object {
-        const val READABLE_FORMAT_VERSION = 4
+        const val READABLE_FORMAT_VERSION = 5
         val TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss 'UTC'").withZone(ZoneOffset.UTC)
     }
 }

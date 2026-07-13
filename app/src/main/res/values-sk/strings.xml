@@ -37,6 +37,7 @@
     <string name="microphone_permission_needed">Prístup k mikrofónu je potrebný iba počas nahrávania.</string>
     <string name="still_open">stále otvorené</string>
     <string name="still_open_summary">dôležité: %1$d · označené na neskôr: %2$d</string>
+    <string name="still_open_summary_scheduled">dnes: %1$d · dôležité: %2$d · na neskôr: %3$d</string>
     <string name="dismiss_today">dnes skryť</string>
     <string name="return_later">vrátiť sa neskôr</string>
     <string name="returned">odstrániť značku návratu</string>
@@ -51,6 +52,13 @@
     <string name="add_to_important">pridať do Dôležitých</string>
     <string name="important_list">zoznam</string>
     <string name="important_excerpt">výňatok</string>
+    <string name="important_reference">referencia</string>
+    <string name="show_again">zobraziť znova</string>
+    <string name="show_again_date">znova %1$s</string>
+    <string name="tomorrow_date">zajtra · %1$s</string>
+    <string name="in_one_week_date">o týždeň · %1$s</string>
+    <string name="in_one_month_date">o mesiac · %1$s</string>
+    <string name="clear_show_again">odstrániť dátum</string>
     <string name="add">pridať</string>
     <string name="add_details">pridať s podrobnosťami</string>
     <string name="mark_done">označiť ako hotovú</string>

@@ -149,6 +149,7 @@ internal class EntityMapper(
         kind = todo.kind.name,
         completedAtMillis = todo.closedAt?.toEpochMilli(),
         reviewPromptedAtMillis = todo.stalePromptShownAt?.toEpochMilli(),
+        resurfaceEpochDay = todo.resurfaceOn?.toEpochDay(),
     )
 
     fun todoFromEntity(entity: TodoEntity): Todo = Todo(
@@ -166,6 +167,7 @@ internal class EntityMapper(
         },
         closedAt = entity.completedAtMillis?.let(Instant::ofEpochMilli),
         stalePromptShownAt = entity.reviewPromptedAtMillis?.let(Instant::ofEpochMilli),
+        resurfaceOn = entity.resurfaceEpochDay?.let(LocalDate::ofEpochDay),
     )
 
     fun suggestionToEntity(suggestion: TodoSuggestion): TodoSuggestionEntity = TodoSuggestionEntity(

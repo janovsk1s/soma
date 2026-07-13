@@ -37,6 +37,7 @@
     <string name="microphone_permission_needed">Mikrofonåtkomst behövs bara under inspelning.</string>
     <string name="still_open">fortfarande öppet</string>
     <string name="still_open_summary">viktiga: %1$d · markerade för senare: %2$d</string>
+    <string name="still_open_summary_scheduled">i dag: %1$d · viktiga: %2$d · till senare: %3$d</string>
     <string name="dismiss_today">dölj i dag</string>
     <string name="return_later">återvänd senare</string>
     <string name="returned">ta bort återvändningsmarkering</string>
@@ -51,6 +52,13 @@
     <string name="add_to_important">lägg till i Viktigt</string>
     <string name="important_list">lista</string>
     <string name="important_excerpt">utdrag</string>
+    <string name="important_reference">referens</string>
+    <string name="show_again">visa igen</string>
+    <string name="show_again_date">igen %1$s</string>
+    <string name="tomorrow_date">i morgon · %1$s</string>
+    <string name="in_one_week_date">om en vecka · %1$s</string>
+    <string name="in_one_month_date">om en månad · %1$s</string>
+    <string name="clear_show_again">ta bort datum</string>
     <string name="add">lägg till</string>
     <string name="add_details">lägg till med detaljer</string>
     <string name="mark_done">markera som klar</string>

@@ -3,6 +3,7 @@ package com.soma.core.policy
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.Todo
+import com.soma.core.model.ImportantKind
 import java.time.Instant
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
@@ -82,6 +83,50 @@ class StillOpenPolicyTest {
             StillOpenTarget.Entry("first", today.minusDays(3)),
             content.defaultTarget,
         )
+    }
+
+    @Test
+    fun `future show again date snoozes an actionable item`() {
+        val content = StillOpenPolicy.content(
+            today = today,
+            todos = listOf(todo("later").copy(resurfaceOn = today.plusWeeks(1))),
+            entries = emptyList(),
+            dismissal = null,
+        )
+
+        assertNull(content)
+    }
+
+    @Test
+    fun `due reference returns once and becomes the default target`() {
+        val content = StillOpenPolicy.content(
+            today = today,
+            todos = listOf(
+                todo("reference").copy(
+                    text = "Booking code H7K2P9",
+                    kind = ImportantKind.REFERENCE,
+                    resurfaceOn = today.minusDays(1),
+                ),
+            ),
+            entries = emptyList(),
+            dismissal = null,
+        )!!
+
+        assertEquals(0, content.openTodoCount)
+        assertEquals(listOf("reference"), content.resurfacingItems.map { it.todoId })
+        assertEquals(StillOpenTarget.Important("reference"), content.defaultTarget)
+    }
+
+    @Test
+    fun `unscheduled references stay safely in Important without becoming open work`() {
+        val content = StillOpenPolicy.content(
+            today = today,
+            todos = listOf(todo("reference").copy(kind = ImportantKind.REFERENCE)),
+            entries = emptyList(),
+            dismissal = null,
+        )
+
+        assertNull(content)
     }
 
     private fun todo(id: String): Todo = Todo(

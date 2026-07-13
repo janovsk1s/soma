@@ -2,6 +2,26 @@
 
 Notable changes to Soma are documented here.
 
+## 0.1.0-preview.14 — 2026-07-14
+
+### Added
+
+- Important recognizes phone numbers, deliberate 7–15 digit sequences, and
+  labelled booking, confirmation, order, tracking, and reference codes locally
+  in all eight supported languages.
+- Long-press any current Important item to show it again tomorrow, in one week,
+  or in one month. Due items return even if Soma was not opened on their exact day.
+
+### Changed
+
+- Grocery lists, ingredient lists, bullet lists, and spoken list headings stay
+  grouped as one Important list instead of becoming unrelated suggestions.
+- References and excerpts remain safely available in Important without being
+  treated as unfinished work every morning. Explicitly scheduled ones still
+  return through Today.
+- Database schema 5, encrypted backup payload 6, and readable archive format 5
+  preserve the show-again date; the human-readable CSV exposes it directly.
+
 ## 0.1.0-preview.13 — 2026-07-14
 
 ### Added

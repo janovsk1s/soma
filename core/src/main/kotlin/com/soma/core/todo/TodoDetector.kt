@@ -21,6 +21,8 @@ data class TodoLanguageRules(
     val imperativeStarts: Set<String>,
     /** Explicit headings that make a group of lines or comma-separated values a list. */
     val listHeadings: Set<String> = emptySet(),
+    /** Labels that deliberately introduce a booking, order, tracking, or similar code. */
+    val referenceLabels: Set<String> = emptySet(),
 )
 
 fun interface TodoDetector {
@@ -37,9 +39,14 @@ class RuleBasedTodoDetector(
     override fun detect(text: String, language: SupportedLanguage): List<TodoCandidate> {
         val languageRules = rules[language] ?: return emptyList()
         detectList(text, language, languageRules)?.let { return listOf(it) }
-        return sentences(text).asSequence().mapNotNull { sentence ->
+        val references = detectReferences(text, language, languageRules)
+        val actions = sentences(text).asSequence().mapNotNull { sentence ->
             detectSentence(sentence, language, languageRules)
-        }.take(MAX_CANDIDATES).toList()
+        }
+        return (references.asSequence() + actions)
+            .distinctBy { it.kind to it.suggestedText }
+            .take(MAX_CANDIDATES)
+            .toList()
     }
 
     /**
@@ -55,12 +62,78 @@ class RuleBasedTodoDetector(
         orderedLanguages.firstNotNullOfOrNull { language ->
             rules[language]?.let { detectList(text, language, it) }
         }?.let { return listOf(it) }
-        return sentences(text).asSequence().mapNotNull { sentence ->
+        val references = orderedLanguages.asSequence().flatMap { language ->
+            rules[language]?.let { detectReferences(text, language, it).asSequence() } ?: emptySequence()
+        }
+        val actions = sentences(text).asSequence().mapNotNull { sentence ->
             orderedLanguages.firstNotNullOfOrNull { language ->
                 rules[language]?.let { detectSentence(sentence, language, it) }
             }
-        }.take(MAX_CANDIDATES).toList()
+        }
+        return (references + actions)
+            .distinctBy { it.kind to it.suggestedText }
+            .take(MAX_CANDIDATES)
+            .toList()
     }
+
+    private fun detectReferences(
+        text: String,
+        language: SupportedLanguage,
+        languageRules: TodoLanguageRules,
+    ): List<TodoCandidate> {
+        val bounded = text.take(MAX_INPUT_CHARS)
+        // Evaluate longer labels first ("booking code" before "code"), then
+        // suppress overlapping matches so every source range yields one suggestion.
+        val labelledCodes = mutableListOf<Pair<IntRange, TodoCandidate>>()
+        languageRules.referenceLabels.asSequence()
+            .map(::normalizeForMatching)
+            .sortedByDescending(String::length)
+            .forEach { label ->
+                Regex(
+                    pattern = "(?iu)(?<![\\p{L}\\p{N}])${Regex.escape(label)}\\s*(?:[:#-]\\s*)?" +
+                        "([\\p{L}\\p{N}][\\p{L}\\p{N}-]{3,31})(?![\\p{L}\\p{N}])",
+                ).findAll(bounded).forEach { match ->
+                    val code = match.groupValues[1]
+                    if (code.any(Char::isDigit) && labelledCodes.none { rangesOverlap(it.first, match.range) }) {
+                        labelledCodes += match.range to referenceCandidate(match.value.trim(), language, label)
+                    }
+                }
+            }
+        val phoneNumbers = PHONE_NUMBER.findAll(bounded).mapNotNull { match ->
+            val value = match.value.trim()
+            val digits = value.count(Char::isDigit)
+            if (
+                digits !in MIN_REFERENCE_DIGITS..MAX_PHONE_DIGITS ||
+                DATE_LIKE.matches(value) ||
+                labelledCodes.any { rangesOverlap(it.first, match.range) }
+            ) {
+                null
+            } else {
+                match.range to referenceCandidate(value, language, "phone-number")
+            }
+        }
+        return (labelledCodes.asSequence() + phoneNumbers)
+            .sortedBy { it.first.first }
+            .map { it.second }
+            .distinctBy { normalizeForMatching(it.suggestedText) }
+            .take(MAX_REFERENCE_CANDIDATES)
+            .toList()
+    }
+
+    private fun rangesOverlap(first: IntRange, second: IntRange): Boolean =
+        first.first <= second.last && second.first <= first.last
+
+    private fun referenceCandidate(
+        text: String,
+        language: SupportedLanguage,
+        matchedRule: String,
+    ) = TodoCandidate(
+        suggestedText = text,
+        kind = ImportantKind.REFERENCE,
+        language = language,
+        reason = TodoSuggestionReason.REFERENCE_PATTERN,
+        matchedRule = matchedRule,
+    )
 
     private fun detectList(
         text: String,
@@ -83,7 +156,7 @@ class RuleBasedTodoDetector(
             .sortedByDescending(String::length)
             .firstNotNullOfOrNull { candidate ->
                 val match = Regex(
-                    "(?i)(?:^|\\R)\\s*${Regex.escape(candidate)}\\s*[:\\-]\\s*",
+                    "(?i)(?:^|\\R)\\s*${Regex.escape(candidate)}(?:\\s*[:\\-]\\s*|\\s+)",
                 ).find(bounded)
                 match?.let { candidate to bounded.substring(it.range.last + 1) }
             } ?: return null
@@ -171,8 +244,15 @@ class RuleBasedTodoDetector(
         val LEADING_LIST_MARKER = Regex("^(?:[-*•]|\\d+[.)])\\s+")
         val LIST_ITEM_SEPARATOR = Regex("\\R+|[,;]")
         val WHITESPACE = Regex("\\s+")
+        val PHONE_NUMBER = Regex(
+            "(?<![\\p{L}\\p{N}])\\+?(?:\\d[\\s().-]?){6,}\\d(?![\\p{L}\\p{N}])",
+        )
+        val DATE_LIKE = Regex("\\d{4}[-/.]\\d{1,2}[-/.]\\d{1,2}")
         const val MIN_LIST_ITEMS = 2
+        const val MIN_REFERENCE_DIGITS = 7
+        const val MAX_PHONE_DIGITS = 15
         const val MAX_LIST_ITEMS = 50
+        const val MAX_REFERENCE_CANDIDATES = 10
         const val MAX_CANDIDATES = 20
         const val MAX_INPUT_CHARS = 50_000
     }
@@ -215,7 +295,11 @@ object DefaultTodoRules {
                 "take",
                 "write",
             ),
-            listHeadings = setOf("grocery list", "shopping list", "groceries"),
+            listHeadings = setOf("grocery list", "shopping list", "groceries", "ingredients"),
+            referenceLabels = setOf(
+                "booking code", "booking number", "confirmation code", "order number",
+                "reference number", "tracking number", "reference", "code",
+            ),
         ),
         SupportedLanguage.LATVIAN to TodoLanguageRules(
             triggerPhrases = setOf(
@@ -240,7 +324,11 @@ object DefaultTodoRules {
                 "samaksā",
                 "uzraksti",
             ),
-            listHeadings = setOf("iepirkumu saraksts", "pirkumu saraksts", "pirkumi"),
+            listHeadings = setOf("iepirkumu saraksts", "pirkumu saraksts", "pirkumi", "sastāvdaļas"),
+            referenceLabels = setOf(
+                "rezervācijas kods", "rezervācijas numurs", "apstiprinājuma kods",
+                "pasūtījuma numurs", "atsauces numurs", "izsekošanas numurs", "kods",
+            ),
         ),
         SupportedLanguage.ESTONIAN to TodoLanguageRules(
             triggerPhrases = setOf(
@@ -266,7 +354,11 @@ object DefaultTodoRules {
                 "vii",
                 "võta",
             ),
-            listHeadings = setOf("ostunimekiri", "poenimekiri", "ostud"),
+            listHeadings = setOf("ostunimekiri", "poenimekiri", "ostud", "koostisosad"),
+            referenceLabels = setOf(
+                "broneeringukood", "broneeringu number", "kinnituskood", "tellimuse number",
+                "viitenumber", "jälgimisnumber", "kood",
+            ),
         ),
         SupportedLanguage.LITHUANIAN to TodoLanguageRules(
             triggerPhrases = setOf(
@@ -292,7 +384,11 @@ object DefaultTodoRules {
                 "rezervuok",
                 "sumokėk",
             ),
-            listHeadings = setOf("pirkinių sąrašas", "pirkiniai"),
+            listHeadings = setOf("pirkinių sąrašas", "pirkiniai", "ingredientai"),
+            referenceLabels = setOf(
+                "rezervacijos kodas", "rezervacijos numeris", "patvirtinimo kodas",
+                "užsakymo numeris", "nuorodos numeris", "sekimo numeris", "kodas",
+            ),
         ),
         SupportedLanguage.FINNISH to TodoLanguageRules(
             triggerPhrases = setOf(
@@ -317,7 +413,11 @@ object DefaultTodoRules {
                 "varaa",
                 "vie",
             ),
-            listHeadings = setOf("ostoslista", "kauppalista", "ostokset"),
+            listHeadings = setOf("ostoslista", "kauppalista", "ostokset", "ainesosat"),
+            referenceLabels = setOf(
+                "varauskoodi", "varausnumero", "vahvistuskoodi", "tilausnumero",
+                "viitenumero", "seurantanumero", "koodi",
+            ),
         ),
         SupportedLanguage.SWEDISH to TodoLanguageRules(
             triggerPhrases = setOf(
@@ -342,7 +442,11 @@ object DefaultTodoRules {
                 "skriv",
                 "ta",
             ),
-            listHeadings = setOf("inköpslista", "handlingslista", "inköp"),
+            listHeadings = setOf("inköpslista", "handlingslista", "inköp", "ingredienser"),
+            referenceLabels = setOf(
+                "bokningskod", "bokningsnummer", "bekräftelsekod", "ordernummer",
+                "referensnummer", "spårningsnummer", "kod",
+            ),
         ),
         SupportedLanguage.GERMAN to TodoLanguageRules(
             triggerPhrases = setOf(
@@ -373,7 +477,11 @@ object DefaultTodoRules {
                 "schick",
                 "schreibe",
             ),
-            listHeadings = setOf("einkaufsliste", "einkäufe"),
+            listHeadings = setOf("einkaufsliste", "einkäufe", "zutaten"),
+            referenceLabels = setOf(
+                "buchungscode", "buchungsnummer", "bestätigungscode", "bestellnummer",
+                "referenznummer", "sendungsnummer", "code",
+            ),
         ),
         SupportedLanguage.SLOVAK to TodoLanguageRules(
             triggerPhrases = setOf(
@@ -401,7 +509,11 @@ object DefaultTodoRules {
                 "zaplať",
                 "zavolaj",
             ),
-            listHeadings = setOf("nákupný zoznam", "nákupy"),
+            listHeadings = setOf("nákupný zoznam", "nákupy", "ingrediencie"),
+            referenceLabels = setOf(
+                "rezervačný kód", "číslo rezervácie", "potvrdzovací kód", "číslo objednávky",
+                "referenčné číslo", "sledovacie číslo", "kód",
+            ),
         ),
     )
 }

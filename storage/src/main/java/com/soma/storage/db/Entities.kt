@@ -123,6 +123,7 @@ data class TodoEntity(
     @ColumnInfo(name = "kind", defaultValue = "'ACTION'") val kind: String = ImportantKindValue.ACTION,
     @ColumnInfo(name = "completed_at_millis") val completedAtMillis: Long?,
     @ColumnInfo(name = "review_prompted_at_millis") val reviewPromptedAtMillis: Long?,
+    @ColumnInfo(name = "resurface_epoch_day") val resurfaceEpochDay: Long? = null,
 )
 
 @Entity(

@@ -443,9 +443,34 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun showTodoAgain(todo: Todo, date: LocalDate?, onSaved: (Boolean) -> Unit = {}) {
+        if (date != null && !date.isAfter(today())) {
+            onSaved(false)
+            return
+        }
+        viewModelScope.launch {
+            val now = clock.instant()
+            val updated = if (date == null) todo.clearShowAgain(now) else todo.showAgainOn(date, now)
+            val saved = runCatching { repositories.todos.update(updated) }.getOrDefault(false)
+            onSaved(saved)
+        }
+    }
+
+    /** Consumes a one-shot resurfacing when its item is deliberately opened. */
+    fun acknowledgeResurfacedTodo(todo: Todo) {
+        if (todo.resurfaceOn == null) return
+        viewModelScope.launch {
+            repositories.todos.update(todo.clearShowAgain(clock.instant()))
+        }
+    }
+
     fun dismissStillOpen() {
         viewModelScope.launch {
-            repositories.stillOpen.dismiss(StillOpenDismissal(today(), clock.instant()))
+            val now = clock.instant()
+            openTodos.value
+                .filter { it.resurfaceOn?.isAfter(today()) == false }
+                .forEach { repositories.todos.update(it.clearShowAgain(now)) }
+            repositories.stillOpen.dismiss(StillOpenDismissal(today(), now))
         }
     }
 

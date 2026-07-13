@@ -151,6 +151,7 @@ private sealed interface AppRoute {
     data class SelectImportant(val entry: NoteEntry, val fromTodos: Boolean = false) : AppRoute
     data class TodoOptions(val todo: Todo) : AppRoute
     data class EditTodo(val todo: Todo) : AppRoute
+    data class ResurfaceTodo(val todo: Todo) : AppRoute
 }
 
 @Composable
@@ -192,6 +193,7 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
                 viewModel.stopRecording()
                 route = AppRoute.Todos
             },
+            onResurfacedImportant = { route = AppRoute.TodoOptions(it) },
             onSettings = {
                 viewModel.stopRecording()
                 route = AppRoute.Settings
@@ -454,6 +456,7 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
         is AppRoute.TodoOptions -> TodoOptionsScreen(
             todo = current.todo,
             onEdit = { route = AppRoute.EditTodo(current.todo) },
+            onResurface = { route = AppRoute.ResurfaceTodo(current.todo) },
             onToggle = {
                 viewModel.toggleTodo(current.todo)
                 route = AppRoute.Todos
@@ -463,6 +466,16 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
                 route = AppRoute.Todos
             },
             onBack = { route = AppRoute.Todos },
+        )
+        is AppRoute.ResurfaceTodo -> TodoResurfaceScreen(
+            todo = current.todo,
+            today = viewModel.today(),
+            onSelect = { date ->
+                viewModel.showTodoAgain(current.todo, date) { saved ->
+                    if (saved) route = AppRoute.Todos
+                }
+            },
+            onBack = { route = AppRoute.TodoOptions(current.todo) },
         )
         is AppRoute.EditTodo -> {
             var saving by remember(current.todo.id) { mutableStateOf(false) }
