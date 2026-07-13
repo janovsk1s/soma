@@ -139,7 +139,7 @@
     <string name="developer_key_storage">Avain salataan Android Keystorella eikä sitä viedä. Tyhjän arvon tallentaminen poistaa avaimen.</string>
     <string name="developer_key_saved">tallennettu</string>
     <string name="developer_key_missing">puuttuu</string>
-    <string name="developer_cloud_privacy">Oletuksena pois. Pilvilitterointi lähettää äänen valitulle palvelulle. ElevenLabs on Soman kielille tarkkuuspainotteinen oletus. Tekoälyn tehtäväehdotukset lähettävät Groqille vain uuden tai muokatun merkinnän. Pienempää säilytystä varten ota Zero Data Retention käyttöön Groqissa; ElevenLabsissa se vaatii Enterprise-tilin.</string>
+    <string name="developer_cloud_privacy">Oletuksena pois. Pilvilitterointi lähettää äänen valitulle palvelulle. ElevenLabs on Soman kielille tarkkuuspainotteinen oletus. Tekoälyn tehtäväehdotukset lähettävät Groqille vain uuden tai muokatun merkinnän. Pienempää säilytystä varten ota Zero Data Retention käyttöön Groqissa; ElevenLabsissa se vaatii Enterprise-tilin. Pyynnöt käyttävät aktiivista yhteyttäsi, myös mobiiliverkkoa, ellet ota käyttöön asetusta vain Wi-Fi.</string>
     <string name="developer_enabled">Kehittäjäasetukset käytössä</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">latviešu</string>

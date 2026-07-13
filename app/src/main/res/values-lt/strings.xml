@@ -139,7 +139,7 @@
     <string name="developer_key_storage">Raktas šifruojamas su Android Keystore ir niekada neeksportuojamas. Tuščia reikšmė jį pašalina.</string>
     <string name="developer_key_saved">išsaugotas</string>
     <string name="developer_key_missing">trūksta</string>
-    <string name="developer_cloud_privacy">Pagal nutylėjimą išjungta. Debesijos transkripcija siunčia garsą pasirinktai paslaugai. Soma kalboms ElevenLabs yra į tikslumą orientuotas numatytasis pasirinkimas. DI užduočių pasiūlymai siunčia Groq tik naują ar redaguotą įrašą. Mažesniam saugojimui įjunkite Zero Data Retention Groq; ElevenLabs tam reikia Enterprise.</string>
+    <string name="developer_cloud_privacy">Pagal nutylėjimą išjungta. Debesijos transkripcija siunčia garsą pasirinktai paslaugai. Soma kalboms ElevenLabs yra į tikslumą orientuotas numatytasis pasirinkimas. DI užduočių pasiūlymai siunčia Groq tik naują ar redaguotą įrašą. Mažesniam saugojimui įjunkite Zero Data Retention Groq; ElevenLabs tam reikia Enterprise. Užklausos naudoja aktyvų ryšį, įskaitant mobiliojo ryšio duomenis, nebent įjungsite tik Wi-Fi.</string>
     <string name="developer_enabled">Kūrėjo parinktys įjungtos</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">latviešu</string>

@@ -10,6 +10,13 @@ Notable changes to Soma are documented here.
   as well as Wi-Fi by default. The Developer setting can still restrict provider
   requests to Wi-Fi for users who want to avoid mobile-data use.
 
+### Fixed
+
+- The experimental cloud flavor read provider responses without relying on
+  `InputStream.readNBytes(int)`, which is unavailable below Android 13 and would
+  throw `NoSuchMethodError` on `minSdk` 26–32 devices. Responses are now read with
+  a bounded loop that keeps the same 2 MiB cap.
+
 ## 0.1.0-preview.11 — 2026-07-13
 
 ### Added

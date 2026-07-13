@@ -139,7 +139,7 @@
     <string name="developer_key_storage">Kľúč je šifrovaný cez Android Keystore a nikdy sa neexportuje. Prázdna hodnota ho odstráni.</string>
     <string name="developer_key_saved">uložený</string>
     <string name="developer_key_missing">chýba</string>
-    <string name="developer_cloud_privacy">Predvolene vypnuté. Cloudový prepis odošle zvuk vybranej službe. ElevenLabs je pre jazyky Soma predvolená voľba zameraná na presnosť. AI návrhy úloh odošlú Groq iba nový alebo upravený záznam. Pre kratšie uchovávanie zapnite Zero Data Retention v Groq; ElevenLabs ho ponúka iba pre Enterprise.</string>
+    <string name="developer_cloud_privacy">Predvolene vypnuté. Cloudový prepis odošle zvuk vybranej službe. ElevenLabs je pre jazyky Soma predvolená voľba zameraná na presnosť. AI návrhy úloh odošlú Groq iba nový alebo upravený záznam. Pre kratšie uchovávanie zapnite Zero Data Retention v Groq; ElevenLabs ho ponúka iba pre Enterprise. Požiadavky používajú tvoje aktívne pripojenie vrátane mobilných dát, pokiaľ nezapneš možnosť iba Wi-Fi.</string>
     <string name="developer_enabled">Možnosti pre vývojárov zapnuté</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">latviešu</string>

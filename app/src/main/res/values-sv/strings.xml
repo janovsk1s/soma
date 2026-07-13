@@ -139,7 +139,7 @@
     <string name="developer_key_storage">Nyckeln krypteras med Android Keystore och exporteras aldrig. Spara ett tomt värde för att ta bort den.</string>
     <string name="developer_key_saved">sparad</string>
     <string name="developer_key_missing">saknas</string>
-    <string name="developer_cloud_privacy">Av som standard. Molntranskribering skickar ljud till vald leverantör. ElevenLabs är det noggrannhetsinriktade standardvalet för Somas språk. AI-förslag skickar bara den nya eller redigerade posten till Groq. För kortare lagring, aktivera Zero Data Retention hos Groq; ElevenLabs kräver Enterprise för detta.</string>
+    <string name="developer_cloud_privacy">Av som standard. Molntranskribering skickar ljud till vald leverantör. ElevenLabs är det noggrannhetsinriktade standardvalet för Somas språk. AI-förslag skickar bara den nya eller redigerade posten till Groq. För kortare lagring, aktivera Zero Data Retention hos Groq; ElevenLabs kräver Enterprise för detta. Förfrågningar använder din aktiva anslutning, även mobildata, om du inte slår på endast Wi-Fi.</string>
     <string name="developer_enabled">Utvecklaralternativ aktiverade</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">latviešu</string>

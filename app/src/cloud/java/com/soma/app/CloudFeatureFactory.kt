@@ -70,7 +70,7 @@ private class AndroidCloudFeatureController(private val context: Context) : Clou
         }
         if (!setting.transcriptionEnabled) return localFactory()
         return FallbackCloudTranscriber(
-            context = context,
+            networkStatus = NetworkStatus { context.isOnWifi() },
             provider = setting.provider,
             apiKey = key,
             wifiOnly = setting.wifiOnly,
@@ -85,19 +85,19 @@ private class AndroidCloudFeatureController(private val context: Context) : Clou
 
     override suspend fun extractTodoCandidates(text: String): List<String> {
         if (!SomaPrefs.aiTodoSuggestions(context) || text.isBlank()) return emptyList()
-        if (SomaPrefs.cloudWifiOnly(context) && !context.isOnWifi()) return emptyList()
+        if (!cloudNetworkAllowed(SomaPrefs.cloudWifiOnly(context), context.isOnWifi())) return emptyList()
         val key = secrets.read(CloudSpeechProvider.GROQ) ?: return emptyList()
         return runCatching { CloudHttp.extractTodos(key, text) }.getOrDefault(emptyList())
     }
 }
 
-private class FallbackCloudTranscriber(
-    private val context: Context,
+internal class FallbackCloudTranscriber(
     private val provider: CloudSpeechProvider,
     private val apiKey: String?,
     private val wifiOnly: Boolean,
     private val languagePolicy: CloudSpeechLanguagePolicy,
     private val vocabulary: List<String>,
+    private val networkStatus: NetworkStatus,
     private val localFactory: () -> Transcriber,
     private val vad: VoiceActivityDetector = VoiceActivityDetector(),
 ) : Transcriber {
@@ -106,7 +106,7 @@ private class FallbackCloudTranscriber(
     override suspend fun transcribe(samples: FloatArray, sampleRate: Int): TranscriptionResult {
         val key = apiKey
             ?: return localFallback(samples, sampleRate, TranscriptionFallbackReason.API_KEY_MISSING)
-        if (wifiOnly && !context.isOnWifi()) {
+        if (!cloudNetworkAllowed(wifiOnly, networkStatus.isOnWifi())) {
             return localFallback(samples, sampleRate, TranscriptionFallbackReason.WIFI_REQUIRED)
         }
         return try {
@@ -357,8 +357,16 @@ private object CloudHttp {
         }
     }
 
-    private fun jsonPost(url: String, headers: Map<String, String>, body: JSONObject): JSONObject =
-        execute(url, headers + ("Content-Type" to "application/json; charset=utf-8"), body.toString().toByteArray())
+    private fun jsonPost(url: String, headers: Map<String, String>, body: JSONObject): JSONObject {
+        // The request carries the user's otherwise-encrypted note text; wipe it
+        // after the connection has consumed it, mirroring the audio multipart path.
+        val bytes = body.toString().toByteArray()
+        return try {
+            execute(url, headers + ("Content-Type" to "application/json; charset=utf-8"), bytes)
+        } finally {
+            bytes.fill(0)
+        }
+    }
 
     private fun execute(url: String, headers: Map<String, String>, body: ByteArray): JSONObject {
         val connection = URL(url).openConnection() as HttpURLConnection
@@ -467,6 +475,18 @@ private class CloudSecretStore(context: Context) {
         const val IV_BYTES = 12
     }
 }
+
+/** Injectable Wi-Fi check so network gating can be unit-tested without a live network. */
+internal fun interface NetworkStatus {
+    fun isOnWifi(): Boolean
+}
+
+/**
+ * Cellular is permitted unless the user restricted cloud requests to Wi-Fi in
+ * Developer settings. Kept as a pure function so the preview-12 default (cellular
+ * allowed) is covered by a fast, deterministic test.
+ */
+internal fun cloudNetworkAllowed(wifiOnly: Boolean, onWifi: Boolean): Boolean = !wifiOnly || onWifi
 
 @Suppress("DEPRECATION")
 private fun Context.isOnWifi(): Boolean {

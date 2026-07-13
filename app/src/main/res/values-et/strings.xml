@@ -139,7 +139,7 @@
     <string name="developer_key_storage">Võti krüptitakse Android Keystore’iga ja seda ei ekspordita. Tühja väärtuse salvestamine eemaldab võtme.</string>
     <string name="developer_key_saved">salvestatud</string>
     <string name="developer_key_missing">puudub</string>
-    <string name="developer_cloud_privacy">Vaikimisi väljas. Pilvetranskriptsioon saadab heli valitud teenusele. Soma keelte jaoks on ElevenLabs täpsusele suunatud vaikevalik. AI ülesandesoovitused saadavad Groqi ainult uue või muudetud sissekande. Väiksema säilitamise jaoks lülita Groqis sisse Zero Data Retention; ElevenLabsis nõuab see Enterprise’i.</string>
+    <string name="developer_cloud_privacy">Vaikimisi väljas. Pilvetranskriptsioon saadab heli valitud teenusele. Soma keelte jaoks on ElevenLabs täpsusele suunatud vaikevalik. AI ülesandesoovitused saadavad Groqi ainult uue või muudetud sissekande. Väiksema säilitamise jaoks lülita Groqis sisse Zero Data Retention; ElevenLabsis nõuab see Enterprise’i. Päringud kasutavad sinu aktiivset ühendust, sealhulgas mobiilsidet, kui sa ei lülita sisse valikut ainult Wi-Fi.</string>
     <string name="developer_enabled">Arendaja valikud on lubatud</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">latviešu</string>

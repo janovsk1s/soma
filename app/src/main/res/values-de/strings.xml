@@ -139,7 +139,7 @@
     <string name="developer_key_storage">Der Schlüssel wird mit Android Keystore verschlüsselt und nie exportiert. Ein leerer Wert entfernt ihn.</string>
     <string name="developer_key_saved">gespeichert</string>
     <string name="developer_key_missing">fehlt</string>
-    <string name="developer_cloud_privacy">Standardmäßig aus. Cloud-Transkription sendet Audio an den gewählten Anbieter. ElevenLabs ist für Somas Sprachen die auf Genauigkeit ausgerichtete Voreinstellung. KI-Aufgabenvorschläge senden nur den neuen oder bearbeiteten Eintrag an Groq. Für geringere Speicherung aktiviere Zero Data Retention bei Groq; bei ElevenLabs erfordert dies Enterprise.</string>
+    <string name="developer_cloud_privacy">Standardmäßig aus. Cloud-Transkription sendet Audio an den gewählten Anbieter. ElevenLabs ist für Somas Sprachen die auf Genauigkeit ausgerichtete Voreinstellung. KI-Aufgabenvorschläge senden nur den neuen oder bearbeiteten Eintrag an Groq. Für geringere Speicherung aktiviere Zero Data Retention bei Groq; bei ElevenLabs erfordert dies Enterprise. Anfragen nutzen deine aktive Verbindung, auch Mobilfunk, sofern du nicht „nur WLAN“ aktivierst.</string>
     <string name="developer_enabled">Entwickleroptionen aktiviert</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">latviešu</string>

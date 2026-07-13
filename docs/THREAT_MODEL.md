@@ -127,7 +127,9 @@ settings are off by default. It isolates platform `HttpsURLConnection` calls in
 `app/src/cloud`; neither offline flavor compiles that source. Provider API keys
 are encrypted with AES-256-GCM under the separate non-exportable Keystore alias
 `soma.cloud.credentials.v1`, are never included in backups, and may be deleted
-from the screen. Wi-Fi-only is the default. Audio is split locally on silence
+from the screen. Provider requests use the phone's active connection, including
+cellular, by default; the optional Wi-Fi-only Developer setting restricts them to
+Wi-Fi. Audio is split locally on silence
 for Groq requests; ElevenLabs receives the complete recording so Scribe v2 can
 retain language context across pauses. AI Important extraction sends only the new or
 edited entry and still creates a suggestion requiring a tap, never an item.
