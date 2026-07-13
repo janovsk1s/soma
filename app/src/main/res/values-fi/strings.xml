@@ -137,4 +137,6 @@
     <string name="accessibility_previous_page">Edellinen sivu</string>
     <string name="accessibility_next_page">Seuraava sivu</string>
     <string name="accessibility_page_position">Sivu %1$d/%2$d</string>
+    <string name="add_entry">Uusi merkintä</string>
+    <string name="calendar_title">Kalenteri</string>
 </resources>

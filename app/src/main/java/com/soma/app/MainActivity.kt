@@ -134,6 +134,8 @@ private sealed interface AppRoute {
     data object CloudDeveloper : AppRoute
     data object Language : AppRoute
     data object AddTodo : AppRoute
+    data object Capture : AppRoute
+    data object Calendar : AppRoute
     data class ReadEntry(val entry: NoteEntry, val fromTodos: Boolean = false) : AppRoute
     data class EntryOptions(
         val entry: NoteEntry,
@@ -190,6 +192,11 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
                 viewModel.stopRecording()
                 route = AppRoute.Settings
             },
+            onCalendar = {
+                viewModel.stopRecording()
+                route = AppRoute.Calendar
+            },
+            onCapture = { route = AppRoute.Capture },
             onReadEntry = {
                 viewModel.stopRecording()
                 route = AppRoute.ReadEntry(it)
@@ -246,6 +253,23 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
         AppRoute.Language -> LanguageScreen(
             onSelected = { language -> activity?.switchLanguage(language) },
             onBack = { route = AppRoute.Developer },
+        )
+        AppRoute.Capture -> TextEditorScreen(
+            title = stringResourceCompat(R.string.add_entry),
+            initialText = "",
+            onSave = {
+                viewModel.addText(it)
+                route = AppRoute.Home
+            },
+            onBack = { route = AppRoute.Home },
+        )
+        AppRoute.Calendar -> CalendarScreen(
+            viewModel = viewModel,
+            onSelect = { picked ->
+                viewModel.showDay(picked)
+                route = AppRoute.Home
+            },
+            onBack = { route = AppRoute.Home },
         )
         AppRoute.AddTodo -> TextEditorScreen(
             title = stringResourceCompat(R.string.add_details),

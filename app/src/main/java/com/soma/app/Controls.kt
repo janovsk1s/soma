@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -56,6 +57,7 @@ fun LineInput(
         cursorBrush = SolidColor(Ink),
         singleLine = singleLine,
         keyboardOptions = KeyboardOptions(
+            capitalization = if (password) KeyboardCapitalization.None else KeyboardCapitalization.Sentences,
             imeAction = if (singleLine) ImeAction.Done else ImeAction.Default,
             keyboardType = if (password) KeyboardType.Password else KeyboardType.Text,
         ),
@@ -185,6 +187,31 @@ private fun DrawScope.drawOpenRing() {
         center = Offset(side / 2f, side / 2f),
         style = androidx.compose.ui.graphics.drawscope.Stroke(side * 0.055f),
     )
+}
+
+/** Passive marker in the day flow: this text began as a voice note. */
+@Composable
+fun VoiceMark(modifier: Modifier = Modifier) {
+    Canvas(modifier.size(14.dp)) {
+        val s = size.minDimension
+        drawRoundRect(
+            DimInk,
+            topLeft = Offset(s * 0.05f, s * 0.30f),
+            size = Size(s * 0.34f, s * 0.40f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(s * 0.08f),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(s * 0.11f),
+        )
+        val chevron = androidx.compose.ui.graphics.Path().apply {
+            moveTo(s * 0.58f, s * 0.24f)
+            lineTo(s * 0.90f, s * 0.50f)
+            lineTo(s * 0.58f, s * 0.76f)
+        }
+        drawPath(
+            chevron,
+            DimInk,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(s * 0.11f, cap = StrokeCap.Round),
+        )
+    }
 }
 
 private fun DrawScope.drawMicrophone() {

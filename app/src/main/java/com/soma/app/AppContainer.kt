@@ -191,6 +191,12 @@ class InMemorySomaRepository private constructor(
             .sortedWith(compareBy(NoteEntry::createdAt, NoteEntry::position))
     }
 
+    override suspend fun datesWithEntries(from: LocalDate, to: LocalDate): List<LocalDate> =
+        notes.value.values
+            .filter { it.entries.isNotEmpty() && !it.date.isBefore(from) && !it.date.isAfter(to) }
+            .map(DailyNote::date)
+            .sorted()
+
     override suspend fun get(todoId: String): Todo? = todos.value[todoId]
 
     override fun observe(states: Set<TodoState>): Flow<List<Todo>> = todos.map { all ->

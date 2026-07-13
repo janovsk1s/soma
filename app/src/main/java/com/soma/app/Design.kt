@@ -227,6 +227,58 @@ fun tapLongModifier(
         .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
 }
 
+/**
+ * Tap + long-press without the 48 dp minimum, for dense flowing content whose
+ * measured height must match its rendered height exactly.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+@SuppressLint("ModifierFactoryExtensionFunction")
+fun inlineTapLongModifier(
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    label: String? = null,
+): Modifier {
+    val interaction = remember { MutableInteractionSource() }
+    val context = LocalContext.current
+    val feedback = LocalHapticFeedback.current
+    return Modifier
+        .then(if (label == null) Modifier else Modifier.semantics { contentDescription = label })
+        .combinedClickable(
+            interactionSource = interaction,
+            indication = null,
+            role = Role.Button,
+            onClick = {
+                performSomaHaptic(context, feedback)
+                onClick()
+            },
+            onLongClick = {
+                performSomaHaptic(context, feedback, HapticFeedbackType.LongPress)
+                onLongClick()
+            },
+        )
+}
+
+/** Tap without the 48 dp minimum; see [inlineTapLongModifier]. */
+@Composable
+@SuppressLint("ModifierFactoryExtensionFunction")
+fun inlineTapModifier(onClick: () -> Unit, label: String? = null): Modifier {
+    val interaction = remember { MutableInteractionSource() }
+    val context = LocalContext.current
+    val feedback = LocalHapticFeedback.current
+    return Modifier
+        .then(if (label == null) Modifier else Modifier.semantics { contentDescription = label })
+        .clickable(
+            interactionSource = interaction,
+            indication = null,
+            role = Role.Button,
+            onClick = {
+                performSomaHaptic(context, feedback)
+                onClick()
+            },
+        )
+}
+
 @Composable
 @SuppressLint("ModifierFactoryExtensionFunction")
 fun longPressModifier(onLongClick: () -> Unit, label: String? = null): Modifier {

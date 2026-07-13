@@ -62,6 +62,9 @@ interface DailyNoteRepository {
 
     /** Marked entries oldest-first, then by their position within a day. */
     fun observeReturnLater(): Flow<List<NoteEntry>>
+
+    /** Dates within [from]..[to] whose note holds at least one entry, ascending. */
+    suspend fun datesWithEntries(from: LocalDate, to: LocalDate): List<LocalDate>
 }
 
 interface TodoRepository {

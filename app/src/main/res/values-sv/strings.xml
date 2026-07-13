@@ -137,4 +137,6 @@
     <string name="accessibility_previous_page">Föregående sida</string>
     <string name="accessibility_next_page">Nästa sida</string>
     <string name="accessibility_page_position">Sida %1$d av %2$d</string>
+    <string name="add_entry">Ny anteckning</string>
+    <string name="calendar_title">Kalender</string>
 </resources>

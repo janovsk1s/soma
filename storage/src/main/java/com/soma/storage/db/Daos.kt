@@ -37,6 +37,16 @@ interface DailyNoteDao {
 
     @Query(
         """
+        SELECT DISTINCT daily_notes.epoch_day FROM daily_notes
+        INNER JOIN entries ON entries.note_id = daily_notes.id
+        WHERE daily_notes.epoch_day BETWEEN :fromEpochDay AND :toEpochDay
+        ORDER BY daily_notes.epoch_day ASC
+        """,
+    )
+    suspend fun notedDaysBetween(fromEpochDay: Long, toEpochDay: Long): List<Long>
+
+    @Query(
+        """
         SELECT * FROM daily_notes
         WHERE epoch_day <= :epochDay
         ORDER BY epoch_day DESC

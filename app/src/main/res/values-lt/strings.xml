@@ -137,4 +137,6 @@
     <string name="accessibility_previous_page">Ankstesnis puslapis</string>
     <string name="accessibility_next_page">Kitas puslapis</string>
     <string name="accessibility_page_position">Puslapis %1$d iš %2$d</string>
+    <string name="add_entry">Naujas įrašas</string>
+    <string name="calendar_title">Kalendorius</string>
 </resources>

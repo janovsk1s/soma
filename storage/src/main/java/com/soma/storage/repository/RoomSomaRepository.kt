@@ -204,6 +204,9 @@ class RoomSomaRepository(
         }
     }
 
+    override suspend fun datesWithEntries(from: LocalDate, to: LocalDate): List<LocalDate> =
+        noteDao.notedDaysBetween(from.toEpochDay(), to.toEpochDay()).map(LocalDate::ofEpochDay)
+
     override suspend fun get(todoId: String): Todo? =
         todoDao.getById(todoId)?.let(mapper::todoFromEntity)
 

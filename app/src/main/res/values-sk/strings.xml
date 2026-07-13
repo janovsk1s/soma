@@ -137,4 +137,6 @@
     <string name="accessibility_previous_page">Predchádzajúca strana</string>
     <string name="accessibility_next_page">Nasledujúca strana</string>
     <string name="accessibility_page_position">Strana %1$d z %2$d</string>
+    <string name="add_entry">Nový záznam</string>
+    <string name="calendar_title">Kalendár</string>
 </resources>

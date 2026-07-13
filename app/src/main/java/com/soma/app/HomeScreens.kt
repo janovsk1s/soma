@@ -30,12 +30,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.drawBehind
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.NoteEntry
-import com.soma.core.model.TodoSuggestion
 import com.soma.core.policy.StillOpenPolicy
 import com.soma.core.policy.StillOpenTarget
-import com.soma.voice.PlaybackState
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -46,6 +45,8 @@ fun HomeScreen(
     viewModel: SomaViewModel,
     onTodos: () -> Unit,
     onSettings: () -> Unit,
+    onCalendar: () -> Unit,
+    onCapture: () -> Unit,
     onReadEntry: (NoteEntry) -> Unit,
     onEntryOptions: (NoteEntry) -> Unit,
     onRecordRequested: () -> Unit,
@@ -56,8 +57,6 @@ fun HomeScreen(
     val returnLater by viewModel.returnLater.collectAsState()
     val suggestions by viewModel.suggestions.collectAsState()
     val recordingEntryId by viewModel.recordingEntryId.collectAsState()
-    val playback by viewModel.playbackState.collectAsState()
-    var input by remember(date) { mutableStateOf("") }
     var stillOpenDismissed by remember(viewModel.today()) { mutableStateOf(false) }
     LaunchedEffect(viewModel.today()) {
         stillOpenDismissed = viewModel.isStillOpenDismissed()
@@ -70,6 +69,8 @@ fun HomeScreen(
             date = date,
             today = viewModel.today(),
             demo = viewModel.isDemo,
+            onSettings = onSettings,
+            onCalendar = onCalendar,
             onTodos = onTodos,
         )
         Column(
@@ -115,23 +116,15 @@ fun HomeScreen(
                 if (entries.isEmpty()) {
                     EmptyHint(stringResource(R.string.entries_empty))
                 } else {
-                    PagedList(
-                        items = entries,
+                    DayFlowPager(
+                        entries = entries,
+                        suggestions = suggestions,
+                        recordingEntryId = recordingEntryId,
                         resetKey = date,
-                        startAtEnd = true,
-                        followEndOnGrowth = true,
-                    ) { entry ->
-                        EntryRow(
-                            entry = entry,
-                            suggestion = suggestions[entry.id],
-                            recording = recordingEntryId == entry.id,
-                            playing = (playback as? PlaybackState.Playing)?.audioId == entry.audio?.fileId,
-                            onRead = { onReadEntry(entry) },
-                            onOptions = { onEntryOptions(entry) },
-                            onSuggestion = { viewModel.acceptSuggestion(entry) },
-                            onPlay = { viewModel.togglePlayback(entry) },
-                        )
-                    }
+                        onRead = onReadEntry,
+                        onOptions = onEntryOptions,
+                        onSuggestion = viewModel::acceptSuggestion,
+                    )
                 }
             }
         }
@@ -139,21 +132,9 @@ fun HomeScreen(
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            GearButton(onSettings)
-            LineInput(
-                value = input,
-                onValueChange = { input = it },
-                placeholder = stringResource(R.string.entry_hint),
-                modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
-                onDone = {
-                    val submitted = input
-                    input = ""
-                    viewModel.addText(submitted) { saved ->
-                        if (!saved) {
-                            input = if (input.isBlank()) submitted else "$submitted\n$input"
-                        }
-                    }
-                },
+            CaptureBar(
+                modifier = Modifier.weight(1f),
+                onOpen = onCapture,
             )
             RecordButton(
                 recording = recordingEntryId != null,
@@ -166,31 +147,66 @@ fun HomeScreen(
     }
 }
 
+/**
+ * Looks like the familiar input line but never focuses inline: the Light Phone
+ * has no navigation gestures, so typing happens in the full-screen editor with
+ * its explicit back arrow instead of trapping focus under the keyboard.
+ */
+@Composable
+private fun CaptureBar(modifier: Modifier = Modifier, onOpen: () -> Unit) {
+    Box(
+        modifier = modifier
+            .then(tapModifier(onOpen, stringResource(R.string.entry_hint)))
+            .drawBehind {
+                drawLine(
+                    DimInk,
+                    androidx.compose.ui.geometry.Offset(0f, size.height - 1.dp.toPx()),
+                    androidx.compose.ui.geometry.Offset(size.width, size.height - 1.dp.toPx()),
+                    1.dp.toPx(),
+                )
+            }
+            .padding(horizontal = 2.dp, vertical = 10.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Text(stringResource(R.string.entry_hint), color = DimInk, fontSize = 18.sp, fontWeight = FontWeight.Light)
+    }
+}
+
 @Composable
 private fun HomeHeader(
     date: LocalDate,
     today: LocalDate,
     demo: Boolean,
+    onSettings: () -> Unit,
+    onCalendar: () -> Unit,
     onTodos: () -> Unit,
 ) {
     Box(
         modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
+        GearButton(onSettings, Modifier.align(Alignment.CenterStart).offset(x = (-10).dp))
         val title = when {
             demo -> stringResource(R.string.demo_title)
             date == today -> stringResource(R.string.today)
             else -> date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
         }
-        Text(
-            title,
-            color = Ink,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Normal,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 64.dp),
-        )
+        Box(
+            modifier = Modifier.then(
+                longPressModifier(onCalendar, stringResource(R.string.calendar_title)),
+            ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                title,
+                color = Ink,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Normal,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 64.dp),
+            )
+        }
         TodosButton(onTodos, Modifier.align(Alignment.CenterEnd).offset(x = 10.dp))
     }
 }
@@ -221,60 +237,6 @@ private fun StillOpenBlock(
             fontSize = 24.sp,
             modifier = Modifier.then(tapModifier(onDismiss, stringResource(R.string.dismiss_today))).padding(horizontal = 12.dp),
         )
-    }
-}
-
-@Composable
-private fun EntryRow(
-    entry: NoteEntry,
-    suggestion: TodoSuggestion?,
-    recording: Boolean,
-    playing: Boolean,
-    onRead: () -> Unit,
-    onOptions: () -> Unit,
-    onSuggestion: () -> Unit,
-    onPlay: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxSize().then(tapLongModifier(onRead, onOptions, "note entry")),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 4.dp)) {
-            Text(
-                entry.createdAt.atZone(ZoneId.systemDefault()).format(ENTRY_TIME_FORMATTER),
-                color = DimInk,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Light,
-            )
-            val displayed = when {
-                recording -> stringResource(R.string.recording_now)
-                entry.text.isNotBlank() -> entry.text
-                entry.transcription?.state == EntryTranscriptionState.FAILED -> stringResource(R.string.voice_failed)
-                else -> stringResource(R.string.voice_transcribing)
-            }
-            Text(
-                displayed,
-                color = Ink,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Normal,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (entry.returnLater) {
-                    Text(stringResource(R.string.return_later), color = DimInk, fontSize = 12.sp, fontWeight = FontWeight.Light)
-                }
-                if (suggestion != null) {
-                    Text(
-                        stringResource(R.string.todo_suggestion),
-                        color = DimInk,
-                        fontSize = 14.sp,
-                        modifier = Modifier.then(tapModifier(onSuggestion, stringResource(R.string.todo_suggestion))),
-                    )
-                }
-            }
-        }
-        if (entry.audio != null && !recording) PlayButton(playing, onPlay)
     }
 }
 

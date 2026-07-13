@@ -43,13 +43,22 @@ fun TodosScreen(
     onSource: (Todo) -> Unit,
     onBack: () -> Unit,
 ) {
-    BackHandler(onBack = onBack)
     val open by viewModel.openTodos.collectAsState()
     val closed by viewModel.closedTodos.collectAsState()
     val prompted by viewModel.promptedTodoIds.collectAsState()
     var showClosed by remember { mutableStateOf(false) }
     var quickAdd by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
+    // System back first releases an open quick-add line so a focused field
+    // never traps the user on a device without navigation gestures.
+    BackHandler {
+        if (quickAdd) {
+            quickAdd = false
+            input = ""
+        } else {
+            onBack()
+        }
+    }
     val items = if (showClosed) closed else open
 
     Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding().padding(horizontal = 28.dp)) {

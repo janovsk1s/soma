@@ -142,6 +142,9 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { repositories.notes.getEntry(entryId)?.let(onFound) }
     }
 
+    suspend fun datesWithEntries(from: LocalDate, to: LocalDate): List<LocalDate> =
+        repositories.notes.datesWithEntries(from, to)
+
     fun addText(text: String, onSaved: (Boolean) -> Unit = {}) {
         val clean = text.trim()
         if (clean.isEmpty()) return

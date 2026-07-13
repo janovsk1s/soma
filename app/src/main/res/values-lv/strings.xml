@@ -137,4 +137,6 @@
     <string name="accessibility_previous_page">Iepriekšējā lapa</string>
     <string name="accessibility_next_page">Nākamā lapa</string>
     <string name="accessibility_page_position">Lapa %1$d no %2$d</string>
+    <string name="add_entry">Jauns ieraksts</string>
+    <string name="calendar_title">Kalendārs</string>
 </resources>

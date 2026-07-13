@@ -2,6 +2,27 @@
 
 Notable changes to Soma are documented here.
 
+## Unreleased
+
+### Changed
+
+- The home screen now shows the day as one continuous, information-dense note:
+  entries flow with a faint creation time in a left gutter, transcribed voice
+  entries carry a small speaker glyph, and pages pack as much text as fits,
+  breaking at entry boundaries. Swipes still hard-cut whole screenfuls; the
+  five-row rule continues to apply to lists elsewhere.
+- Tapping the capture line opens the full-screen editor with a back arrow and
+  save instead of focusing an inline field — the Light Phone has no navigation
+  gestures, so focused inline fields could trap the user under the keyboard.
+  System back also releases the todo quick-add line first.
+- Text fields capitalize sentences (never passphrases).
+- The settings gear returns to the top-left of the home header.
+
+### Added
+
+- Long-pressing the day title opens a monochrome calendar of past days; days
+  holding entries carry a small dot, future days stay inert.
+
 ## 0.1.0-preview.3 — 2026-07-13
 
 ### Fixed
