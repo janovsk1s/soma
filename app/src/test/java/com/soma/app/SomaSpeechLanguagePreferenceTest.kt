@@ -6,6 +6,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.soma.core.model.SupportedLanguage
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -45,6 +47,17 @@ class SomaSpeechLanguagePreferenceTest {
         SomaPrefs.setCloudSpeechProvider(context, CloudSpeechProvider.GROQ)
 
         assertEquals(CloudSpeechProvider.GROQ, SomaPrefs.cloudSpeechProvider(context))
+    }
+
+    @Test
+    fun `cloud requests allow cellular by default and wifi only remains optional`() {
+        assertFalse(SomaPrefs.cloudWifiOnly(context))
+
+        SomaPrefs.setCloudWifiOnly(context, true)
+        assertTrue(SomaPrefs.cloudWifiOnly(context))
+
+        SomaPrefs.setCloudWifiOnly(context, false)
+        assertFalse(SomaPrefs.cloudWifiOnly(context))
     }
 
     @Test

@@ -67,7 +67,12 @@ object SomaPrefs {
     fun setCloudSpeechProvider(context: Context, provider: CloudSpeechProvider) =
         values(context).edit().putString(KEY_CLOUD_PROVIDER, provider.name).apply()
 
-    fun cloudWifiOnly(context: Context): Boolean = values(context).getBoolean(KEY_CLOUD_WIFI_ONLY, true)
+    /**
+     * Cloud features may use the phone's active internet connection by default,
+     * including cellular. Users who prefer to avoid mobile-data use can opt into
+     * the Wi-Fi-only restriction in Developer settings.
+     */
+    fun cloudWifiOnly(context: Context): Boolean = values(context).getBoolean(KEY_CLOUD_WIFI_ONLY, false)
 
     fun setCloudWifiOnly(context: Context, enabled: Boolean) =
         values(context).edit().putBoolean(KEY_CLOUD_WIFI_ONLY, enabled).apply()

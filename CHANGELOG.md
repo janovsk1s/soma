@@ -2,6 +2,14 @@
 
 Notable changes to Soma are documented here.
 
+## Unreleased
+
+### Changed
+
+- Opt-in cloud transcription and AI Important suggestions now work over cellular
+  as well as Wi-Fi by default. The Developer setting can still restrict provider
+  requests to Wi-Fi for users who want to avoid mobile-data use.
+
 ## 0.1.0-preview.11 — 2026-07-13
 
 ### Added

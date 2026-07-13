@@ -94,7 +94,7 @@ recover a forgotten backup passphrase.
 | `RECORD_AUDIO` | all | Requested only when the user first starts a recording. |
 | `POST_NOTIFICATIONS` | all | Requested only when enabling the optional reminder or starting Browser view. Android 13+ requires it; denial leaves the requested feature off. |
 | `INTERNET` | `browser` | Allows the explicitly started inbound LAN HTTP server. No runtime code makes outbound connections. |
-| `INTERNET`, `ACCESS_NETWORK_STATE` | `cloud` | Adds Browser view plus opt-in provider requests and Wi-Fi-only enforcement. |
+| `INTERNET`, `ACCESS_NETWORK_STATE` | `cloud` | Adds Browser view plus opt-in provider requests. Cloud requests may use Wi-Fi or cellular; Developer settings can restrict them to Wi-Fi. |
 
 The `purist` flavor has no LAN module and no `INTERNET` permission. The
 permission audit script rejects unexpected Android platform permissions (while
@@ -121,8 +121,9 @@ repository. Choose one flavor:
   away and can share its key with AI Important extraction.
   Choosing one speech language sends that language to the provider; choosing
   several keeps pause-separated language auto-detection. A provider result outside
-  the selected set, a missing key, blocked Wi-Fi, or any API failure falls back to
-  bundled local Whisper. Open a completed voice entry to see which engine actually
+  the selected set, a missing key, an enabled Wi-Fi-only restriction, or any API
+  failure falls back to bundled local Whisper. By default provider requests work
+  on both Wi-Fi and cellular. Open a completed voice entry to see which engine actually
   produced it and whether fallback occurred. AI is consulted only when the local
   Important rules find no candidate, and every result is still an optional inline
   suggestion.

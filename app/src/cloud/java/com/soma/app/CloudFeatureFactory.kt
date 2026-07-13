@@ -373,7 +373,18 @@ private object CloudHttp {
             connection.outputStream.use { it.write(body) }
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-            val response = stream?.use { it.readNBytes(MAX_RESPONSE_BYTES).toString(Charsets.UTF_8) }.orEmpty()
+            val response = stream?.use { input ->
+                val output = ByteArrayOutputStream()
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                var remaining = MAX_RESPONSE_BYTES
+                while (remaining > 0) {
+                    val count = input.read(buffer, 0, minOf(buffer.size, remaining))
+                    if (count <= 0) break
+                    output.write(buffer, 0, count)
+                    remaining -= count
+                }
+                output.toString(Charsets.UTF_8.name())
+            }.orEmpty()
             if (status !in 200..299) {
                 throw CloudProviderException(cloudFailureReason(status, response))
             }
