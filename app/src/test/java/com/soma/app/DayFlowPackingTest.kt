@@ -62,4 +62,17 @@ class DayFlowPackingTest {
         assertEquals(384, availablePageContentHeight(totalHeightPx = 400, verticalPaddingPx = 16))
         assertEquals(0, availablePageContentHeight(totalHeightPx = 10, verticalPaddingPx = 16))
     }
+
+    @Test
+    fun `measured line cap bounds measurement to about one page`() {
+        // 1000px page with 50px lines fits 20 lines; the margin keeps the cap at
+        // or above the exact per-entry clamp computed after measurement.
+        assertEquals(22, measuredLineCap(pageContentHeightPx = 1000, lineHeightPx = 50))
+    }
+
+    @Test
+    fun `measured line cap never drops below one line for degenerate input`() {
+        assertEquals(1, measuredLineCap(pageContentHeightPx = 0, lineHeightPx = 50))
+        assertEquals(1, measuredLineCap(pageContentHeightPx = 1000, lineHeightPx = 0))
+    }
 }

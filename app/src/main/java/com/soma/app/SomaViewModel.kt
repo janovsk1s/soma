@@ -73,15 +73,18 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     private var recordingOperationEntryId: String? = null
 
     val selectedDate: StateFlow<LocalDate> = mutableDate.asStateFlow()
+    // WhileSubscribed lets the Room observers stop shortly after their screens
+    // leave, matching the idle-work contract; the retained last value keeps
+    // `.value` reads valid. `note` also stays warm via the suggestions combine in init.
     @OptIn(ExperimentalCoroutinesApi::class)
     val note = selectedDate.flatMapLatest(repositories.notes::observe)
-        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(FLOW_STOP_TIMEOUT_MILLIS), null)
     val openTodos = repositories.todos.observe(setOf(TodoState.OPEN))
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(FLOW_STOP_TIMEOUT_MILLIS), emptyList())
     val closedTodos = repositories.todos.observe(setOf(TodoState.DONE, TodoState.ARCHIVED))
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(FLOW_STOP_TIMEOUT_MILLIS), emptyList())
     val returnLater = repositories.notes.observeReturnLater()
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(FLOW_STOP_TIMEOUT_MILLIS), emptyList())
     val suggestions: StateFlow<Map<String, TodoSuggestion>> = mutableSuggestions.asStateFlow()
     val promptedTodoIds: StateFlow<Set<String>> = mutablePromptedTodos.asStateFlow()
     val recordingState: StateFlow<RecordingState> = recorder.state
@@ -689,5 +692,9 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         recorder.close()
         player.close()
+    }
+
+    private companion object {
+        const val FLOW_STOP_TIMEOUT_MILLIS = 5_000L
     }
 }

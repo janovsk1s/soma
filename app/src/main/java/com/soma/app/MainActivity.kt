@@ -24,6 +24,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
@@ -155,11 +157,9 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
     val context = LocalContext.current
     val activity = context as? MainActivity
     val lightMode = SomaPalette.lightMode
-    var route: AppRoute by remember { mutableStateOf(AppRoute.Home) }
-    val playback by viewModel.playbackState.collectAsState()
-    val liveNote by viewModel.note.collectAsState()
-    fun liveEntry(initial: NoteEntry): NoteEntry =
-        liveNote?.entries?.firstOrNull { it.id == initial.id } ?: initial
+    // Saved so an interrupted, no-payload editor (Capture, add-todo) is restored
+    // after process death; entry-carrying routes fall back to Home (see AppRouteSaver).
+    var route: AppRoute by rememberSaveable(stateSaver = AppRouteSaver) { mutableStateOf(AppRoute.Home) }
     val microphonePermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -337,7 +337,8 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             )
         }
         is AppRoute.ReadEntry -> {
-            val entry = liveEntry(current.entry)
+            val entry = rememberLiveEntry(viewModel, current.entry)
+            val playback by viewModel.playbackState.collectAsState()
             val origin: AppRoute = if (current.fromTodos) AppRoute.Todos else AppRoute.Home
             EntryReadScreen(
                 entry = entry,
@@ -350,7 +351,7 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             )
         }
         is AppRoute.EntryOptions -> {
-            val entry = liveEntry(current.entry)
+            val entry = rememberLiveEntry(viewModel, current.entry)
             val origin: AppRoute = if (current.fromTodos) AppRoute.Todos else AppRoute.Home
             EntryOptionsScreen(
                 entry = entry,
@@ -383,7 +384,7 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             )
         }
         is AppRoute.SelectImportant -> {
-            val entry = liveEntry(current.entry)
+            val entry = rememberLiveEntry(viewModel, current.entry)
             var saving by remember(entry.id) { mutableStateOf(false) }
             var saveFailed by remember(entry.id) { mutableStateOf(false) }
             ImportantSelectionScreen(
@@ -408,7 +409,7 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             )
         }
         is AppRoute.EditEntry -> {
-            val entry = liveEntry(current.entry)
+            val entry = rememberLiveEntry(viewModel, current.entry)
             var saving by remember(entry.id) { mutableStateOf(false) }
             var saveFailed by remember(entry.id) { mutableStateOf(false) }
             TextEditorScreen(
@@ -472,3 +473,62 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
 
 @Composable
 private fun stringResourceCompat(id: Int): String = androidx.compose.ui.res.stringResource(id)
+
+/**
+ * Resolves the latest version of [initial] from the observed note, collecting the
+ * note flow only while an entry screen is composed so unrelated screens do not
+ * recompose on every note change.
+ */
+@Composable
+private fun rememberLiveEntry(viewModel: SomaViewModel, initial: NoteEntry): NoteEntry {
+    val liveNote by viewModel.note.collectAsState()
+    return liveNote?.entries?.firstOrNull { it.id == initial.id } ?: initial
+}
+
+/**
+ * Persists navigation across process death for routes that carry no in-memory
+ * payload — notably the Capture and add-todo editors, so an interrupted draft
+ * (kept with rememberSaveable) is restored. Entry/todo-specific routes cannot be
+ * rebuilt from a saved key alone and safely fall back to Home.
+ */
+private val AppRouteSaver: Saver<AppRoute, String> = Saver(
+    save = { route ->
+        when (route) {
+            AppRoute.Home -> "home"
+            AppRoute.Todos -> "todos"
+            AppRoute.Settings -> "settings"
+            AppRoute.Backup -> "backup"
+            AppRoute.Browser -> "browser"
+            AppRoute.About -> "about"
+            AppRoute.Licenses -> "licenses"
+            AppRoute.Developer -> "developer"
+            AppRoute.CloudDeveloper -> "cloudDeveloper"
+            AppRoute.Language -> "language"
+            AppRoute.AddTodo -> "addTodo"
+            AppRoute.Capture -> "capture"
+            AppRoute.Calendar -> "calendar"
+            AppRoute.SpeechLanguages -> "speechLanguages"
+            AppRoute.TranscriptionVocabulary -> "transcriptionVocabulary"
+            else -> "home"
+        }
+    },
+    restore = { key ->
+        when (key) {
+            "todos" -> AppRoute.Todos
+            "settings" -> AppRoute.Settings
+            "backup" -> AppRoute.Backup
+            "browser" -> AppRoute.Browser
+            "about" -> AppRoute.About
+            "licenses" -> AppRoute.Licenses
+            "developer" -> AppRoute.Developer
+            "cloudDeveloper" -> AppRoute.CloudDeveloper
+            "language" -> AppRoute.Language
+            "addTodo" -> AppRoute.AddTodo
+            "capture" -> AppRoute.Capture
+            "calendar" -> AppRoute.Calendar
+            "speechLanguages" -> AppRoute.SpeechLanguages
+            "transcriptionVocabulary" -> AppRoute.TranscriptionVocabulary
+            else -> AppRoute.Home
+        }
+    },
+)

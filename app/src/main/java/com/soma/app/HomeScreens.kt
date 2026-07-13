@@ -24,6 +24,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
@@ -465,7 +466,9 @@ fun TextEditorScreen(
     onSave: (String) -> Unit,
     onBack: () -> Unit,
 ) {
-    var text by remember(initialText) { mutableStateOf(initialText) }
+    // Saved so an interrupted draft survives process death; paired with the
+    // saved Capture/add-todo route so the editor is actually restored.
+    var text by rememberSaveable(initialText) { mutableStateOf(initialText) }
     val canSave = !saving && if (allowBlank) text != initialText else text.isNotBlank()
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current

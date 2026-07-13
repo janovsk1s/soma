@@ -80,15 +80,25 @@ fun DayFlowPager(
             val passiveChipPx = with(density) { CHIP_ROW_HEIGHT.roundToPx() }
             val touchTargetPx = with(density) { MIN_TOUCH_TARGET.roundToPx() }
             val timeLinePx = with(density) { TIME_LINE_HEIGHT.roundToPx() }
+            // A single entry never shows more than one page of lines, so cap both
+            // the measured line count and the measured text length. Otherwise an
+            // unusually long entry makes this composition-thread layout scale with
+            // its character count and can hitch a frame on a heavy day; the exact
+            // per-entry clamp is still derived from the measured result below.
+            val nominalLineHeightPx = with(density) { FLOW_LINE_HEIGHT.roundToPx() }
+            val lineCap = measuredLineCap(pageContentHeightPx, nominalLineHeightPx)
+            val charCap = lineCap * MAX_MEASURED_CHARS_PER_LINE
             entries.mapIndexed { index, entry ->
                 val chipPx = when {
                     suggestions.containsKey(entry.id) -> touchTargetPx
                     entry.returnLater -> passiveChipPx
                     else -> 0
                 }
+                val measuredText = displayed[index].let { if (it.length > charCap) it.take(charCap) else it }
                 val full = measurer.measure(
-                    AnnotatedString(displayed[index]),
+                    AnnotatedString(measuredText),
                     bodyStyle,
+                    maxLines = lineCap,
                     constraints = Constraints(maxWidth = textWidthPx),
                 )
                 val lineHeightPx = (full.size.height / full.lineCount.coerceAtLeast(1)).coerceAtLeast(1)
@@ -137,6 +147,16 @@ fun DayFlowPager(
 
 internal fun availablePageContentHeight(totalHeightPx: Int, verticalPaddingPx: Int): Int =
     (totalHeightPx - verticalPaddingPx.coerceAtLeast(0)).coerceAtLeast(0)
+
+/**
+ * Upper bound on the lines a single entry can occupy on one page, used to cap
+ * text measurement so layout cost does not scale with an entry's length. A small
+ * margin keeps it at or above the exact per-entry line clamp computed afterward.
+ */
+internal fun measuredLineCap(pageContentHeightPx: Int, lineHeightPx: Int): Int {
+    if (pageContentHeightPx <= 0 || lineHeightPx <= 0) return 1
+    return (pageContentHeightPx / lineHeightPx + MEASURE_LINE_MARGIN).coerceAtLeast(1)
+}
 
 internal data class FlowBlock(
     val entry: NoteEntry,
@@ -231,6 +251,10 @@ private fun EntryFlowBlock(
     }
 }
 
+private const val MEASURE_LINE_MARGIN = 2
+// Generous per-line character ceiling; the narrow phone column never approaches
+// it, so truncating the measured copy caps allocation without changing line counts.
+private const val MAX_MEASURED_CHARS_PER_LINE = 240
 private val FLOW_END_PADDING = 14.dp
 private val FLOW_PAGE_VERTICAL_PADDING = 8.dp
 private val ENTRY_SPACING = 10.dp

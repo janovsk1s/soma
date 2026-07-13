@@ -239,6 +239,7 @@ source code, Light branding, or proprietary Light assets.
 - [Data and backup formats](docs/FORMATS.md)
 - [Performance and battery contract](docs/PERFORMANCE.md)
 - [Threat model](docs/THREAT_MODEL.md)
+- [Light Phone III tool readiness](docs/LIGHT_TOOL.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 - [Acknowledgments](ACKNOWLEDGMENTS.md)
 
