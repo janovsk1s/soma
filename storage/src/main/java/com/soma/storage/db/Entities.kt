@@ -50,6 +50,9 @@ data class EntryEntity(
     @ColumnInfo(name = "transcription_state") val transcriptionState: String,
     @ColumnInfo(name = "transcription_attempt_count") val transcriptionAttemptCount: Int,
     @ColumnInfo(name = "detected_languages") val detectedLanguages: String?,
+    @ColumnInfo(name = "transcription_requested_engine") val transcriptionRequestedEngine: String?,
+    @ColumnInfo(name = "transcription_used_engine") val transcriptionUsedEngine: String?,
+    @ColumnInfo(name = "transcription_fallback_reason") val transcriptionFallbackReason: String?,
     @ColumnInfo(name = "transcription_updated_at_millis") val transcriptionUpdatedAtMillis: Long?,
     @ColumnInfo(name = "transcription_failure_code") val transcriptionFailureCode: String?,
     @ColumnInfo(name = "transcription_failure_retryable") val transcriptionFailureRetryable: Boolean?,
@@ -117,6 +120,7 @@ data class TodoEntity(
     @ColumnInfo(name = "source_note_id") val sourceNoteId: String?,
     @ColumnInfo(name = "source_entry_id") val sourceEntryId: String?,
     @ColumnInfo(name = "status") val status: String,
+    @ColumnInfo(name = "kind", defaultValue = "'ACTION'") val kind: String = ImportantKindValue.ACTION,
     @ColumnInfo(name = "completed_at_millis") val completedAtMillis: Long?,
     @ColumnInfo(name = "review_prompted_at_millis") val reviewPromptedAtMillis: Long?,
 )
@@ -148,6 +152,8 @@ data class TodoSuggestionEntity(
     @ColumnInfo(name = "sentence_end") val sentenceEnd: Int,
     @ColumnInfo(name = "language") val language: String,
     @ColumnInfo(name = "reason") val reason: String,
+    @ColumnInfo(name = "suggested_kind", defaultValue = "'ACTION'")
+    val suggestedKind: String = ImportantKindValue.ACTION,
     @ColumnInfo(name = "state") val state: String,
     @ColumnInfo(name = "created_at_millis") val createdAtMillis: Long,
     @ColumnInfo(name = "decided_at_millis") val decidedAtMillis: Long?,
@@ -210,6 +216,12 @@ object TodoStatusValue {
     const val OPEN = "OPEN"
     const val DONE = "DONE"
     const val ARCHIVED = "ARCHIVED"
+}
+
+object ImportantKindValue {
+    const val ACTION = "ACTION"
+    const val LIST = "LIST"
+    const val EXCERPT = "EXCERPT"
 }
 
 object SuggestionStateValue {

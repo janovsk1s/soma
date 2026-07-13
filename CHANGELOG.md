@@ -2,19 +2,128 @@
 
 Notable changes to Soma are documented here.
 
-## Unreleased
+## 0.1.0-preview.11 — 2026-07-13
+
+### Added
+
+- The former Todo section is now Important and stores three explicit kinds:
+  actions, lists, and source-linked excerpts. Existing todos migrate to actions.
+- Entry options can open a read-only native text-selection screen. The selected
+  word or phrase is copied into Important while the daily note remains unchanged.
+- Rule-based detection recognizes explicit shopping-list headings in all eight
+  supported languages and conservative multi-line bullet lists. Suggestions
+  still require one deliberate tap and never add themselves.
+- Database schema 4 and portable-backup payload 5 preserve Important kinds;
+  readable CSV exports include the kind for long-term app-independent access.
+- A documented performance and battery contract defines Light Phone capture,
+  idle-work, model-lifetime, memory, and physical-device measurement gates.
+
+### Changed
+
+- The focused input editor now uses the full remaining screen height and scrolls
+  internally instead of capping the writing area at 180 dp.
+- Local Important detection runs after durable capture on a background dispatcher
+  and bounds unusually large text, candidate counts, and detected list length.
+- Important excerpts open their source on tap and omit the nonsensical “done”
+  action; lists and actions remain directly completable.
+
+## 0.1.0-preview.10 — 2026-07-13
+
+### Added
+
+- BYOK transcription vocabulary: one user-controlled list prompts local Whisper,
+  Groq Whisper Large v3, and ElevenLabs Scribe v2. It is encrypted with its own
+  Android Keystore key and included in both portable and readable exports.
+- The vocabulary editor clearly discloses ElevenLabs' 20% keyterm surcharge;
+  empty vocabulary sends no keyterms and keeps standard Scribe v2 billing.
+- Hardware-aware local decoding keeps the Light Phone III on the existing
+  conservative thread budget while capable Android devices use more threads and
+  beam search for better tiny-model decoding.
+
+### Changed
+
+- The Todo screen now always uses the same bottom input line, spacing, type, and
+  adjacent Paka-style `+` button as the daily note capture row.
+
+## 0.1.0-preview.9 — 2026-07-13
 
 ### Fixed
 
+- ElevenLabs Scribe v2 now receives each recording as one file so it retains
+  language context across pauses and sentences. Soma no longer asks Scribe to
+  detect the language independently for every short VAD fragment, which could
+  make a later Latvian sentence drift into Russian.
+- Selecting exactly one speech language still sends its explicit language hint
+  (`lav` for Latvian); selecting several lets Scribe v2 handle code-switching
+  across the complete recording. Local Whisper and Groq retain VAD chunking.
+
+## 0.1.0-preview.8 — 2026-07-13
+
+### Fixed
+
+- ElevenLabs Scribe v2 results are no longer discarded when its detected
+  language falls outside the user's selected language set; Soma keeps the
+  transcript and uses the preferred supported language for rule processing.
+- Wi-Fi-only cloud transcription now recognizes any connected Wi-Fi network
+  with internet capability instead of checking only Android's default route,
+  which can remain cellular on LightOS while Wi-Fi is connected.
+- Safe ElevenLabs error categories survive local fallback: rejected key,
+  missing speech-to-text permission, credits, rate limit, invalid request,
+  network, and provider errors are now distinguishable without storing the
+  provider response, transcript, audio, or API key.
+
+### Added
+
+- Voice-entry options include “transcribe again,” replacing the completed or
+  failed job while preserving its encrypted audio and current text until the
+  new result arrives.
+
+## 0.1.0-preview.7 — 2026-07-13
+
+### Changed
+
+- The home capture row now uses Paka's exact `+` button instead of a microphone:
+  tap the text line or `+` to write, and deliberately long-press the text line
+  to begin a voice note. The `+` becomes a one-tap stop square while recording.
+- Voice capture starts before the daily-note Room write. The encrypted partial
+  file remains crash-recoverable, including the short interval before its entry
+  row is inserted.
+- Audio encryption keys and fixed format details warm while the home screen
+  settles, and Android begins buffering speech before the encrypted container's
+  disk sync, reducing the chance that the first words are clipped.
+
+## 0.1.0-preview.6 — 2026-07-13
+
+### Added
+
+- Successful voice-entry details now identify the transcription engine that
+  actually produced the text: local Whisper tiny, ElevenLabs Scribe v2, or
+  Groq Whisper Large v3.
+- When a selected cloud provider cannot run, the entry records that local
+  Whisper completed the transcription and quietly explains whether Wi-Fi, an
+  API key, or a provider failure caused the fallback.
+- Transcription provenance is encrypted with the entry, included in portable
+  backups, and written into both the Markdown and structured readable exports.
+
+## 0.1.0-preview.5 — 2026-07-13
+
+### Fixed
+
+- New notes, entry edits, and todo edits now stay in the editor until encrypted
+  storage confirms the write. A failed save keeps the text visible for retry.
+- Continuous-note pages reserve their rendered top and bottom padding before
+  packing entries, preventing the final entry from clipping.
+- Flowing entries and todo suggestion actions retain 48 dp touch targets.
 - Transcription language identification is constrained to the eight supported
   languages, picking the most probable among them per utterance. Short German
   speech can no longer surface as Russian or any other unsupported language.
+- The exact Paka settings gear is back in the home header's top-left position.
 
 ### Changed
 
 - The full-screen text editor is a faithful port of Paka's: it focuses itself
   when opened, keeps the save action visible above the keyboard, dims save
-  while the text is empty, and saves trimmed text on Done or save.
+  while the text is empty, and saves trimmed text with the explicit save action.
 - Entry timestamps sit on their own small line above each entry, so the text
   uses the full width of the screen.
 
@@ -28,12 +137,17 @@ Notable changes to Soma are documented here.
   gestures, so focused inline fields could trap the user under the keyboard.
   System back also releases the todo quick-add line first.
 - Text fields capitalize sentences (never passphrases).
-- The settings gear returns to the top-left of the home header.
 
 ### Added
 
 - Long-pressing the day title opens a monochrome calendar of past days; days
   holding entries carry a small dot, future days stay inert.
+- The separate cloud flavor again exposes opt-in Groq Whisper Large v3 and
+  ElevenLabs Scribe v2 transcription plus Groq GPT-OSS todo extraction in the
+  hidden Developer screen. ElevenLabs is the initial speech choice. Selected
+  speech languages are sent when one language is chosen; multi-language chunks
+  auto-detect and reject out-of-set results to the local Whisper fallback. Cloud
+  and AI remain off by default.
 
 ## 0.1.0-preview.3 — 2026-07-13
 

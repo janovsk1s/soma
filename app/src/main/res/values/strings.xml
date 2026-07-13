@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Soma</string>
+    <string name="product_name" translatable="false">Soma</string>
     <string name="app_description">A calm, offline place to drop thoughts and return to what matters.</string>
     <string name="today">Today</string>
     <string name="demo_title">Soma · demo</string>
@@ -8,18 +9,36 @@
     <string name="entry_hint">Write something…</string>
     <string name="entry_added_at">added %1$s</string>
     <string name="entry_edited_at">edited %1$s</string>
+    <string name="transcription_engine_local">Whisper tiny</string>
+    <string name="transcription_engine_elevenlabs">ElevenLabs · Scribe v2</string>
+    <string name="transcription_engine_groq">Groq · Whisper Large v3</string>
+    <string name="transcription_source_local">transcribed locally · Whisper tiny</string>
+    <string name="transcription_source_cloud">transcribed with %1$s</string>
+    <string name="transcription_fallback_wifi">transcribed locally · %1$s skipped without Wi-Fi</string>
+    <string name="transcription_fallback_key">transcribed locally · %1$s API key missing</string>
+    <string name="transcription_fallback_error">transcribed locally · %1$s failed</string>
+    <string name="transcription_fallback_authentication">transcribed locally · %1$s rejected the API key</string>
+    <string name="transcription_fallback_permission">transcribed locally · %1$s key lacks speech-to-text access</string>
+    <string name="transcription_fallback_payment">transcribed locally · %1$s needs credits</string>
+    <string name="transcription_fallback_rate_limit">transcribed locally · %1$s rate limited the request</string>
+    <string name="transcription_fallback_invalid_request">transcribed locally · %1$s rejected the audio request</string>
+    <string name="transcription_fallback_network">transcribed locally · could not reach %1$s</string>
+    <string name="transcription_source_unknown">transcription source not recorded</string>
     <string name="save">save</string>
+    <string name="save_failed_kept">Could not save. Your text is still here.</string>
     <string name="cancel">cancel</string>
     <string name="delete">delete</string>
     <string name="edit">edit</string>
     <string name="back">back</string>
     <string name="settings">settings</string>
-    <string name="todos">todos</string>
+    <string name="todos">Important</string>
     <string name="record">record</string>
     <string name="stop_recording">stop</string>
     <string name="play">play</string>
     <string name="stop_playback">stop playback</string>
     <string name="voice_transcribing">voice note, transcribing…</string>
+    <string name="transcribe_again">transcribe again</string>
+    <string name="transcription_retry_failed">The recording could not be queued again.</string>
     <string name="voice_failed">voice note — transcript unavailable</string>
     <string name="recording_now">recording…</string>
     <string name="recording_demo_disabled">Recording is unavailable in demo mode.</string>
@@ -27,16 +46,21 @@
     <string name="recording_recovered">The recording stopped unexpectedly. Recoverable audio was kept.</string>
     <string name="microphone_permission_needed">Microphone access is needed only while recording.</string>
     <string name="still_open">still open</string>
-    <string name="still_open_summary">%1$d open todos · %2$d to return to</string>
+    <string name="still_open_summary">%1$d important · %2$d to return to</string>
     <string name="dismiss_today">dismiss today</string>
     <string name="return_later">return later</string>
     <string name="returned">remove return marker</string>
-    <string name="todo_suggestion">→ todo?</string>
-    <string name="todo_created">added to todos</string>
-    <string name="open_todos">Open</string>
-    <string name="done_todos">Done / let go</string>
-    <string name="todos_empty">Nothing open.</string>
-    <string name="todo_quick_hint">Add a todo…</string>
+    <string name="todo_suggestion">→ important?</string>
+    <string name="todo_created">added to Important</string>
+    <string name="open_todos">Current</string>
+    <string name="done_todos">Completed / let go</string>
+    <string name="todos_empty">Nothing important yet.</string>
+    <string name="todo_quick_hint">Add something important…</string>
+    <string name="mark_important">mark important</string>
+    <string name="select_important_phrase">Adjust the selection to the word or phrase you want to keep.</string>
+    <string name="add_to_important">add to Important</string>
+    <string name="important_list">list</string>
+    <string name="important_excerpt">excerpt</string>
     <string name="add">add</string>
     <string name="add_details">add with details</string>
     <string name="mark_done">mark done</string>
@@ -56,7 +80,7 @@
     <string name="backup_title">Backup</string>
     <string name="backup_export">export backup</string>
     <string name="backup_readable_export">export readable archive</string>
-    <string name="backup_readable_explanation">A standard ZIP with a Markdown file for each day, todos in CSV, complete JSON data, edit history, and optional WAV audio.</string>
+    <string name="backup_readable_explanation">A standard ZIP with a Markdown file for each day, Important items in CSV, complete JSON data, edit history, and optional WAV audio.</string>
     <string name="backup_readable_privacy">This archive is not encrypted. Save it somewhere you trust. It can be read without Soma.</string>
     <string name="backup_readable_exported">Readable archive exported.</string>
     <string name="backup_readable_export_failed">Readable archive export failed.</string>
@@ -80,7 +104,8 @@
     <string name="browser_stopped">Browser view stopped.</string>
     <string name="browser_notification_permission">Notification permission is needed while Browser view is running.</string>
     <string name="about_title">About</string>
-    <string name="about_byline">By Adrians Janovskis · @janovsk1s</string>
+    <string name="about_byline">By Adrians Janovskis</string>
+    <string name="about_handle" translatable="false">@janovsk1s</string>
     <string name="about_license">GPL-3.0-only · whisper.cpp is MIT</string>
     <string name="entry_title">Entry</string>
     <string name="play_original">play original</string>
@@ -96,8 +121,8 @@
     <string name="backup_exported">Backup exported.</string>
     <string name="backup_export_failed">Backup export failed.</string>
     <string name="backup_wrong_or_damaged">Wrong passphrase or damaged backup.</string>
-    <string name="backup_replace_prompt">Replace all notes and todos on this phone?</string>
-    <string name="backup_contents_summary">%1$d days · %2$d todos</string>
+    <string name="backup_replace_prompt">Replace all notes and Important items on this phone?</string>
+    <string name="backup_contents_summary">%1$d days · %2$d important</string>
     <string name="backup_restored">Backup restored.</string>
     <string name="backup_restore_failed">Restore failed; existing data was kept.</string>
     <string name="voice_audio_not_in_backup">Voice note (audio not included in backup)</string>
@@ -118,14 +143,14 @@
     <string name="developer_cloud_transcription">cloud transcription</string>
     <string name="developer_provider">speech provider</string>
     <string name="developer_wifi_only">Wi-Fi only</string>
-    <string name="developer_ai_todos">AI todo suggestions</string>
+    <string name="developer_ai_todos">AI Important suggestions</string>
     <string name="developer_groq_key">Groq API key</string>
     <string name="developer_elevenlabs_key">ElevenLabs API key</string>
     <string name="developer_api_key_hint">paste key</string>
     <string name="developer_key_storage">The key is encrypted with Android Keystore and never included in exports. Save an empty value to remove it.</string>
     <string name="developer_key_saved">saved</string>
     <string name="developer_key_missing">missing</string>
-    <string name="developer_cloud_privacy">Off by default. Cloud transcription sends audio to the selected provider. AI todo suggestions send only the new or edited entry to Groq. Groq is recommended; enable Zero Data Retention in its console. ElevenLabs zero retention requires Enterprise.</string>
+    <string name="developer_cloud_privacy">Bring your own provider key; Soma has no account or server, and the provider bills your account directly. Off by default. Cloud transcription sends audio and any transcription vocabulary to the selected provider. AI todo suggestions send only the new or edited entry to Groq. For lower retention, enable Zero Data Retention in Groq; ElevenLabs zero retention requires Enterprise.</string>
     <string name="developer_enabled">Developer options enabled</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">Latviešu</string>
@@ -140,4 +165,7 @@
     <string name="accessibility_page_position">Page %1$d of %2$d</string>
     <string name="add_entry">New entry</string>
     <string name="calendar_title">Calendar</string>
+    <string name="settings_speech_languages">speech languages</string>
+    <string name="settings_transcription_vocabulary">transcription vocabulary</string>
+    <string name="transcription_vocabulary_help" formatted="false">One word or short phrase per line. This helps local Whisper and Groq at no extra charge. ElevenLabs sends a non-empty list as paid keyterms with a 20% surcharge; leave it empty to avoid that surcharge.</string>
 </resources>

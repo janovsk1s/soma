@@ -41,6 +41,20 @@ class EncryptedAudioRecorder(
     @Volatile
     private var active: RecordingSession? = null
 
+    @Volatile
+    private var preparedBufferSize: Int? = null
+
+    /**
+     * Warms only encryption and format metadata; it never opens or starts the
+     * microphone. Doing this while the home screen settles keeps Keystore work
+     * out of the user's long-press-to-record path.
+     */
+    suspend fun prepare() = withContext(Dispatchers.IO) {
+        keyProvider.getOrCreate()
+        configuredBufferSize().also { preparedBufferSize = it }
+        Unit
+    }
+
     @SuppressLint("MissingPermission") // The app requests RECORD_AUDIO immediately before calling start().
     suspend fun start(audioId: String, directory: File): RecordingSession = withContext(Dispatchers.IO) {
         check(active == null) { "A recording is already active" }
@@ -51,13 +65,7 @@ class EncryptedAudioRecorder(
         if (partialFile.exists()) error("An interrupted recording already exists for $audioId")
         if (finalFile.exists()) error("A recording already exists for $audioId")
 
-        val minBuffer = AudioRecord.getMinBufferSize(
-            AudioMetadata.SAMPLE_RATE,
-            AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_16BIT,
-        )
-        check(minBuffer > 0) { "16 kHz mono recording is unavailable" }
-        val bufferSize = maxOf(minBuffer, DEFAULT_CHUNK_BYTES).let { if (it % 2 == 0) it else it + 1 }
+        val bufferSize = preparedBufferSize ?: configuredBufferSize().also { preparedBufferSize = it }
         val record = AudioRecord(
             MediaRecorder.AudioSource.VOICE_RECOGNITION,
             AudioMetadata.SAMPLE_RATE,
@@ -69,12 +77,24 @@ class EncryptedAudioRecorder(
             record.release()
             "Could not initialize the microphone"
         }
-        val writer = EncryptedAudioWriter(partialFile, audioId, keyProvider)
         try {
             record.startRecording()
+            check(record.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
+                "Microphone did not enter the recording state"
+            }
         } catch (error: Throwable) {
-            writer.close()
             record.release()
+            throw error
+        }
+
+        // AudioRecord's native buffer is already collecting the first words
+        // while the crash-safe encrypted container is opened and fsynced.
+        val writer = try {
+            EncryptedAudioWriter(partialFile, audioId, keyProvider)
+        } catch (error: Throwable) {
+            runCatching { record.stop() }
+            record.release()
+            runCatching { partialFile.delete() }
             throw error
         }
 
@@ -111,6 +131,16 @@ class EncryptedAudioRecorder(
     companion object {
         private const val DEFAULT_CHUNK_BYTES = 8_192
         private val SAFE_ID = Regex("[A-Za-z0-9_-]{1,80}")
+    }
+
+    private fun configuredBufferSize(): Int {
+        val minBuffer = AudioRecord.getMinBufferSize(
+            AudioMetadata.SAMPLE_RATE,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT,
+        )
+        check(minBuffer > 0) { "16 kHz mono recording is unavailable" }
+        return maxOf(minBuffer, DEFAULT_CHUNK_BYTES).let { if (it % 2 == 0) it else it + 1 }
     }
 }
 

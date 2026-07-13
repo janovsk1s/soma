@@ -53,7 +53,11 @@ fun LineInput(
                 drawLine(DimInk, Offset(0f, size.height - 1.dp.toPx()), Offset(size.width, size.height - 1.dp.toPx()), 1.dp.toPx())
             }
             .padding(horizontal = 2.dp, vertical = 10.dp),
-        textStyle = TextStyle(color = Ink, fontSize = if (singleLine) 20.sp else 22.sp, fontWeight = FontWeight.Normal),
+        textStyle = TextStyle(
+            color = Ink,
+            fontSize = if (singleLine) 20.sp else 22.sp,
+            fontWeight = FontWeight.Normal,
+        ).withSomaFont(),
         cursorBrush = SolidColor(Ink),
         singleLine = singleLine,
         keyboardOptions = KeyboardOptions(
@@ -111,10 +115,8 @@ fun TodosButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun RecordButton(recording: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Canvas(modifier.size(48.dp).then(tapModifier(onClick, if (recording) "stop" else "record"))) {
-        if (recording) drawStop() else drawMicrophone()
-    }
+fun StopButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Canvas(modifier.size(48.dp).then(tapModifier(onClick, "stop"))) { drawStop() }
 }
 
 @Composable
@@ -212,28 +214,6 @@ fun VoiceMark(modifier: Modifier = Modifier) {
             style = androidx.compose.ui.graphics.drawscope.Stroke(s * 0.11f, cap = StrokeCap.Round),
         )
     }
-}
-
-private fun DrawScope.drawMicrophone() {
-    val side = size.minDimension
-    val center = side / 2f
-    drawRoundRect(
-        Ink,
-        topLeft = Offset(side * 0.39f, side * 0.22f),
-        size = Size(side * 0.22f, side * 0.40f),
-        cornerRadius = androidx.compose.ui.geometry.CornerRadius(side * 0.11f),
-    )
-    drawArc(
-        Ink,
-        startAngle = 0f,
-        sweepAngle = 180f,
-        useCenter = false,
-        topLeft = Offset(side * 0.30f, side * 0.34f),
-        size = Size(side * 0.40f, side * 0.38f),
-        style = androidx.compose.ui.graphics.drawscope.Stroke(side * 0.045f, cap = StrokeCap.Round),
-    )
-    drawLine(Ink, Offset(center, side * 0.72f), Offset(center, side * 0.81f), side * 0.045f)
-    drawLine(Ink, Offset(side * 0.39f, side * 0.81f), Offset(side * 0.61f, side * 0.81f), side * 0.045f)
 }
 
 private fun DrawScope.drawPlay() {

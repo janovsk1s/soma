@@ -6,6 +6,7 @@ import com.soma.core.model.EntryKind
 import com.soma.core.model.EntryRevision
 import com.soma.core.model.EntrySource
 import com.soma.core.model.EntryTranscriptionState
+import com.soma.core.model.ImportantKind
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.SupportedLanguage
 import com.soma.core.model.Todo
@@ -15,9 +16,12 @@ import com.soma.core.model.TodoSuggestionReason
 import com.soma.core.model.TodoSuggestionState
 import com.soma.core.model.TranscriptionFailure
 import com.soma.core.model.TranscriptionFailureCode
+import com.soma.core.model.TranscriptionEngine
+import com.soma.core.model.TranscriptionFallbackReason
 import com.soma.core.model.TranscriptionInfo
 import com.soma.core.model.TranscriptionJob
 import com.soma.core.model.TranscriptionJobState
+import com.soma.core.model.TranscriptionProvenance
 import com.soma.storage.crypto.StorageAad
 import com.soma.storage.crypto.TextCipher
 import com.soma.storage.db.EntryEntity
@@ -53,6 +57,9 @@ internal class EntityMapper(
             transcriptionState = transcription?.state?.name ?: TranscriptionStateValue.NOT_APPLICABLE,
             transcriptionAttemptCount = transcription?.attemptCount ?: 0,
             detectedLanguages = transcription?.detectedLanguages?.joinToString(",") { it.name },
+            transcriptionRequestedEngine = transcription?.provenance?.requestedEngine?.name,
+            transcriptionUsedEngine = transcription?.provenance?.usedEngine?.name,
+            transcriptionFallbackReason = transcription?.provenance?.fallbackReason?.name,
             transcriptionUpdatedAtMillis = transcription?.updatedAt?.toEpochMilli(),
             transcriptionFailureCode = failure?.code?.name,
             transcriptionFailureRetryable = failure?.retryable,
@@ -90,10 +97,18 @@ internal class EntityMapper(
                     },
                 )
             }
+            val provenance = entity.transcriptionRequestedEngine?.let { requested ->
+                TranscriptionProvenance(
+                    requestedEngine = TranscriptionEngine.valueOf(requested),
+                    usedEngine = TranscriptionEngine.valueOf(requireNotNull(entity.transcriptionUsedEngine)),
+                    fallbackReason = entity.transcriptionFallbackReason?.let(TranscriptionFallbackReason::valueOf),
+                )
+            }
             TranscriptionInfo(
                 state = state,
                 attemptCount = entity.transcriptionAttemptCount,
                 detectedLanguages = decodeLanguages(entity.detectedLanguages),
+                provenance = provenance,
                 updatedAt = Instant.ofEpochMilli(
                     entity.transcriptionUpdatedAtMillis ?: entity.updatedAtMillis,
                 ),
@@ -131,6 +146,7 @@ internal class EntityMapper(
         sourceNoteId = todo.source?.noteDate?.let(NoteIds::fromDate),
         sourceEntryId = todo.source?.entryId,
         status = todo.state.name,
+        kind = todo.kind.name,
         completedAtMillis = todo.closedAt?.toEpochMilli(),
         reviewPromptedAtMillis = todo.stalePromptShownAt?.toEpochMilli(),
     )
@@ -142,6 +158,7 @@ internal class EntityMapper(
         updatedAt = Instant.ofEpochMilli(entity.updatedAtMillis),
         lastTouchedAt = Instant.ofEpochMilli(entity.lastTouchedAtMillis),
         state = TodoState.valueOf(entity.status),
+        kind = ImportantKind.valueOf(entity.kind),
         source = entity.sourceEntryId?.let { entryId ->
             val noteEpochDay = entity.sourceNoteId?.let(NoteIds::toEpochDay)
                 ?: error("Todo ${entity.id} has a source entry without a source note")
@@ -161,6 +178,7 @@ internal class EntityMapper(
         sentenceEnd = suggestion.suggestedText.length,
         language = suggestion.language.name,
         reason = suggestion.reason.name,
+        suggestedKind = suggestion.suggestedKind.name,
         state = suggestion.state.name,
         createdAtMillis = suggestion.createdAt.toEpochMilli(),
         decidedAtMillis = suggestion.resolvedAt?.toEpochMilli(),
@@ -177,6 +195,7 @@ internal class EntityMapper(
         ),
         language = SupportedLanguage.valueOf(entity.language),
         reason = TodoSuggestionReason.valueOf(entity.reason),
+        suggestedKind = ImportantKind.valueOf(entity.suggestedKind),
         matchedRule = decrypt(
             entity.id,
             SUGGESTION_MATCHED_RULE,

@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         StillOpenDismissalEntity::class,
         TranscriptionJobEntity::class,
     ],
-    version = 2,
+    version = 4,
     exportSchema = true,
 )
 abstract class SomaDatabase : RoomDatabase() {
@@ -34,7 +34,7 @@ abstract class SomaDatabase : RoomDatabase() {
 
         fun build(context: Context, name: String = DEFAULT_DATABASE_NAME): SomaDatabase =
             Room.databaseBuilder(context.applicationContext, SomaDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
                 .build()
 
@@ -56,6 +56,23 @@ abstract class SomaDatabase : RoomDatabase() {
                 )
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS index_entry_revisions_entry_id ON entry_revisions(entry_id)",
+                )
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE entries ADD COLUMN transcription_requested_engine TEXT")
+                db.execSQL("ALTER TABLE entries ADD COLUMN transcription_used_engine TEXT")
+                db.execSQL("ALTER TABLE entries ADD COLUMN transcription_fallback_reason TEXT")
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE todos ADD COLUMN kind TEXT NOT NULL DEFAULT 'ACTION'")
+                db.execSQL(
+                    "ALTER TABLE todo_suggestions ADD COLUMN suggested_kind TEXT NOT NULL DEFAULT 'ACTION'",
                 )
             }
         }

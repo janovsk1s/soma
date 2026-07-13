@@ -55,6 +55,7 @@ data class TranscriptionInfo(
     val state: EntryTranscriptionState,
     val attemptCount: Int = 0,
     val detectedLanguages: List<SupportedLanguage> = emptyList(),
+    val provenance: TranscriptionProvenance? = null,
     val updatedAt: Instant,
     val failure: TranscriptionFailure? = null,
 ) {
@@ -62,6 +63,9 @@ data class TranscriptionInfo(
         require(attemptCount >= 0) { "Transcription attempt count must not be negative" }
         require(failure == null || state == EntryTranscriptionState.FAILED) {
             "A transcription failure is only valid in FAILED state"
+        }
+        require(provenance == null || state == EntryTranscriptionState.SUCCEEDED) {
+            "Transcription provenance is only valid after successful transcription"
         }
     }
 }

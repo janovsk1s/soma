@@ -4,6 +4,7 @@ import com.soma.core.model.AudioAttachment
 import com.soma.core.model.AudioFormat
 import com.soma.core.model.DailyNote
 import com.soma.core.model.EntrySource
+import com.soma.core.model.ImportantKind
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.SupportedLanguage
@@ -14,10 +15,12 @@ import com.soma.core.model.TodoSuggestionReason
 import com.soma.core.model.TodoSuggestionState
 import com.soma.core.model.TranscriptionFailure
 import com.soma.core.model.TranscriptionFailureCode
+import com.soma.core.model.TranscriptionEngine
 import com.soma.core.model.TranscriptionInfo
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.TranscriptionJob
 import com.soma.core.model.TranscriptionJobState
+import com.soma.core.model.TranscriptionProvenance
 import java.time.Instant
 import java.time.LocalDate
 import java.util.Arrays
@@ -149,6 +152,10 @@ class PortableBackupCodecTest {
                 state = EntryTranscriptionState.SUCCEEDED,
                 attemptCount = 2,
                 detectedLanguages = listOf(SupportedLanguage.ENGLISH, SupportedLanguage.LATVIAN),
+                provenance = TranscriptionProvenance(
+                    requestedEngine = TranscriptionEngine.ELEVENLABS_SCRIBE_V2,
+                    usedEngine = TranscriptionEngine.ELEVENLABS_SCRIBE_V2,
+                ),
                 updatedAt = START.plusSeconds(3),
             ),
         )
@@ -161,6 +168,7 @@ class PortableBackupCodecTest {
                     text = "Call Anna",
                     createdAt = START.plusSeconds(5),
                     updatedAt = START.plusSeconds(5),
+                    kind = ImportantKind.EXCERPT,
                     source = EntrySource(DATE, TEXT_ENTRY.id),
                 ),
                 Todo(
@@ -180,6 +188,7 @@ class PortableBackupCodecTest {
                     id = "suggestion-1",
                     entryId = TEXT_ENTRY.id,
                     suggestedText = "piezvanīt Annai",
+                    suggestedKind = ImportantKind.LIST,
                     language = SupportedLanguage.LATVIAN,
                     reason = TodoSuggestionReason.TRIGGER_PHRASE,
                     matchedRule = "jāatceras",
@@ -203,6 +212,7 @@ class PortableBackupCodecTest {
             audioContainers = listOf(
                 BackupAudioContainer(AUDIO.fileId, ByteArray(257) { (it * 17).toByte() }),
             ),
+            transcriptionVocabulary = listOf("Milchreis", "Rīga"),
         )
         private lateinit var FULL_ENCODED: ByteArray
 

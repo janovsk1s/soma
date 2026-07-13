@@ -81,6 +81,31 @@ class DomainModelTest {
         assertNull(SupportedLanguage.fromLanguageTag("fr-FR"))
     }
 
+    @Test
+    fun `transcription provenance distinguishes cloud success from local fallback`() {
+        val cloud = TranscriptionProvenance(
+            requestedEngine = TranscriptionEngine.ELEVENLABS_SCRIBE_V2,
+            usedEngine = TranscriptionEngine.ELEVENLABS_SCRIBE_V2,
+        )
+        val fallback = TranscriptionProvenance(
+            requestedEngine = TranscriptionEngine.ELEVENLABS_SCRIBE_V2,
+            usedEngine = TranscriptionEngine.LOCAL_WHISPER_TINY,
+            fallbackReason = TranscriptionFallbackReason.PROVIDER_ERROR,
+        )
+
+        assertEquals(TranscriptionEngine.ELEVENLABS_SCRIBE_V2, cloud.usedEngine)
+        assertEquals(TranscriptionEngine.LOCAL_WHISPER_TINY, fallback.usedEngine)
+        assertEquals(TranscriptionFallbackReason.PROVIDER_ERROR, fallback.fallbackReason)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `transcription provenance rejects unexplained engine changes`() {
+        TranscriptionProvenance(
+            requestedEngine = TranscriptionEngine.GROQ_WHISPER_LARGE_V3,
+            usedEngine = TranscriptionEngine.LOCAL_WHISPER_TINY,
+        )
+    }
+
     private fun audio(): AudioAttachment = AudioAttachment(
         fileId = "audio-1",
         format = AudioFormat.WAV,

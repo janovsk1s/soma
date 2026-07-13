@@ -6,6 +6,8 @@ import com.soma.core.model.AudioAttachment
 import com.soma.core.model.DEFAULT_TRANSCRIPTION_MAX_ATTEMPTS
 import com.soma.core.model.EntrySource
 import com.soma.core.model.EntryRevision
+import com.soma.core.model.EntryTranscriptionState
+import com.soma.core.model.ImportantKind
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.SupportedLanguage
@@ -17,6 +19,7 @@ import com.soma.core.model.TranscriptionFailure
 import com.soma.core.model.TranscriptionFailureCode
 import com.soma.core.model.TranscriptionJob
 import com.soma.core.model.TranscriptionJobState
+import com.soma.core.model.TranscriptionInfo
 import com.soma.core.model.TranscriptionResult
 import com.soma.core.repository.DailyNoteRepository
 import com.soma.core.repository.EntryMutationResult
@@ -267,6 +270,24 @@ class InMemorySomaRepository private constructor(
         true
     }
 
+    override suspend fun restart(job: TranscriptionJob): Boolean = mutex.withLock {
+        val entry = getEntry(job.entryId) ?: return@withLock false
+        if (entry.audio == null) return@withLock false
+        jobs.value = jobs.value.filterValues { it.entryId != job.entryId } + (job.id to job)
+        val note = notes.value[entry.noteDate] ?: return@withLock false
+        val queuedEntry = entry.copy(
+            transcription = TranscriptionInfo(
+                state = EntryTranscriptionState.QUEUED,
+                updatedAt = job.updatedAt,
+            ),
+            updatedAt = job.updatedAt,
+        )
+        notes.value = notes.value + (
+            note.date to note.copy(entries = note.entries.map { if (it.id == entry.id) queuedEntry else it })
+        )
+        true
+    }
+
     override suspend fun claimNext(leaseOwner: String, now: Instant, leaseDuration: Duration): TranscriptionJob? =
         mutex.withLock {
             if (jobs.value.values.any { it.state == TranscriptionJobState.RUNNING && it.leaseExpiresAt?.isAfter(now) == true }) {
@@ -381,13 +402,20 @@ class InMemorySomaRepository private constructor(
             )
             val demoTodos = listOf(
                 Todo("demo-todo-1", "Send the form", now.minusSeconds(6 * 86_400), now.minusSeconds(6 * 86_400)),
-                Todo("demo-todo-2", "Renew library card", now.minusSeconds(3 * 86_400), now.minusSeconds(3 * 86_400)),
+                Todo(
+                    "demo-todo-2",
+                    "Rye bread\nMilk\nBananas",
+                    now.minusSeconds(3 * 86_400),
+                    now.minusSeconds(3 * 86_400),
+                    kind = ImportantKind.LIST,
+                ),
                 Todo(
                     "demo-todo-3",
-                    "Call Mum about Sunday lunch",
+                    "Idea: leave the phone outside the bedroom.",
                     now.minusSeconds(86_400),
                     now.minusSeconds(86_400),
-                    source = EntrySource(today, "demo-entry-0"),
+                    kind = ImportantKind.EXCERPT,
+                    source = EntrySource(today, "demo-entry-3"),
                 ),
                 Todo(
                     "demo-todo-done",

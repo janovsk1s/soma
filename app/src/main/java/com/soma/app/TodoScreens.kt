@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.soma.core.model.ImportantKind
 import com.soma.core.model.Todo
 import com.soma.core.model.TodoState
 import java.time.ZoneId
@@ -89,41 +90,38 @@ fun TodosScreen(
             }
         }
         if (!showClosed) {
-            if (quickAdd) {
-                val focus = remember { FocusRequester() }
-                LaunchedEffect(Unit) { focus.requestFocus() }
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+            val focus = remember { FocusRequester() }
+            LaunchedEffect(quickAdd) { if (quickAdd) focus.requestFocus() }
+            fun submitQuickTodo() {
+                if (input.isNotBlank()) viewModel.addTodo(input)
+                input = ""
+                quickAdd = false
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (quickAdd) {
                     LineInput(
                         input,
                         { input = it },
                         stringResource(R.string.todo_quick_hint),
                         Modifier.weight(1f).focusRequester(focus),
-                        onDone = {
-                            viewModel.addTodo(input)
-                            input = ""
-                            quickAdd = false
-                        },
+                        onDone = ::submitQuickTodo,
                     )
-                    PlusButton(
-                        onClick = {
-                            viewModel.addTodo(input)
-                            input = ""
-                            quickAdd = false
-                        },
-                        onLongClick = onDetailedAdd,
-                        modifier = Modifier.offset(x = 8.dp),
+                } else {
+                    CaptureBar(
+                        modifier = Modifier.weight(1f),
+                        placeholder = stringResource(R.string.todo_quick_hint),
+                        onOpen = { quickAdd = true },
+                        onLongPress = { quickAdd = true },
                     )
                 }
-            } else {
-                Box(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 18.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    PlusButton(onClick = { quickAdd = true }, onLongClick = onDetailedAdd)
-                }
+                PlusButton(
+                    onClick = { if (quickAdd) submitQuickTodo() else quickAdd = true },
+                    onLongClick = onDetailedAdd,
+                    modifier = Modifier.offset(x = 8.dp),
+                )
             }
         }
     }
@@ -143,7 +141,7 @@ private fun TodoHeader(showClosed: Boolean, onToggle: () -> Unit, onBack: () -> 
             fontWeight = FontWeight.Normal,
         )
         Box(
-            modifier = Modifier.align(Alignment.CenterEnd).width(72.dp).then(tapModifier(onToggle, "todo page")),
+            modifier = Modifier.align(Alignment.CenterEnd).width(72.dp).then(tapModifier(onToggle, "important page")),
             contentAlignment = Alignment.CenterEnd,
         ) {
             Text(
@@ -167,7 +165,13 @@ private fun TodoRow(
     onSource: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().then(tapLongModifier(onToggle, onOptions, "todo")),
+        modifier = Modifier.fillMaxSize().then(
+            tapLongModifier(
+                if (todo.kind == ImportantKind.EXCERPT) onSource else onToggle,
+                onOptions,
+                "important item",
+            ),
+        ),
         verticalArrangement = Arrangement.Center,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -181,13 +185,27 @@ private fun TodoRow(
                 modifier = Modifier.weight(1f),
             )
             Text(
-                if (todo.state == TodoState.OPEN) "○" else "✓",
+                when {
+                    todo.state != TodoState.OPEN -> "✓"
+                    todo.kind == ImportantKind.ACTION -> "○"
+                    todo.kind == ImportantKind.LIST -> "≡"
+                    else -> "↗"
+                },
                 color = DimInk,
                 fontSize = 22.sp,
                 modifier = Modifier.padding(start = 8.dp),
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (todo.kind != ImportantKind.ACTION) {
+                Text(
+                    stringResource(
+                        if (todo.kind == ImportantKind.LIST) R.string.important_list else R.string.important_excerpt,
+                    ),
+                    color = DimInk,
+                    fontSize = 12.sp,
+                )
+            }
             todo.source?.let { source ->
                 Text(
                     source.noteDate.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT)),
@@ -215,10 +233,15 @@ fun TodoOptionsScreen(
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
+    val actions = buildList {
+        add(TodoAction.EDIT)
+        if (todo.kind != ImportantKind.EXCERPT) add(TodoAction.TOGGLE)
+        add(TodoAction.LET_GO)
+    }
     Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding().padding(horizontal = 28.dp)) {
         SimpleTopBar(stringResource(R.string.todos), onBack)
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            PagedList(TodoAction.entries) { action ->
+            PagedList(actions) { action ->
                 SettingsItem(
                     label = when (action) {
                         TodoAction.EDIT -> stringResource(R.string.edit)

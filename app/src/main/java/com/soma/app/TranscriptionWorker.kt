@@ -65,7 +65,7 @@ class TranscriptionDrainWorker(
         val startedAt = SystemClock.elapsedRealtime()
         var shouldRetry = false
 
-        cloudFeatures(app).createTranscriber { WhisperCppTranscriber(app) }.use { transcriber ->
+        cloudFeatures(app).createTranscriber { createLocalTranscriber(app) }.use { transcriber ->
             while (!isStopped && SystemClock.elapsedRealtime() - startedAt < INTERNAL_BUDGET_MILLIS) {
                 if (power?.isPowerSaveMode == true && !SomaPrefs.transcribeInBatterySaver(app)) {
                     shouldRetry = true
@@ -126,7 +126,10 @@ class TranscriptionDrainWorker(
                         }
                     }
                     if (segments.isEmpty()) throw NoSpeechDetectedException()
-                    val result = com.soma.core.model.TranscriptionResult(segments)
+                    val result = com.soma.core.model.TranscriptionResult(
+                        segments = segments,
+                        provenance = native.provenance,
+                    )
                     if (repositories.transcriptionJobs.complete(job.id, workerId, result, clock.instant())) {
                         persistSuggestions(app, job.entryId, result)
                     }
@@ -171,6 +174,7 @@ class TranscriptionDrainWorker(
                     id = UUID.randomUUID().toString(),
                     entryId = entryId,
                     suggestedText = candidate.suggestedText,
+                    suggestedKind = candidate.kind,
                     language = candidate.language,
                     reason = candidate.reason,
                     matchedRule = candidate.matchedRule,
@@ -188,7 +192,7 @@ class TranscriptionDrainWorker(
                         suggestedText = text,
                         language = languages.firstOrNull() ?: SomaPrefs.language(app),
                         reason = com.soma.core.model.TodoSuggestionReason.AI_EXTRACTED,
-                        matchedRule = "cloud:groq:openai/gpt-oss-20b",
+                        matchedRule = "cloud:groq:$CLOUD_AI_TODO_MODEL",
                         state = TodoSuggestionState.PENDING,
                         createdAt = Instant.now(),
                     ),
@@ -200,6 +204,17 @@ class TranscriptionDrainWorker(
     private companion object {
         const val INTERNAL_BUDGET_MILLIS = 8 * 60 * 1_000L
 
+        /** The app language wins ambiguous chunks when it is a spoken language. */
+        fun createLocalTranscriber(context: Context): WhisperCppTranscriber {
+            val spoken = SomaPrefs.speechLanguages(context)
+            val appLanguage = SomaPrefs.language(context)
+            return WhisperCppTranscriber(
+                context = context,
+                allowedLanguages = spoken.map { it.languageTag }.toTypedArray(),
+                preferredLanguage = appLanguage.languageTag.takeIf { appLanguage in spoken },
+                vocabulary = TranscriptionVocabularyStore(context).read(),
+            )
+        }
     }
 }
 

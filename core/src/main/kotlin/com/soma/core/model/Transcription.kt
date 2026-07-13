@@ -12,6 +12,56 @@ enum class TranscriptionFailureCode {
     UNKNOWN,
 }
 
+enum class TranscriptionEngine {
+    LOCAL_WHISPER_TINY,
+    ELEVENLABS_SCRIBE_V2,
+    GROQ_WHISPER_LARGE_V3,
+}
+
+enum class TranscriptionFallbackReason {
+    WIFI_REQUIRED,
+    API_KEY_MISSING,
+    PROVIDER_ERROR,
+    AUTHENTICATION_ERROR,
+    PERMISSION_ERROR,
+    PAYMENT_REQUIRED,
+    RATE_LIMITED,
+    INVALID_REQUEST,
+    NETWORK_ERROR,
+}
+
+/**
+ * Records what Soma tried and what actually produced the saved transcript.
+ * Provider error details stay sanitized; note text, audio, and API keys never belong here.
+ */
+data class TranscriptionProvenance(
+    val requestedEngine: TranscriptionEngine,
+    val usedEngine: TranscriptionEngine,
+    val fallbackReason: TranscriptionFallbackReason? = null,
+) {
+    init {
+        if (fallbackReason == null) {
+            require(requestedEngine == usedEngine) {
+                "Different requested and used engines require a fallback reason"
+            }
+        } else {
+            require(requestedEngine != TranscriptionEngine.LOCAL_WHISPER_TINY) {
+                "Local Whisper cannot be the source of a cloud fallback"
+            }
+            require(usedEngine == TranscriptionEngine.LOCAL_WHISPER_TINY) {
+                "Cloud fallback must finish with local Whisper"
+            }
+        }
+    }
+
+    companion object {
+        fun local() = TranscriptionProvenance(
+            requestedEngine = TranscriptionEngine.LOCAL_WHISPER_TINY,
+            usedEngine = TranscriptionEngine.LOCAL_WHISPER_TINY,
+        )
+    }
+}
+
 /** A sanitized failure; do not put transcript or note contents in [diagnostic]. */
 data class TranscriptionFailure(
     val code: TranscriptionFailureCode,
@@ -80,6 +130,7 @@ data class TranscriptSegment(
 
 data class TranscriptionResult(
     val segments: List<TranscriptSegment>,
+    val provenance: TranscriptionProvenance,
 ) {
     val text: String
         get() = segments.joinToString(separator = " ") { it.text.trim() }

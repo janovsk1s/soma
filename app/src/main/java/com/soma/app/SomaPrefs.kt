@@ -12,6 +12,7 @@ object SomaPrefs {
     private const val KEY_BATTERY_SAVER = "transcribe_in_battery_saver"
     private const val KEY_DEMO_MODE = "demo_mode"
     private const val KEY_LANGUAGE = "language"
+    private const val KEY_SPEECH_LANGUAGES = "speech_languages"
     private const val KEY_LIGHT_MODE = "light_mode"
     private const val KEY_CLOUD_TRANSCRIPTION = "cloud_transcription_enabled"
     private const val KEY_CLOUD_PROVIDER = "cloud_speech_provider"
@@ -58,10 +59,10 @@ object SomaPrefs {
 
     fun cloudSpeechProvider(context: Context): CloudSpeechProvider = runCatching {
         CloudSpeechProvider.valueOf(
-            values(context).getString(KEY_CLOUD_PROVIDER, CloudSpeechProvider.GROQ.name)
-                ?: CloudSpeechProvider.GROQ.name,
+            values(context).getString(KEY_CLOUD_PROVIDER, CloudSpeechProvider.ELEVENLABS.name)
+                ?: CloudSpeechProvider.ELEVENLABS.name,
         )
-    }.getOrDefault(CloudSpeechProvider.GROQ)
+    }.getOrDefault(CloudSpeechProvider.ELEVENLABS)
 
     fun setCloudSpeechProvider(context: Context, provider: CloudSpeechProvider) =
         values(context).edit().putString(KEY_CLOUD_PROVIDER, provider.name).apply()
@@ -81,6 +82,24 @@ object SomaPrefs {
         if (stored != null) return SupportedLanguage.fromLanguageTag(stored) ?: SupportedLanguage.ENGLISH
         val deviceTag = context.resources.configuration.locales.get(0)?.toLanguageTag().orEmpty()
         return SupportedLanguage.fromLanguageTag(deviceTag) ?: SupportedLanguage.ENGLISH
+    }
+
+    /** Languages the user actually speaks; transcription only detects among these. */
+    fun speechLanguages(context: Context): Set<SupportedLanguage> {
+        val stored = values(context).getString(KEY_SPEECH_LANGUAGES, null)
+            ?: return SupportedLanguage.entries.toSet()
+        val parsed = stored.split(',')
+            .mapNotNull(SupportedLanguage::fromLanguageTag)
+            .toSet()
+        return parsed.ifEmpty { SupportedLanguage.entries.toSet() }
+    }
+
+    fun setSpeechLanguages(context: Context, languages: Set<SupportedLanguage>) {
+        val stored = languages
+            .ifEmpty { SupportedLanguage.entries.toSet() }
+            .sortedBy(SupportedLanguage::ordinal)
+            .joinToString(",") { it.languageTag }
+        values(context).edit().putString(KEY_SPEECH_LANGUAGES, stored).apply()
     }
 
     fun setLanguage(context: Context, language: SupportedLanguage) =

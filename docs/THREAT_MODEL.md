@@ -9,7 +9,7 @@ secret.
 
 Soma aims to:
 
-- keep note, transcript, todo, suggestion, and recording content confidential
+- keep note, transcript, Important, suggestion, and recording content confidential
   and authenticated at rest;
 - capture audio without creating a plaintext temporary or gallery file;
 - operate without accounts, cloud services, analytics, advertising, crash
@@ -27,8 +27,8 @@ backup.
 
 ## Assets
 
-The primary assets are note and transcript text, todos and their source links,
-todo suggestions, voice recordings, backup contents and passphrases, Android
+The primary assets are note and transcript text, Important items and their source links,
+Important suggestions, voice recordings, backup contents and passphrases, Android
 Keystore keys, and the temporary browser access code and session token.
 
 Dates, record counts, ordering, ids, state transitions, languages, timestamps,
@@ -128,13 +128,18 @@ settings are off by default. It isolates platform `HttpsURLConnection` calls in
 are encrypted with AES-256-GCM under the separate non-exportable Keystore alias
 `soma.cloud.credentials.v1`, are never included in backups, and may be deleted
 from the screen. Wi-Fi-only is the default. Audio is split locally on silence
-before each provider request; AI todo extraction sends only the new or edited
-entry and still creates a suggestion requiring a tap, never a todo.
+for Groq requests; ElevenLabs receives the complete recording so Scribe v2 can
+retain language context across pauses. AI Important extraction sends only the new or
+edited entry and still creates a suggestion requiring a tap, never an item.
 
-Groq is the default provider candidate because all customers can enable Zero
-Data Retention in Groq's controls. ElevenLabs may retain request content unless
-the account is eligible for its Enterprise-only zero-retention mode. Cloud
-failure falls back to bundled Whisper and never deletes the encrypted recording.
+The optional transcription vocabulary is encrypted under the distinct alias
+`soma.transcription.vocabulary.v1`. It is sent with audio when a cloud provider
+is selected; an empty list sends nothing. ElevenLabs keyterms add a provider
+surcharge, which is disclosed in the editor. ElevenLabs is the initial
+accuracy-first provider. Groq customers can enable Zero Data Retention in Groq's
+controls; ElevenLabs may retain request content unless the account is eligible
+for its Enterprise-only zero-retention mode. Cloud failure falls back to bundled
+Whisper and never deletes the encrypted recording.
 
 ## Browser view
 
@@ -151,7 +156,7 @@ window. It cannot carry `Secure` because the intentionally local endpoint is
 plain HTTP. Comparisons use constant-time digest comparison. Five wrong codes
 stop the server; starting again creates a new code and token.
 
-Authenticated routes support only days, entries, todos, and ranged audio
+Authenticated routes support only days, entries, Important items, and ranged audio
 playback. Mutation and export routes do not exist. Pages contain at most five
 records. Responses send `Cache-Control: no-store`, a restrictive content
 security policy, framing and MIME-sniffing protections, no-referrer policy, and
@@ -167,7 +172,7 @@ service is intended to extend the listener beyond the Browser screen's lifetime.
 
 Plain HTTP gives no transport confidentiality or server authentication. Anyone
 able to observe the Wi-Fi can see the access code submission, session cookie,
-notes, todos, and played audio; an active LAN attacker can intercept or replace
+notes, Important items, and played audio; an active LAN attacker can intercept or replace
 traffic. The ephemeral token, narrow bind, short lifetime, read-only routes, and
 explicit start reduce exposure but do not make an untrusted café, hotel, or
 shared workplace LAN safe. Use Browser view only on a trusted private Wi-Fi
@@ -193,8 +198,8 @@ language detection per utterance. Tiny Q5 is deliberately small and may be
 wrong, particularly during dense mid-sentence code-switching; editable text is
 the recovery path, not a cloud fallback.
 
-Rule-based todo detection operates on plaintext in process and stores encrypted
-suggestions. A match never creates a todo without the user's tap. False positives
+Rule-based Important detection operates on plaintext in process and stores encrypted
+suggestions. A match never creates an item without the user's tap. False positives
 therefore create a dismissible suggestion, not an automatic commitment.
 
 ## Data loss and recovery

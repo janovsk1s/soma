@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.soma.core.model.AudioAttachment
 import com.soma.core.model.AudioFormat
 import com.soma.core.model.EntrySource
+import com.soma.core.model.ImportantKind
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
@@ -17,8 +18,10 @@ import com.soma.core.model.TodoSuggestionState
 import com.soma.core.model.TranscriptSegment
 import com.soma.core.model.TranscriptionFailure
 import com.soma.core.model.TranscriptionFailureCode
+import com.soma.core.model.TranscriptionEngine
 import com.soma.core.model.TranscriptionJob
 import com.soma.core.model.TranscriptionJobState
+import com.soma.core.model.TranscriptionProvenance
 import com.soma.core.model.TranscriptionResult
 import com.soma.storage.crypto.AesGcmCipher
 import com.soma.storage.backup.BackupSnapshot
@@ -109,6 +112,7 @@ class RoomSomaRepositoryTest {
             id = "suggestion-1",
             entryId = "entry-1",
             suggestedText = "call Anna",
+            suggestedKind = ImportantKind.LIST,
             language = SupportedLanguage.ENGLISH,
             reason = TodoSuggestionReason.TRIGGER_PHRASE,
             matchedRule = "need to",
@@ -121,15 +125,21 @@ class RoomSomaRepositoryTest {
             text = "call Anna",
             createdAt = start.plusSeconds(10),
             updatedAt = start.plusSeconds(10),
+            kind = ImportantKind.LIST,
             source = EntrySource(date, "entry-1"),
         )
 
         assertTrue(repository.accept(suggestion.id, todo, start.plusSeconds(11)))
         assertEquals("call Anna", repository.get(todo.id)?.text)
+        assertEquals(ImportantKind.LIST, repository.get(todo.id)?.kind)
         assertTrue(repository.pendingForEntry("entry-1").isEmpty())
         assertEquals(
             TodoSuggestionState.ACCEPTED,
             repository.observeForEntry("entry-1").first().single().state,
+        )
+        assertEquals(
+            ImportantKind.LIST,
+            repository.observeForEntry("entry-1").first().single().suggestedKind,
         )
         assertFalse(repository.accept(suggestion.id, todo.copy(id = "todo-2"), start.plusSeconds(12)))
         assertNull(repository.get("todo-2"))
@@ -145,9 +155,13 @@ class RoomSomaRepositoryTest {
             assertEquals(TranscriptionJobState.RUNNING, claimed?.state)
 
             val result = TranscriptionResult(
-                listOf(
+                segments = listOf(
                     TranscriptSegment(0, 800, "Jāatceras", SupportedLanguage.LATVIAN),
                     TranscriptSegment(900, 1_500, "call Anna", SupportedLanguage.ENGLISH),
+                ),
+                provenance = TranscriptionProvenance(
+                    requestedEngine = TranscriptionEngine.ELEVENLABS_SCRIBE_V2,
+                    usedEngine = TranscriptionEngine.ELEVENLABS_SCRIBE_V2,
                 ),
             )
             assertTrue(repository.complete("job-1", "worker", result, start.plusSeconds(5)))
@@ -159,6 +173,7 @@ class RoomSomaRepositoryTest {
                 listOf(SupportedLanguage.LATVIAN, SupportedLanguage.ENGLISH),
                 entry?.transcription?.detectedLanguages,
             )
+            assertEquals(result.provenance, entry?.transcription?.provenance)
             assertEquals(TranscriptionJobState.SUCCEEDED, repository.getForEntry("voice-1")?.state)
 
             val raw = database.openHelper.writableDatabase
@@ -216,6 +231,37 @@ class RoomSomaRepositoryTest {
         assertEquals(EntryTranscriptionState.FAILED, entry?.transcription?.state)
         assertEquals(terminal, entry?.transcription?.failure)
         assertEquals(terminal, repository.getForEntry("voice-1")?.lastFailure)
+    }
+
+    @Test
+    fun `restart replaces a completed job while preserving audio and existing text`() = runBlocking {
+        repository.getOrCreate(date, start)
+        repository.insertEntry(voiceEntry("voice-1"))
+        repository.enqueue(TranscriptionJob.queued("job-1", "voice-1", start))
+        repository.claimNext("worker", start, Duration.ofMinutes(1))
+        repository.complete(
+            "job-1",
+            "worker",
+            TranscriptionResult(
+                segments = listOf(TranscriptSegment(0, 500, "old transcript", SupportedLanguage.ENGLISH)),
+                provenance = TranscriptionProvenance.local(),
+            ),
+            start.plusSeconds(1),
+        )
+
+        val restartedAt = start.plusSeconds(2)
+        assertTrue(
+            repository.restart(TranscriptionJob.queued("job-2", "voice-1", restartedAt)),
+        )
+
+        val job = repository.getForEntry("voice-1")
+        val entry = repository.getEntry("voice-1")
+        assertEquals("job-2", job?.id)
+        assertEquals(TranscriptionJobState.QUEUED, job?.state)
+        assertEquals("old transcript", entry?.text)
+        assertEquals("audio-voice-1", entry?.audio?.fileId)
+        assertEquals(EntryTranscriptionState.QUEUED, entry?.transcription?.state)
+        assertNull(entry?.transcription?.provenance)
     }
 
     @Test

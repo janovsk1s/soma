@@ -1,0 +1,746 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 4,
+    "identityHash": "ad2ea3986f045e4e5474ad206d411f0c",
+    "entities": [
+      {
+        "tableName": "daily_notes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `epoch_day` INTEGER NOT NULL, `created_at_millis` INTEGER NOT NULL, `updated_at_millis` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "epochDay",
+            "columnName": "epoch_day",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtMillis",
+            "columnName": "created_at_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtMillis",
+            "columnName": "updated_at_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_daily_notes_epoch_day",
+            "unique": true,
+            "columnNames": [
+              "epoch_day"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_daily_notes_epoch_day` ON `${TABLE_NAME}` (`epoch_day`)"
+          }
+        ]
+      },
+      {
+        "tableName": "entries",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `note_id` TEXT NOT NULL, `position` INTEGER NOT NULL, `type` TEXT NOT NULL, `text_ciphertext` BLOB, `crypto_version` INTEGER NOT NULL, `audio_file_id` TEXT, `audio_format` TEXT, `audio_duration_millis` INTEGER, `audio_byte_count` INTEGER, `audio_sample_rate_hz` INTEGER, `audio_channel_count` INTEGER, `transcription_state` TEXT NOT NULL, `transcription_attempt_count` INTEGER NOT NULL, `detected_languages` TEXT, `transcription_requested_engine` TEXT, `transcription_used_engine` TEXT, `transcription_fallback_reason` TEXT, `transcription_updated_at_millis` INTEGER, `transcription_failure_code` TEXT, `transcription_failure_retryable` INTEGER, `transcription_failure_ciphertext` BLOB, `return_later` INTEGER NOT NULL, `created_at_millis` INTEGER NOT NULL, `updated_at_millis` INTEGER NOT NULL, `last_user_edited_at_millis` INTEGER, `revision` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`note_id`) REFERENCES `daily_notes`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "noteId",
+            "columnName": "note_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "position",
+            "columnName": "position",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "textCiphertext",
+            "columnName": "text_ciphertext",
+            "affinity": "BLOB"
+          },
+          {
+            "fieldPath": "cryptoVersion",
+            "columnName": "crypto_version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "audioFileId",
+            "columnName": "audio_file_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "audioFormat",
+            "columnName": "audio_format",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "audioDurationMillis",
+            "columnName": "audio_duration_millis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "audioByteCount",
+            "columnName": "audio_byte_count",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "audioSampleRateHz",
+            "columnName": "audio_sample_rate_hz",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "audioChannelCount",
+            "columnName": "audio_channel_count",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "transcriptionState",
+            "columnName": "transcription_state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "transcriptionAttemptCount",
+            "columnName": "transcription_attempt_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "detectedLanguages",
+            "columnName": "detected_languages",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "transcriptionRequestedEngine",
+            "columnName": "transcription_requested_engine",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "transcriptionUsedEngine",
+            "columnName": "transcription_used_engine",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "transcriptionFallbackReason",
+            "columnName": "transcription_fallback_reason",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "transcriptionUpdatedAtMillis",
+            "columnName": "transcription_updated_at_millis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "transcriptionFailureCode",
+            "columnName": "transcription_failure_code",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "transcriptionFailureRetryable",
+            "columnName": "transcription_failure_retryable",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "transcriptionFailureCiphertext",
+            "columnName": "transcription_failure_ciphertext",
+            "affinity": "BLOB"
+          },
+          {
+            "fieldPath": "returnLater",
+            "columnName": "return_later",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtMillis",
+            "columnName": "created_at_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtMillis",
+            "columnName": "updated_at_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastUserEditedAtMillis",
+            "columnName": "last_user_edited_at_millis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_entries_note_id",
+            "unique": false,
+            "columnNames": [
+              "note_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_entries_note_id` ON `${TABLE_NAME}` (`note_id`)"
+          },
+          {
+            "name": "index_entries_note_id_position",
+            "unique": true,
+            "columnNames": [
+              "note_id",
+              "position"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_entries_note_id_position` ON `${TABLE_NAME}` (`note_id`, `position`)"
+          },
+          {
+            "name": "index_entries_audio_file_id",
+            "unique": true,
+            "columnNames": [
+              "audio_file_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_entries_audio_file_id` ON `${TABLE_NAME}` (`audio_file_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "daily_notes",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "note_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "entry_revisions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`entry_id` TEXT NOT NULL, `revision` INTEGER NOT NULL, `text_ciphertext` BLOB NOT NULL, `crypto_version` INTEGER NOT NULL, `edited_at_millis` INTEGER NOT NULL, PRIMARY KEY(`entry_id`, `revision`), FOREIGN KEY(`entry_id`) REFERENCES `entries`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "entryId",
+            "columnName": "entry_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "textCiphertext",
+            "columnName": "text_ciphertext",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cryptoVersion",
+            "columnName": "crypto_version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "editedAtMillis",
+            "columnName": "edited_at_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "entry_id",
+            "revision"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_entry_revisions_entry_id",
+            "unique": false,
+            "columnNames": [
+              "entry_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_entry_revisions_entry_id` ON `${TABLE_NAME}` (`entry_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "entries",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "entry_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "todos",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `text_ciphertext` BLOB NOT NULL, `crypto_version` INTEGER NOT NULL, `created_epoch_day` INTEGER NOT NULL, `created_at_millis` INTEGER NOT NULL, `updated_at_millis` INTEGER NOT NULL, `last_touched_at_millis` INTEGER NOT NULL, `source_note_id` TEXT, `source_entry_id` TEXT, `status` TEXT NOT NULL, `kind` TEXT NOT NULL DEFAULT 'ACTION', `completed_at_millis` INTEGER, `review_prompted_at_millis` INTEGER, PRIMARY KEY(`id`), FOREIGN KEY(`source_note_id`) REFERENCES `daily_notes`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL , FOREIGN KEY(`source_entry_id`) REFERENCES `entries`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "textCiphertext",
+            "columnName": "text_ciphertext",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cryptoVersion",
+            "columnName": "crypto_version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdEpochDay",
+            "columnName": "created_epoch_day",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtMillis",
+            "columnName": "created_at_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtMillis",
+            "columnName": "updated_at_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastTouchedAtMillis",
+            "columnName": "last_touched_at_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceNoteId",
+            "columnName": "source_note_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "sourceEntryId",
+            "columnName": "source_entry_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'ACTION'"
+          },
+          {
+            "fieldPath": "completedAtMillis",
+            "columnName": "completed_at_millis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "reviewPromptedAtMillis",
+            "columnName": "review_prompted_at_millis",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_todos_status_created_at_millis",
+            "unique": false,
+            "columnNames": [
+              "status",
+              "created_at_millis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_todos_status_created_at_millis` ON `${TABLE_NAME}` (`status`, `created_at_millis`)"
+          },
+          {
+            "name": "index_todos_source_note_id",
+            "unique": false,
+            "columnNames": [
+              "source_note_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_todos_source_note_id` ON `${TABLE_NAME}` (`source_note_id`)"
+          },
+          {
+            "name": "index_todos_source_entry_id",
+            "unique": false,
+            "columnNames": [
+              "source_entry_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_todos_source_entry_id` ON `${TABLE_NAME}` (`source_entry_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "daily_notes",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "source_note_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "entries",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "source_entry_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "todo_suggestions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `entry_id` TEXT NOT NULL, `candidate_ciphertext` BLOB NOT NULL, `matched_rule_ciphertext` BLOB NOT NULL, `crypto_version` INTEGER NOT NULL, `sentence_start` INTEGER NOT NULL, `sentence_end` INTEGER NOT NULL, `language` TEXT NOT NULL, `reason` TEXT NOT NULL, `suggested_kind` TEXT NOT NULL DEFAULT 'ACTION', `state` TEXT NOT NULL, `created_at_millis` INTEGER NOT NULL, `decided_at_millis` INTEGER, PRIMARY KEY(`id`), FOREIGN KEY(`entry_id`) REFERENCES `entries`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entryId",
+            "columnName": "entry_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "candidateCiphertext",
+            "columnName": "candidate_ciphertext",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "matchedRuleCiphertext",
+            "columnName": "matched_rule_ciphertext",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cryptoVersion",
+            "columnName": "crypto_version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sentenceStart",
+            "columnName": "sentence_start",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sentenceEnd",
+            "columnName": "sentence_end",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "language",
+            "columnName": "language",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reason",
+            "columnName": "reason",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "suggestedKind",
+            "columnName": "suggested_kind",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'ACTION'"
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtMillis",
+            "columnName": "created_at_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "decidedAtMillis",
+            "columnName": "decided_at_millis",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_todo_suggestions_entry_id",
+            "unique": false,
+            "columnNames": [
+              "entry_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_todo_suggestions_entry_id` ON `${TABLE_NAME}` (`entry_id`)"
+          },
+          {
+            "name": "index_todo_suggestions_state_created_at_millis",
+            "unique": false,
+            "columnNames": [
+              "state",
+              "created_at_millis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_todo_suggestions_state_created_at_millis` ON `${TABLE_NAME}` (`state`, `created_at_millis`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "entries",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "entry_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "still_open_dismissals",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`epoch_day` INTEGER NOT NULL, `dismissed_at_millis` INTEGER NOT NULL, PRIMARY KEY(`epoch_day`))",
+        "fields": [
+          {
+            "fieldPath": "epochDay",
+            "columnName": "epoch_day",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dismissedAtMillis",
+            "columnName": "dismissed_at_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "epoch_day"
+          ]
+        }
+      },
+      {
+        "tableName": "transcription_jobs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `entry_id` TEXT NOT NULL, `state` TEXT NOT NULL, `enqueued_at_millis` INTEGER NOT NULL, `updated_at_millis` INTEGER NOT NULL, `attempt_count` INTEGER NOT NULL, `not_before_millis` INTEGER NOT NULL, `lease_owner` TEXT, `lease_expires_at_millis` INTEGER, `last_error_ciphertext` BLOB, `last_error_code` TEXT, `last_error_retryable` INTEGER, `crypto_version` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`entry_id`) REFERENCES `entries`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entryId",
+            "columnName": "entry_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "enqueuedAtMillis",
+            "columnName": "enqueued_at_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtMillis",
+            "columnName": "updated_at_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attemptCount",
+            "columnName": "attempt_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notBeforeMillis",
+            "columnName": "not_before_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "leaseOwner",
+            "columnName": "lease_owner",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "leaseExpiresAtMillis",
+            "columnName": "lease_expires_at_millis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastErrorCiphertext",
+            "columnName": "last_error_ciphertext",
+            "affinity": "BLOB"
+          },
+          {
+            "fieldPath": "lastErrorCode",
+            "columnName": "last_error_code",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lastErrorRetryable",
+            "columnName": "last_error_retryable",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "cryptoVersion",
+            "columnName": "crypto_version",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_transcription_jobs_entry_id",
+            "unique": true,
+            "columnNames": [
+              "entry_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_transcription_jobs_entry_id` ON `${TABLE_NAME}` (`entry_id`)"
+          },
+          {
+            "name": "index_transcription_jobs_state_not_before_millis_enqueued_at_millis",
+            "unique": false,
+            "columnNames": [
+              "state",
+              "not_before_millis",
+              "enqueued_at_millis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_transcription_jobs_state_not_before_millis_enqueued_at_millis` ON `${TABLE_NAME}` (`state`, `not_before_millis`, `enqueued_at_millis`)"
+          },
+          {
+            "name": "index_transcription_jobs_lease_owner",
+            "unique": false,
+            "columnNames": [
+              "lease_owner"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_transcription_jobs_lease_owner` ON `${TABLE_NAME}` (`lease_owner`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "entries",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "entry_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ad2ea3986f045e4e5474ad206d411f0c')"
+    ]
+  }
+}

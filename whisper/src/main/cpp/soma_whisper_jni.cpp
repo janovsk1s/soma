@@ -117,13 +117,20 @@ namespace {
 // Unconstrained auto-detection over ~99 languages misfires on short
 // utterances (German audio scoring as Russian); the argmax over the allowed
 // subset of the detector's probabilities cannot leave that set.
+// The app language wins ambiguous chunks: another allowed language must beat
+// its probability by this factor before a chunk switches away from it.
+// Clear code-switched speech exceeds the margin easily; spoken number lists
+// and other short, language-poor audio no longer drift to a sibling language.
+constexpr float kPreferredLanguageMargin = 1.75f;
+
 const char *detect_allowed_language(
     JNIEnv *env,
     whisper_context *context,
     const jfloat *samples,
     jsize count,
     int threads,
-    jobjectArray java_allowed
+    jobjectArray java_allowed,
+    jstring java_preferred
 ) {
     if (java_allowed == nullptr) return nullptr;
     const jsize allowed_count = env->GetArrayLength(java_allowed);
@@ -133,8 +140,18 @@ const char *detect_allowed_language(
     std::vector<float> probabilities(whisper_lang_max_id() + 1, 0.0f);
     if (whisper_lang_auto_detect(context, 0, threads, probabilities.data()) < 0) return nullptr;
 
+    int preferred_id = -1;
+    if (java_preferred != nullptr) {
+        const char *preferred_chars = env->GetStringUTFChars(java_preferred, nullptr);
+        if (preferred_chars != nullptr) {
+            preferred_id = whisper_lang_id(preferred_chars);
+            env->ReleaseStringUTFChars(java_preferred, preferred_chars);
+        }
+    }
+
     int best_id = -1;
     float best_probability = -1.0f;
+    bool preferred_allowed = false;
     for (jsize index = 0; index < allowed_count; ++index) {
         auto code = static_cast<jstring>(env->GetObjectArrayElement(java_allowed, index));
         if (code == nullptr) continue;
@@ -142,11 +159,16 @@ const char *detect_allowed_language(
         const int lang_id = code_chars == nullptr ? -1 : whisper_lang_id(code_chars);
         if (code_chars != nullptr) env->ReleaseStringUTFChars(code, code_chars);
         env->DeleteLocalRef(code);
-        if (lang_id >= 0 && lang_id < static_cast<int>(probabilities.size()) &&
-            probabilities[lang_id] > best_probability) {
+        if (lang_id < 0 || lang_id >= static_cast<int>(probabilities.size())) continue;
+        if (lang_id == preferred_id) preferred_allowed = true;
+        if (probabilities[lang_id] > best_probability) {
             best_id = lang_id;
             best_probability = probabilities[lang_id];
         }
+    }
+    if (preferred_allowed && best_id != preferred_id &&
+        best_probability < probabilities[preferred_id] * kPreferredLanguageMargin) {
+        best_id = preferred_id;
     }
     return best_id >= 0 ? whisper_lang_str(best_id) : nullptr;
 }
@@ -160,7 +182,11 @@ Java_com_soma_whisper_WhisperNative_transcribe(
     jlong pointer,
     jfloatArray java_samples,
     jint requested_threads,
-    jobjectArray java_allowed_languages
+    jint requested_beam_size,
+    jint requested_best_of,
+    jobjectArray java_allowed_languages,
+    jstring java_preferred_language,
+    jstring java_initial_prompt
 ) {
     auto *context = reinterpret_cast<whisper_context *>(pointer);
     if (context == nullptr) {
@@ -175,8 +201,17 @@ Java_com_soma_whisper_WhisperNative_transcribe(
     jfloat *samples = env->GetFloatArrayElements(java_samples, nullptr);
     if (samples == nullptr) return nullptr;
 
-    whisper_full_params params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
-    params.n_threads = std::clamp(static_cast<int>(requested_threads), 1, 4);
+    const int beam_size = std::clamp(static_cast<int>(requested_beam_size), 0, 5);
+    const whisper_sampling_strategy strategy = beam_size > 1
+        ? WHISPER_SAMPLING_BEAM_SEARCH
+        : WHISPER_SAMPLING_GREEDY;
+    whisper_full_params params = whisper_full_default_params(strategy);
+    params.n_threads = std::clamp(static_cast<int>(requested_threads), 1, 6);
+    if (strategy == WHISPER_SAMPLING_BEAM_SEARCH) {
+        params.beam_search.beam_size = beam_size;
+    } else {
+        params.greedy.best_of = std::clamp(static_cast<int>(requested_best_of), 1, 5);
+    }
     params.translate = false;
     params.no_context = true;
     params.no_timestamps = true;
@@ -188,12 +223,27 @@ Java_com_soma_whisper_WhisperNative_transcribe(
     params.print_timestamps = false;
     params.language = "auto";
     params.detect_language = false;
+    params.carry_initial_prompt = false;
 
     const char *constrained = detect_allowed_language(
-        env, context, samples, count, params.n_threads, java_allowed_languages);
+        env, context, samples, count, params.n_threads,
+        java_allowed_languages, java_preferred_language);
     if (constrained != nullptr) params.language = constrained;
 
+    const char *initial_prompt = nullptr;
+    if (java_initial_prompt != nullptr) {
+        initial_prompt = env->GetStringUTFChars(java_initial_prompt, nullptr);
+        if (initial_prompt == nullptr) {
+            env->ReleaseFloatArrayElements(java_samples, samples, JNI_ABORT);
+            return nullptr;
+        }
+        params.initial_prompt = initial_prompt;
+    }
+
     const int result = whisper_full(context, params, samples, count);
+    if (initial_prompt != nullptr) {
+        env->ReleaseStringUTFChars(java_initial_prompt, initial_prompt);
+    }
     env->ReleaseFloatArrayElements(java_samples, samples, JNI_ABORT);
     if (result != 0) {
         throw_java(env, "Whisper transcription failed");

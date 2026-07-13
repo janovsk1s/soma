@@ -3,6 +3,9 @@ package com.soma.storage.backup
 import com.soma.core.model.DailyNote
 import com.soma.core.model.EntryKind
 import com.soma.core.model.NoteEntry
+import com.soma.core.model.TranscriptionEngine
+import com.soma.core.model.TranscriptionFallbackReason
+import com.soma.core.model.TranscriptionProvenance
 import java.io.ByteArrayOutputStream
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -28,6 +31,10 @@ class ReadableArchiveExporter {
             zip.putText("todos.csv", todosCsv(snapshot))
             zip.putText("data/notes.json", notesJson(snapshot))
             zip.putText("data/history.jsonl", historyJsonl(snapshot))
+            zip.putText(
+                "settings/transcription-vocabulary.txt",
+                snapshot.transcriptionVocabulary.joinToString(separator = "\n", postfix = "\n"),
+            )
             snapshot.audioContainers.sortedBy { it.fileId }.forEach { audio ->
                 val date = snapshot.notes.asSequence()
                     .flatMap { note -> note.entries.asSequence() }
@@ -56,9 +63,10 @@ class ReadableArchiveExporter {
         appendLine("Timestamps: ISO-8601 UTC")
         appendLine()
         appendLine("notes/ contains one human-readable Markdown file per day.")
-        appendLine("todos.csv opens in spreadsheet applications.")
+        appendLine("todos.csv contains every Important item and opens in spreadsheet applications.")
         appendLine("data/notes.json preserves complete structured note data.")
         appendLine("data/history.jsonl preserves previous text after user edits.")
+        appendLine("settings/transcription-vocabulary.txt preserves user-provided speech spellings.")
         appendLine("audio/ contains standard 16 kHz mono WAV files when included.")
         appendLine()
         appendLine("This ZIP is intentionally not encrypted. Store it somewhere you trust.")
@@ -82,6 +90,8 @@ class ReadableArchiveExporter {
         jsonNumberField("revisionCount", snapshot.entryRevisions.size)
         append(',')
         jsonNumberField("audioCount", snapshot.audioContainers.size)
+        append(',')
+        jsonNumberField("transcriptionVocabularyCount", snapshot.transcriptionVocabulary.size)
         append('}')
         appendLine()
     }
@@ -98,18 +108,22 @@ class ReadableArchiveExporter {
             appendLine()
             appendLine("  ${markdownText(entry.text.ifBlank { "_(no transcript)_" })}")
             entry.lastUserEditedAt?.let { appendLine("  _edited ${TIME.format(it)}_") }
+            entry.transcription?.provenance?.let {
+                appendLine("  _transcription: ${transcriptionLabel(it)}_")
+            }
             entry.audio?.let { appendLine("  _audio id: `${it.fileId}`_") }
             appendLine()
         }
     }
 
     private fun todosCsv(snapshot: BackupSnapshot): String = buildString {
-        appendLine("id,text,state,created_at,updated_at,closed_at,source_date,source_entry_id")
+        appendLine("id,text,kind,state,created_at,updated_at,closed_at,source_date,source_entry_id")
         snapshot.todos.sortedBy { it.createdAt }.forEach { todo ->
             appendLine(
                 listOf(
                     todo.id,
                     todo.text,
+                    todo.kind.name.lowercase(),
                     todo.state.name.lowercase(),
                     todo.createdAt.toString(),
                     todo.updatedAt.toString(),
@@ -122,7 +136,7 @@ class ReadableArchiveExporter {
     }
 
     private fun notesJson(snapshot: BackupSnapshot): String = buildString {
-        append("{\"format\":\"soma-notes\",\"version\":1,\"exportedAt\":")
+        append("{\"format\":\"soma-notes\",\"version\":$READABLE_FORMAT_VERSION,\"exportedAt\":")
         appendJson(snapshot.exportedAt.toString())
         append(",\"notes\":[")
         snapshot.notes.sortedBy { it.date }.forEachIndexed { noteIndex, note ->
@@ -176,7 +190,62 @@ class ReadableArchiveExporter {
             jsonNumberField("channelCount", audio.channelCount)
             append('}')
         }
+        append(",\"transcription\":")
+        val transcription = entry.transcription
+        if (transcription == null) {
+            append("null")
+        } else {
+            append('{')
+            jsonField("state", transcription.state.name.lowercase())
+            append(',')
+            jsonNumberField("attemptCount", transcription.attemptCount)
+            append(",\"detectedLanguages\":[")
+            transcription.detectedLanguages.forEachIndexed { index, language ->
+                if (index > 0) append(',')
+                appendJson(language.languageTag)
+            }
+            append(']')
+            append(',')
+            jsonField("updatedAt", transcription.updatedAt.toString())
+            append(",\"provenance\":")
+            val provenance = transcription.provenance
+            if (provenance == null) {
+                append("null")
+            } else {
+                append('{')
+                jsonField("requestedEngine", provenance.requestedEngine.name.lowercase())
+                append(',')
+                jsonField("usedEngine", provenance.usedEngine.name.lowercase())
+                append(",\"fallbackReason\":")
+                appendNullableJson(provenance.fallbackReason?.name?.lowercase())
+                append('}')
+            }
+            append('}')
+        }
         append('}')
+    }
+
+    private fun transcriptionLabel(provenance: TranscriptionProvenance): String {
+        val requested = engineLabel(provenance.requestedEngine)
+        val used = engineLabel(provenance.usedEngine)
+        return when (provenance.fallbackReason) {
+            null -> used
+            TranscriptionFallbackReason.WIFI_REQUIRED -> "$used (requested $requested; skipped without Wi-Fi)"
+            TranscriptionFallbackReason.API_KEY_MISSING -> "$used (requested $requested; API key missing)"
+            TranscriptionFallbackReason.PROVIDER_ERROR -> "$used (requested $requested; provider failed)"
+            TranscriptionFallbackReason.AUTHENTICATION_ERROR -> "$used (requested $requested; API key rejected)"
+            TranscriptionFallbackReason.PERMISSION_ERROR -> "$used (requested $requested; speech-to-text permission missing)"
+            TranscriptionFallbackReason.PAYMENT_REQUIRED -> "$used (requested $requested; credits required)"
+            TranscriptionFallbackReason.RATE_LIMITED -> "$used (requested $requested; rate limited)"
+            TranscriptionFallbackReason.INVALID_REQUEST -> "$used (requested $requested; audio request rejected)"
+            TranscriptionFallbackReason.NETWORK_ERROR -> "$used (requested $requested; network error)"
+        }
+    }
+
+    private fun engineLabel(engine: TranscriptionEngine): String = when (engine) {
+        TranscriptionEngine.LOCAL_WHISPER_TINY -> "local Whisper tiny"
+        TranscriptionEngine.ELEVENLABS_SCRIBE_V2 -> "ElevenLabs Scribe v2"
+        TranscriptionEngine.GROQ_WHISPER_LARGE_V3 -> "Groq Whisper Large v3"
     }
 
     private fun historyJsonl(snapshot: BackupSnapshot): String = buildString {
@@ -237,7 +306,7 @@ class ReadableArchiveExporter {
     }
 
     private companion object {
-        const val READABLE_FORMAT_VERSION = 1
+        const val READABLE_FORMAT_VERSION = 4
         val TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss 'UTC'").withZone(ZoneOffset.UTC)
     }
 }

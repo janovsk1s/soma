@@ -19,9 +19,16 @@ fun interface AudioWrappingKeyProvider {
 class AndroidAudioWrappingKeyProvider(
     private val alias: String = DEFAULT_ALIAS,
 ) : AudioWrappingKeyProvider {
-    override fun getOrCreate(): SecretKey = synchronized(KEY_LOCK) {
+    @Volatile
+    private var cachedKey: SecretKey? = null
+
+    override fun getOrCreate(): SecretKey = cachedKey ?: synchronized(KEY_LOCK) {
+        cachedKey ?: loadOrCreate().also { cachedKey = it }
+    }
+
+    private fun loadOrCreate(): SecretKey {
         val store = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
-        (store.getKey(alias, null) as? SecretKey)?.let { return@synchronized it }
+        (store.getKey(alias, null) as? SecretKey)?.let { return it }
 
         fun generate(strongBox: Boolean): SecretKey {
             val builder = KeyGenParameterSpec.Builder(
@@ -39,7 +46,7 @@ class AndroidAudioWrappingKeyProvider(
             }
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             runCatching { generate(strongBox = true) }.getOrElse { generate(strongBox = false) }
         } else {
             generate(strongBox = false)

@@ -9,6 +9,17 @@ enum class TodoState {
     ARCHIVED,
 }
 
+/**
+ * The user-facing Important section is broader than a task list. Keeping the
+ * kind explicit makes manual excerpts and detected lists predictable without
+ * forcing them through opaque "smart" behaviour.
+ */
+enum class ImportantKind {
+    ACTION,
+    LIST,
+    EXCERPT,
+}
+
 data class EntrySource(
     val noteDate: LocalDate,
     val entryId: String,
@@ -25,6 +36,7 @@ data class Todo(
     val updatedAt: Instant,
     val lastTouchedAt: Instant = updatedAt,
     val state: TodoState = TodoState.OPEN,
+    val kind: ImportantKind = ImportantKind.ACTION,
     val source: EntrySource? = null,
     val closedAt: Instant? = null,
     /** Non-null after the one quiet "keep / let go" prompt has been shown. */
@@ -77,6 +89,7 @@ enum class TodoSuggestionState {
 enum class TodoSuggestionReason {
     TRIGGER_PHRASE,
     IMPERATIVE,
+    LIST_PATTERN,
     AI_EXTRACTED,
 }
 
@@ -84,6 +97,7 @@ data class TodoSuggestion(
     val id: String,
     val entryId: String,
     val suggestedText: String,
+    val suggestedKind: ImportantKind = ImportantKind.ACTION,
     val language: SupportedLanguage,
     val reason: TodoSuggestionReason,
     val matchedRule: String,

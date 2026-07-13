@@ -7,6 +7,7 @@ import com.soma.core.model.EntryKind
 import com.soma.core.model.EntryRevision
 import com.soma.core.model.EntrySource
 import com.soma.core.model.EntryTranscriptionState
+import com.soma.core.model.ImportantKind
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.SupportedLanguage
@@ -17,9 +18,12 @@ import com.soma.core.model.TodoSuggestionReason
 import com.soma.core.model.TodoSuggestionState
 import com.soma.core.model.TranscriptionFailure
 import com.soma.core.model.TranscriptionFailureCode
+import com.soma.core.model.TranscriptionEngine
+import com.soma.core.model.TranscriptionFallbackReason
 import com.soma.core.model.TranscriptionInfo
 import com.soma.core.model.TranscriptionJob
 import com.soma.core.model.TranscriptionJobState
+import com.soma.core.model.TranscriptionProvenance
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInput
@@ -51,6 +55,7 @@ internal object BackupPayloadCodec {
                 output.writeList(snapshot.transcriptionJobs, ::writeJob)
                 output.writeList(snapshot.audioContainers, ::writeAudioContainer)
                 output.writeList(snapshot.entryRevisions, ::writeEntryRevision)
+                output.writeList(snapshot.transcriptionVocabulary) { target, term -> target.writeString(term) }
             }
             buffer.copyBytes()
         } finally {
@@ -66,13 +71,14 @@ internal object BackupPayloadCodec {
             throw BackupFormatException("Unsupported backup payload version: $payloadVersion")
         }
         val exportedAt = input.readInstant()
-        val rawNotes = input.readList(::readNote)
-        val todos = input.readList(::readTodo)
-        val suggestions = input.readList(::readSuggestion)
+        val rawNotes = input.readList { source -> readNote(source, payloadVersion) }
+        val todos = input.readList { source -> readTodo(source, payloadVersion) }
+        val suggestions = input.readList { source -> readSuggestion(source, payloadVersion) }
         val dismissals = input.readList(::readDismissal)
         val jobs = input.readList(::readJob)
         val audio = input.readList(::readAudioContainer)
         val revisions = if (payloadVersion >= 2) input.readList(::readEntryRevision) else emptyList()
+        val transcriptionVocabulary = if (payloadVersion >= 4) input.readList { it.readString() } else emptyList()
         val lastEdits = revisions.groupBy(EntryRevision::entryId)
             .mapValues { (_, values) -> values.maxBy(EntryRevision::editedAt).editedAt }
         val notes = rawNotes.map { note ->
@@ -90,6 +96,7 @@ internal object BackupPayloadCodec {
             stillOpenDismissals = dismissals,
             transcriptionJobs = jobs,
             audioContainers = audio,
+            transcriptionVocabulary = transcriptionVocabulary,
         )
         if (byteInput.available() != 0) {
             throw BackupFormatException("Backup payload has trailing bytes")
@@ -112,12 +119,12 @@ internal object BackupPayloadCodec {
         note.entries.forEach { writeEntry(output, it) }
     }
 
-    private fun readNote(input: DataInput): DailyNote {
+    private fun readNote(input: DataInput, payloadVersion: Int): DailyNote {
         val date = LocalDate.ofEpochDay(input.readLong())
         val createdAt = input.readInstant()
         val count = input.readCount()
         val entries = ArrayList<NoteEntry>(count)
-        repeat(count) { entries += readEntry(input, date) }
+        repeat(count) { entries += readEntry(input, date, payloadVersion) }
         return DailyNote(date, createdAt, entries)
     }
 
@@ -133,7 +140,7 @@ internal object BackupPayloadCodec {
         output.writeNullable(entry.transcription, ::writeTranscriptionInfo)
     }
 
-    private fun readEntry(input: DataInput, noteDate: LocalDate): NoteEntry = NoteEntry(
+    private fun readEntry(input: DataInput, noteDate: LocalDate, payloadVersion: Int): NoteEntry = NoteEntry(
         id = input.readString(),
         noteDate = noteDate,
         position = input.readInt(),
@@ -143,7 +150,7 @@ internal object BackupPayloadCodec {
         updatedAt = input.readInstant(),
         returnLater = input.readBooleanByte(),
         audio = input.readNullable(::readAudioAttachment),
-        transcription = input.readNullable(::readTranscriptionInfo),
+        transcription = input.readNullable { source -> readTranscriptionInfo(source, payloadVersion) },
     )
 
     private fun writeEntryRevision(output: DataOutput, revision: EntryRevision) {
@@ -184,14 +191,28 @@ internal object BackupPayloadCodec {
         output.writeList(info.detectedLanguages) { target, language -> target.writeEnum(language) }
         output.writeInstant(info.updatedAt)
         output.writeNullable(info.failure, ::writeFailure)
+        output.writeNullable(info.provenance, ::writeProvenance)
     }
 
-    private fun readTranscriptionInfo(input: DataInput) = TranscriptionInfo(
+    private fun readTranscriptionInfo(input: DataInput, payloadVersion: Int) = TranscriptionInfo(
         state = input.readEnum<EntryTranscriptionState>(),
         attemptCount = input.readInt(),
         detectedLanguages = input.readList { it.readEnum<SupportedLanguage>() },
         updatedAt = input.readInstant(),
         failure = input.readNullable(::readFailure),
+        provenance = if (payloadVersion >= 3) input.readNullable(::readProvenance) else null,
+    )
+
+    private fun writeProvenance(output: DataOutput, provenance: TranscriptionProvenance) {
+        output.writeEnum(provenance.requestedEngine)
+        output.writeEnum(provenance.usedEngine)
+        output.writeNullable(provenance.fallbackReason) { target, reason -> target.writeEnum(reason) }
+    }
+
+    private fun readProvenance(input: DataInput) = TranscriptionProvenance(
+        requestedEngine = input.readEnum<TranscriptionEngine>(),
+        usedEngine = input.readEnum<TranscriptionEngine>(),
+        fallbackReason = input.readNullable { it.readEnum<TranscriptionFallbackReason>() },
     )
 
     private fun writeTodo(output: DataOutput, todo: Todo) {
@@ -204,19 +225,33 @@ internal object BackupPayloadCodec {
         output.writeNullable(todo.source, ::writeSource)
         output.writeNullable(todo.closedAt) { target, value -> target.writeInstant(value) }
         output.writeNullable(todo.stalePromptShownAt) { target, value -> target.writeInstant(value) }
+        output.writeEnum(todo.kind)
     }
 
-    private fun readTodo(input: DataInput) = Todo(
-        id = input.readString(),
-        text = input.readString(),
-        createdAt = input.readInstant(),
-        updatedAt = input.readInstant(),
-        lastTouchedAt = input.readInstant(),
-        state = input.readEnum<TodoState>(),
-        source = input.readNullable(::readSource),
-        closedAt = input.readNullable { it.readInstant() },
-        stalePromptShownAt = input.readNullable { it.readInstant() },
-    )
+    private fun readTodo(input: DataInput, payloadVersion: Int): Todo {
+        val id = input.readString()
+        val text = input.readString()
+        val createdAt = input.readInstant()
+        val updatedAt = input.readInstant()
+        val lastTouchedAt = input.readInstant()
+        val state = input.readEnum<TodoState>()
+        val source = input.readNullable(::readSource)
+        val closedAt = input.readNullable { it.readInstant() }
+        val stalePromptShownAt = input.readNullable { it.readInstant() }
+        val kind = if (payloadVersion >= 5) input.readEnum<ImportantKind>() else ImportantKind.ACTION
+        return Todo(
+            id = id,
+            text = text,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            lastTouchedAt = lastTouchedAt,
+            state = state,
+            kind = kind,
+            source = source,
+            closedAt = closedAt,
+            stalePromptShownAt = stalePromptShownAt,
+        )
+    }
 
     private fun writeSource(output: DataOutput, source: EntrySource) {
         output.writeLong(source.noteDate.toEpochDay())
@@ -238,19 +273,37 @@ internal object BackupPayloadCodec {
         output.writeEnum(suggestion.state)
         output.writeInstant(suggestion.createdAt)
         output.writeNullable(suggestion.resolvedAt) { target, value -> target.writeInstant(value) }
+        output.writeEnum(suggestion.suggestedKind)
     }
 
-    private fun readSuggestion(input: DataInput) = TodoSuggestion(
-        id = input.readString(),
-        entryId = input.readString(),
-        suggestedText = input.readString(),
-        language = input.readEnum<SupportedLanguage>(),
-        reason = input.readEnum<TodoSuggestionReason>(),
-        matchedRule = input.readString(),
-        state = input.readEnum<TodoSuggestionState>(),
-        createdAt = input.readInstant(),
-        resolvedAt = input.readNullable { it.readInstant() },
-    )
+    private fun readSuggestion(input: DataInput, payloadVersion: Int): TodoSuggestion {
+        val id = input.readString()
+        val entryId = input.readString()
+        val suggestedText = input.readString()
+        val language = input.readEnum<SupportedLanguage>()
+        val reason = input.readEnum<TodoSuggestionReason>()
+        val matchedRule = input.readString()
+        val state = input.readEnum<TodoSuggestionState>()
+        val createdAt = input.readInstant()
+        val resolvedAt = input.readNullable { it.readInstant() }
+        val suggestedKind = if (payloadVersion >= 5) {
+            input.readEnum<ImportantKind>()
+        } else {
+            ImportantKind.ACTION
+        }
+        return TodoSuggestion(
+            id = id,
+            entryId = entryId,
+            suggestedText = suggestedText,
+            suggestedKind = suggestedKind,
+            language = language,
+            reason = reason,
+            matchedRule = matchedRule,
+            state = state,
+            createdAt = createdAt,
+            resolvedAt = resolvedAt,
+        )
+    }
 
     private fun writeDismissal(output: DataOutput, dismissal: StillOpenDismissal) {
         output.writeLong(dismissal.date.toEpochDay())

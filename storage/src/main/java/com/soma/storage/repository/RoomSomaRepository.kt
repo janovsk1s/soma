@@ -315,6 +315,36 @@ class RoomSomaRepository(
                 entry.copy(
                     transcriptionState = TranscriptionStateValue.QUEUED,
                     transcriptionAttemptCount = job.attemptCount,
+                    transcriptionRequestedEngine = null,
+                    transcriptionUsedEngine = null,
+                    transcriptionFallbackReason = null,
+                    transcriptionUpdatedAtMillis = job.updatedAt.toEpochMilli(),
+                    transcriptionFailureCode = null,
+                    transcriptionFailureRetryable = null,
+                    transcriptionFailureCiphertext = null,
+                    updatedAtMillis = job.updatedAt.toEpochMilli(),
+                    revision = entry.revision + 1,
+                ),
+            ) == 1,
+        )
+        noteDao.touch(entry.noteId, job.updatedAt.toEpochMilli())
+        true
+    }
+
+    override suspend fun restart(job: TranscriptionJob): Boolean = database.withTransaction {
+        require(job.state == TranscriptionJobState.QUEUED) { "Only queued jobs can restart transcription" }
+        val entry = entryDao.getById(job.entryId) ?: return@withTransaction false
+        if (entry.type != EntryTypeValue.VOICE || entry.audioFileId == null) return@withTransaction false
+        jobDao.deleteByEntryId(job.entryId)
+        if (jobDao.insert(mapper.jobToEntity(job)) == INSERT_CONFLICT) return@withTransaction false
+        check(
+            entryDao.update(
+                entry.copy(
+                    transcriptionState = TranscriptionStateValue.QUEUED,
+                    transcriptionAttemptCount = 0,
+                    transcriptionRequestedEngine = null,
+                    transcriptionUsedEngine = null,
+                    transcriptionFallbackReason = null,
                     transcriptionUpdatedAtMillis = job.updatedAt.toEpochMilli(),
                     transcriptionFailureCode = null,
                     transcriptionFailureRetryable = null,
@@ -349,6 +379,9 @@ class RoomSomaRepository(
                 entry.copy(
                     transcriptionState = TranscriptionStateValue.RUNNING,
                     transcriptionAttemptCount = claimed.attemptCount,
+                    transcriptionRequestedEngine = null,
+                    transcriptionUsedEngine = null,
+                    transcriptionFallbackReason = null,
                     transcriptionUpdatedAtMillis = now.toEpochMilli(),
                     transcriptionFailureCode = null,
                     transcriptionFailureRetryable = null,
@@ -385,6 +418,9 @@ class RoomSomaRepository(
                     transcriptionState = TranscriptionStateValue.SUCCEEDED,
                     transcriptionAttemptCount = job.attemptCount,
                     detectedLanguages = result.detectedLanguages.joinToString(",") { it.name },
+                    transcriptionRequestedEngine = result.provenance.requestedEngine.name,
+                    transcriptionUsedEngine = result.provenance.usedEngine.name,
+                    transcriptionFallbackReason = result.provenance.fallbackReason?.name,
                     transcriptionUpdatedAtMillis = completedMillis,
                     transcriptionFailureCode = null,
                     transcriptionFailureRetryable = null,
@@ -440,6 +476,9 @@ class RoomSomaRepository(
                 entry.copy(
                     transcriptionState = nextState,
                     transcriptionAttemptCount = job.attemptCount,
+                    transcriptionRequestedEngine = null,
+                    transcriptionUsedEngine = null,
+                    transcriptionFallbackReason = null,
                     transcriptionUpdatedAtMillis = failedMillis,
                     transcriptionFailureCode = failure.code.name.takeIf { retryAt == null },
                     transcriptionFailureRetryable = failure.retryable.takeIf { retryAt == null },
@@ -596,6 +635,9 @@ class RoomSomaRepository(
                         } else {
                             TranscriptionStateValue.QUEUED
                         },
+                        transcriptionRequestedEngine = null,
+                        transcriptionUsedEngine = null,
+                        transcriptionFallbackReason = null,
                         transcriptionUpdatedAtMillis = nowMillis,
                         transcriptionFailureCode = TranscriptionFailureCode.CANCELLED.name.takeIf { exhausted },
                         transcriptionFailureRetryable = false.takeIf { exhausted },

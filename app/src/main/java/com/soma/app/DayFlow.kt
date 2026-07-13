@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
@@ -62,40 +63,48 @@ fun DayFlowPager(
                 else -> transcribingText
             }
         }
-        val pageHeightPx = constraints.maxHeight
+        val pageContentHeightPx = availablePageContentHeight(
+            totalHeightPx = constraints.maxHeight,
+            verticalPaddingPx = with(density) { FLOW_PAGE_VERTICAL_PADDING.roundToPx() * 2 },
+        )
         val textWidthPx = with(density) {
             (constraints.maxWidth - FLOW_END_PADDING.roundToPx()).coerceAtLeast(1)
         }
-        val blocks = remember(entries, displayed, suggestions, pageHeightPx, textWidthPx, baseStyle) {
+        val blocks = remember(entries, displayed, suggestions, pageContentHeightPx, textWidthPx, baseStyle) {
             val bodyStyle = baseStyle.copy(
                 fontSize = FLOW_FONT_SIZE,
                 lineHeight = FLOW_LINE_HEIGHT,
                 fontWeight = FontWeight.Normal,
             )
             val spacingPx = with(density) { ENTRY_SPACING.roundToPx() }
-            val chipPx = with(density) { CHIP_ROW_HEIGHT.roundToPx() }
+            val passiveChipPx = with(density) { CHIP_ROW_HEIGHT.roundToPx() }
+            val touchTargetPx = with(density) { MIN_TOUCH_TARGET.roundToPx() }
             val timeLinePx = with(density) { TIME_LINE_HEIGHT.roundToPx() }
             entries.mapIndexed { index, entry ->
-                val hasChips = suggestions.containsKey(entry.id) || entry.returnLater
+                val chipPx = when {
+                    suggestions.containsKey(entry.id) -> touchTargetPx
+                    entry.returnLater -> passiveChipPx
+                    else -> 0
+                }
                 val full = measurer.measure(
                     AnnotatedString(displayed[index]),
                     bodyStyle,
                     constraints = Constraints(maxWidth = textWidthPx),
                 )
                 val lineHeightPx = (full.size.height / full.lineCount.coerceAtLeast(1)).coerceAtLeast(1)
-                val budget = pageHeightPx - timeLinePx - (if (hasChips) chipPx else 0)
+                val budget = pageContentHeightPx - timeLinePx - chipPx
                 val maxLines = (budget / lineHeightPx).coerceAtLeast(1)
                 val lines = full.lineCount.coerceAtMost(maxLines)
                 FlowBlock(
                     entry = entry,
                     text = displayed[index],
                     maxLines = lines,
-                    heightPx = timeLinePx + lines * lineHeightPx + (if (hasChips) chipPx else 0),
+                    heightPx = maxOf(touchTargetPx, timeLinePx + lines * lineHeightPx + chipPx),
                     spacingPx = spacingPx,
                 )
             }
         }
-        val pages = remember(blocks, pageHeightPx) { packBlocks(blocks, pageHeightPx) }
+        val pages = remember(blocks, pageContentHeightPx) { packBlocks(blocks, pageContentHeightPx) }
         if (pages.isEmpty()) return@BoxWithConstraints
         HardCutPager(
             pageCount = pages.size,
@@ -105,7 +114,11 @@ fun DayFlowPager(
             contentKey = entries,
         ) { page ->
             Column(
-                modifier = Modifier.fillMaxSize().padding(top = 8.dp, end = FLOW_END_PADDING, bottom = 8.dp),
+                modifier = Modifier.fillMaxSize().padding(
+                    top = FLOW_PAGE_VERTICAL_PADDING,
+                    end = FLOW_END_PADDING,
+                    bottom = FLOW_PAGE_VERTICAL_PADDING,
+                ),
                 verticalArrangement = Arrangement.spacedBy(ENTRY_SPACING),
             ) {
                 pages[page].forEach { block ->
@@ -121,6 +134,9 @@ fun DayFlowPager(
         }
     }
 }
+
+internal fun availablePageContentHeight(totalHeightPx: Int, verticalPaddingPx: Int): Int =
+    (totalHeightPx - verticalPaddingPx.coerceAtLeast(0)).coerceAtLeast(0)
 
 internal data class FlowBlock(
     val entry: NoteEntry,
@@ -158,7 +174,10 @@ private fun EntryFlowBlock(
 ) {
     val entry = block.entry
     Column(
-        modifier = Modifier.fillMaxWidth().then(inlineTapLongModifier(onRead, onOptions, "note entry")),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = MIN_TOUCH_TARGET)
+            .then(tapLongModifier(onRead, onOptions, "note entry")),
     ) {
         Row(
             modifier = Modifier.height(TIME_LINE_HEIGHT),
@@ -184,7 +203,11 @@ private fun EntryFlowBlock(
             overflow = TextOverflow.Ellipsis,
         )
         if (suggestion != null || entry.returnLater) {
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(
+                modifier = Modifier.height(if (suggestion != null) MIN_TOUCH_TARGET else CHIP_ROW_HEIGHT),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 if (entry.returnLater) {
                     Text(
                         stringResource(R.string.return_later),
@@ -199,7 +222,7 @@ private fun EntryFlowBlock(
                         color = DimInk,
                         fontSize = 12.sp,
                         modifier = Modifier.then(
-                            inlineTapModifier(onSuggestion, stringResource(R.string.todo_suggestion)),
+                            tapModifier(onSuggestion, stringResource(R.string.todo_suggestion)),
                         ),
                     )
                 }
@@ -209,8 +232,10 @@ private fun EntryFlowBlock(
 }
 
 private val FLOW_END_PADDING = 14.dp
+private val FLOW_PAGE_VERTICAL_PADDING = 8.dp
 private val ENTRY_SPACING = 10.dp
 private val CHIP_ROW_HEIGHT = 22.dp
+private val MIN_TOUCH_TARGET = 48.dp
 private val TIME_LINE_HEIGHT = 16.dp
 private val FLOW_FONT_SIZE = 18.sp
 private val FLOW_LINE_HEIGHT = 23.sp

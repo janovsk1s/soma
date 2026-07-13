@@ -68,6 +68,9 @@ class BackupCoordinator(
         val activeDir = app.audioDirectory
         val stagedFiles = mutableListOf<File>()
         var committed = false
+        val vocabularyStore = TranscriptionVocabularyStore(app)
+        val previousVocabulary = vocabularyStore.read()
+        var vocabularyChanged = false
 
         try {
             val staged = stagePortableAudio(snapshot, activeDir, restoreId, stagedFiles)
@@ -76,6 +79,8 @@ class BackupCoordinator(
             // Imported audio already has fresh, collision-free final names. A crash
             // before this transaction commits leaves the old data intact plus only
             // harmless orphans; a crash after commit leaves a complete new generation.
+            vocabularyStore.writeTerms(restored.transcriptionVocabulary)
+            vocabularyChanged = true
             room.replaceAll(restored)
             committed = true
             val referenced = restored.notes.flatMap(DailyNote::entries)
@@ -88,7 +93,10 @@ class BackupCoordinator(
             }
             runCatching { syncDirectory(activeDir) }
         } catch (error: Throwable) {
-            if (!committed) stagedFiles.forEach { runCatching { it.delete() } }
+            if (!committed) {
+                stagedFiles.forEach { runCatching { it.delete() } }
+                if (vocabularyChanged) runCatching { vocabularyStore.writeTerms(previousVocabulary) }
+            }
             throw error
         }
         // Scheduling is recoverable (application start also drains queued jobs),
@@ -122,7 +130,10 @@ class BackupCoordinator(
         } else {
             emptyList()
         }
-        base.copy(audioContainers = audio)
+        base.copy(
+            audioContainers = audio,
+            transcriptionVocabulary = TranscriptionVocabularyStore(app).read(),
+        )
     }
 
     private fun stagePortableAudio(

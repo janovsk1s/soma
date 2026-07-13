@@ -2,6 +2,9 @@ package com.soma.storage.db
 
 import android.content.Context
 import androidx.room.Room
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.db.SupportSQLiteOpenHelper
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
 import com.soma.storage.crypto.AesGcmCipher
 import com.soma.storage.crypto.StorageAad
@@ -80,6 +83,48 @@ class SomaDatabaseTest {
         sqlite.query("SELECT text_ciphertext FROM todos").use { cursor ->
             cursor.moveToFirst()
             assertFalse(cursor.getBlob(0).containsSubsequence(marker.encodeToByteArray()))
+        }
+    }
+
+    @Test
+    fun `schema three migration preserves rows as action kinds`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val databaseName = "soma-migration-${System.nanoTime()}.db"
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(databaseName)
+                .callback(
+                    object : SupportSQLiteOpenHelper.Callback(3) {
+                        override fun onCreate(db: SupportSQLiteDatabase) {
+                            db.execSQL("CREATE TABLE todos (id TEXT NOT NULL PRIMARY KEY)")
+                            db.execSQL("CREATE TABLE todo_suggestions (id TEXT NOT NULL PRIMARY KEY)")
+                        }
+
+                        override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+                    },
+                )
+                .build(),
+        )
+        try {
+            val sqlite = helper.writableDatabase
+            sqlite.execSQL("INSERT INTO todos (id) VALUES ('existing-todo')")
+            sqlite.execSQL("INSERT INTO todo_suggestions (id) VALUES ('existing-suggestion')")
+
+            SomaDatabase.MIGRATION_3_4.migrate(sqlite)
+
+            sqlite.query("SELECT kind FROM todos WHERE id = 'existing-todo'").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(ImportantKindValue.ACTION, cursor.getString(0))
+            }
+            sqlite.query(
+                "SELECT suggested_kind FROM todo_suggestions WHERE id = 'existing-suggestion'",
+            ).use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(ImportantKindValue.ACTION, cursor.getString(0))
+            }
+        } finally {
+            helper.close()
+            context.deleteDatabase(databaseName)
         }
     }
 
@@ -164,6 +209,9 @@ class SomaDatabaseTest {
         transcriptionState = TranscriptionStateValue.QUEUED,
         transcriptionAttemptCount = 0,
         detectedLanguages = null,
+        transcriptionRequestedEngine = null,
+        transcriptionUsedEngine = null,
+        transcriptionFallbackReason = null,
         transcriptionUpdatedAtMillis = 1_000,
         transcriptionFailureCode = null,
         transcriptionFailureRetryable = null,

@@ -1,6 +1,7 @@
 package com.soma.core.todo
 
 import com.soma.core.model.SupportedLanguage
+import com.soma.core.model.ImportantKind
 import com.soma.core.model.TodoSuggestionReason
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -141,5 +142,41 @@ class RuleBasedTodoDetectorTest {
     @Test
     fun `empty expected language set remains quiet`() {
         assertTrue(detector.detect("Buy milk.", emptySet()).isEmpty())
+    }
+
+    @Test
+    fun `explicit grocery headings produce one list suggestion in every language`() {
+        val examples = mapOf(
+            SupportedLanguage.ENGLISH to "Shopping list: milk, rice, bananas",
+            SupportedLanguage.LATVIAN to "Iepirkumu saraksts: piens, rīsi, banāni",
+            SupportedLanguage.ESTONIAN to "Ostunimekiri: piim, riis, banaanid",
+            SupportedLanguage.LITHUANIAN to "Pirkinių sąrašas: pienas, ryžiai, bananai",
+            SupportedLanguage.FINNISH to "Ostoslista: maito, riisi, banaanit",
+            SupportedLanguage.SWEDISH to "Inköpslista: mjölk, ris, bananer",
+            SupportedLanguage.GERMAN to "Einkaufsliste: Milch, Reis, Bananen",
+            SupportedLanguage.SLOVAK to "Nákupný zoznam: mlieko, ryža, banány",
+        )
+
+        examples.forEach { (language, text) ->
+            val candidate = detector.detect(text, language).single()
+            assertEquals(ImportantKind.LIST, candidate.kind)
+            assertEquals(TodoSuggestionReason.LIST_PATTERN, candidate.reason)
+            assertEquals(3, candidate.suggestedText.lines().size)
+        }
+    }
+
+    @Test
+    fun `two bullet lines become one bounded list`() {
+        val candidate = detector.detect("- milk\n- rice\n- bananas", SupportedLanguage.ENGLISH).single()
+
+        assertEquals(ImportantKind.LIST, candidate.kind)
+        assertEquals("milk\nrice\nbananas", candidate.suggestedText)
+    }
+
+    @Test
+    fun `detector caps action candidates for oversized input`() {
+        val input = List(100) { "Buy item $it." }.joinToString(" ")
+
+        assertEquals(20, detector.detect(input, SupportedLanguage.ENGLISH).size)
     }
 }

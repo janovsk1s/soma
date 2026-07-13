@@ -56,4 +56,10 @@ class DayFlowPackingTest {
         assertEquals(emptyList<List<FlowBlock>>(), packBlocks(emptyList(), 400))
         assertEquals(emptyList<List<FlowBlock>>(), packBlocks(listOf(block(10)), 0))
     }
+
+    @Test
+    fun `rendered vertical padding is reserved before packing`() {
+        assertEquals(384, availablePageContentHeight(totalHeightPx = 400, verticalPaddingPx = 16))
+        assertEquals(0, availablePageContentHeight(totalHeightPx = 10, verticalPaddingPx = 16))
+    }
 }

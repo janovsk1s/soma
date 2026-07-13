@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,10 +40,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.soma.core.model.SupportedLanguage
 
-private enum class SettingsAction { VIBRATION, REMINDER, TRANSCRIPTION, BACKUP, BROWSER, ABOUT }
+private enum class SettingsAction {
+    VIBRATION,
+    REMINDER,
+    TRANSCRIPTION,
+    SPEECH_LANGUAGES,
+    TRANSCRIPTION_VOCABULARY,
+    BACKUP,
+    BROWSER,
+    ABOUT,
+}
 
 @Composable
 fun SettingsScreen(
+    onSpeechLanguages: () -> Unit,
+    onTranscriptionVocabulary: () -> Unit,
     onBackup: () -> Unit,
     onBrowser: () -> Unit,
     onAbout: () -> Unit,
@@ -53,6 +65,8 @@ fun SettingsScreen(
     var vibration by remember { mutableStateOf(SomaPrefs.vibration(context)) }
     var reminder by remember { mutableStateOf(SomaPrefs.reminder(context)) }
     var transcription by remember { mutableStateOf(SomaPrefs.transcription(context)) }
+    val spoken = SomaPrefs.speechLanguages(context)
+    val vocabularyCount = remember { TranscriptionVocabularyStore(context).read().size }
     val notificationPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -68,6 +82,8 @@ fun SettingsScreen(
                         SettingsAction.VIBRATION -> stringResource(R.string.settings_vibration)
                         SettingsAction.REMINDER -> stringResource(R.string.settings_reminder)
                         SettingsAction.TRANSCRIPTION -> stringResource(R.string.settings_transcription)
+                        SettingsAction.SPEECH_LANGUAGES -> stringResource(R.string.settings_speech_languages)
+                        SettingsAction.TRANSCRIPTION_VOCABULARY -> stringResource(R.string.settings_transcription_vocabulary)
                         SettingsAction.BACKUP -> stringResource(R.string.settings_backup)
                         SettingsAction.BROWSER -> stringResource(R.string.settings_browser)
                         SettingsAction.ABOUT -> stringResource(R.string.settings_about)
@@ -76,6 +92,14 @@ fun SettingsScreen(
                         SettingsAction.VIBRATION -> stringResource(if (vibration) R.string.on else R.string.off)
                         SettingsAction.REMINDER -> stringResource(if (reminder) R.string.on else R.string.off)
                         SettingsAction.TRANSCRIPTION -> stringResource(if (transcription) R.string.on else R.string.off)
+                        SettingsAction.SPEECH_LANGUAGES ->
+                            if (spoken.size == SupportedLanguage.entries.size) {
+                                null
+                            } else {
+                                spoken.sortedBy(SupportedLanguage::ordinal)
+                                    .joinToString(" ") { it.languageTag }
+                            }
+                        SettingsAction.TRANSCRIPTION_VOCABULARY -> vocabularyCount.takeIf { it > 0 }?.toString()
                         else -> null
                     },
                     onClick = {
@@ -100,6 +124,8 @@ fun SettingsScreen(
                                 SomaPrefs.setTranscription(context, transcription)
                                 if (transcription) TranscriptionScheduler.enqueue(context)
                             }
+                            SettingsAction.SPEECH_LANGUAGES -> onSpeechLanguages()
+                            SettingsAction.TRANSCRIPTION_VOCABULARY -> onTranscriptionVocabulary()
                             SettingsAction.BACKUP -> onBackup()
                             SettingsAction.BROWSER -> onBrowser()
                             SettingsAction.ABOUT -> onAbout()
@@ -128,45 +154,95 @@ fun AboutScreen(onDeveloper: () -> Unit, onLicenses: () -> Unit, onBack: () -> U
             onDeveloper()
         }
     }
+    val displayVersion = remember {
+        BuildConfig.VERSION_NAME
+            .removeSuffix("-development")
+            .removeSuffix("-cloud")
+            .removeSuffix("-purist")
+    }
+    val channelLabel = remember {
+        buildList {
+            if (BuildConfig.CLOUD_FEATURES_AVAILABLE) add("cloud")
+            if (BuildConfig.DEBUG) add("development")
+        }.joinToString(" · ")
+    }
     Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding().padding(horizontal = 28.dp)) {
         SimpleTopBar(stringResource(R.string.about_title), onBack)
-        Column(Modifier.weight(1f).fillMaxWidth().padding(top = 20.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).pointerInput(Unit) {
-                    detectTapGestures(onTap = { hiddenTap() })
-                },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(stringResource(R.string.app_name), color = Ink, fontSize = 30.sp, modifier = Modifier.weight(1f))
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(top = 20.dp, end = 14.dp, bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .pointerInput(Unit) {
+                            detectTapGestures(onTap = { hiddenTap() })
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        stringResource(R.string.product_name),
+                        color = Ink,
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 1,
+                    )
+                    // Match Paka: measure the name first and let the version column
+                    // use only the remaining width, so preview labels cannot collapse
+                    // the whole About screen into a one-character column.
+                    Column(horizontalAlignment = Alignment.End, modifier = Modifier.weight(1f)) {
+                        Text(
+                            "v$displayVersion · ${BuildConfig.VERSION_CODE}",
+                            color = DimInk,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Light,
+                            textAlign = TextAlign.End,
+                        )
+                        if (channelLabel.isNotBlank()) {
+                            Text(
+                                channelLabel,
+                                color = DimInk,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Light,
+                                textAlign = TextAlign.End,
+                            )
+                        }
+                    }
+                }
                 Text(
-                    "v${BuildConfig.VERSION_NAME} · ${BuildConfig.VERSION_CODE}",
+                    stringResource(R.string.app_description),
+                    color = Ink,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Normal,
+                    lineHeight = 28.sp,
+                )
+                Column {
+                    Text(
+                        stringResource(R.string.about_byline),
+                        color = Ink,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Normal,
+                    )
+                    Text(
+                        stringResource(R.string.about_handle),
+                        color = DimInk,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Light,
+                    )
+                }
+                Text(
+                    stringResource(R.string.about_license),
                     color = DimInk,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Light,
-                    textAlign = TextAlign.End,
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .then(tapModifier(onLicenses, stringResource(R.string.about_license))),
                 )
-            }
-            Text(
-                stringResource(R.string.app_description),
-                color = Ink,
-                fontSize = 20.sp,
-                lineHeight = 28.sp,
-                modifier = Modifier.padding(top = 28.dp),
-            )
-            Text(
-                stringResource(R.string.about_byline),
-                color = Ink,
-                fontSize = 18.sp,
-                modifier = Modifier.padding(top = 36.dp),
-            )
-            Text(
-                stringResource(R.string.about_license),
-                color = DimInk,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Light,
-                modifier = Modifier.padding(top = 12.dp)
-                    .then(tapModifier(onLicenses, stringResource(R.string.about_license))),
-            )
         }
     }
 }
@@ -360,7 +436,17 @@ fun CloudDeveloperScreen(onBack: () -> Unit) {
                     },
                     onClick = {
                         when (action) {
-                            CloudDeveloperAction.TRANSCRIPTION -> controller.setTranscriptionEnabled(!settings.transcriptionEnabled)
+                            CloudDeveloperAction.TRANSCRIPTION -> {
+                                val enabled = !settings.transcriptionEnabled
+                                controller.setTranscriptionEnabled(enabled)
+                                if (enabled) {
+                                    // Cloud is a transcription engine choice, not a
+                                    // separate queue. Enabling it also enables and
+                                    // wakes the durable transcription drain.
+                                    SomaPrefs.setTranscription(context, true)
+                                    TranscriptionScheduler.enqueue(context)
+                                }
+                            }
                             CloudDeveloperAction.PROVIDER -> controller.setProvider(
                                 if (settings.provider == CloudSpeechProvider.GROQ) CloudSpeechProvider.ELEVENLABS else CloudSpeechProvider.GROQ,
                             )
@@ -381,6 +467,36 @@ fun CloudDeveloperScreen(onBack: () -> Unit) {
             lineHeight = 18.sp,
             modifier = Modifier.padding(bottom = 16.dp),
         )
+    }
+}
+
+/**
+ * Which languages the user actually speaks. Transcription identifies languages
+ * only among this set; at least one language always stays selected.
+ */
+@Composable
+fun SpeechLanguagesScreen(onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
+    val context = LocalContext.current
+    var spoken by remember { mutableStateOf(SomaPrefs.speechLanguages(context)) }
+    Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding().padding(horizontal = 28.dp)) {
+        SimpleTopBar(stringResource(R.string.settings_speech_languages), onBack)
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            PagedList(SupportedLanguage.entries) { language ->
+                val selected = language in spoken
+                SettingsItem(
+                    label = language.displayName(),
+                    trailing = if (selected) "✓" else null,
+                    onClick = {
+                        val updated = if (selected) spoken - language else spoken + language
+                        if (updated.isNotEmpty()) {
+                            spoken = updated
+                            SomaPrefs.setSpeechLanguages(context, updated)
+                        }
+                    },
+                )
+            }
+        }
     }
 }
 

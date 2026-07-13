@@ -18,8 +18,8 @@ android {
         applicationId = "com.soma.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.1.0-preview.4"
+        versionCode = 11
+        versionName = "0.1.0-preview.11"
     }
 
     flavorDimensions += "network"
@@ -64,6 +64,15 @@ android {
                 "proguard-rules.pro",
             )
             ndk { abiFilters += releaseAbi }
+        }
+        create("preview") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-development"
+            signingConfig = signingConfigs.getByName("debug")
+            resValue("string", "app_name", "Soma Development")
+            ndk { abiFilters += releaseAbi }
+            matchingFallbacks += listOf("release")
         }
     }
 

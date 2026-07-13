@@ -123,6 +123,9 @@ interface TranscriptionJobRepository {
 
     suspend fun enqueue(job: TranscriptionJob): Boolean
 
+    /** Replaces any completed or failed job for the same voice entry with [job]. */
+    suspend fun restart(job: TranscriptionJob): Boolean
+
     suspend fun claimNext(
         leaseOwner: String,
         now: Instant,

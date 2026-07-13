@@ -1,5 +1,6 @@
 package com.soma.core.todo
 
+import com.soma.core.model.ImportantKind
 import com.soma.core.model.SupportedLanguage
 import com.soma.core.model.TodoSuggestionReason
 import java.util.Locale
@@ -7,6 +8,7 @@ import java.util.Locale
 data class TodoCandidate(
     /** The original sentence, kept editable and suitable as the initial todo text. */
     val suggestedText: String,
+    val kind: ImportantKind = ImportantKind.ACTION,
     val language: SupportedLanguage,
     val reason: TodoSuggestionReason,
     /** The human-readable trigger or imperative form that matched. */
@@ -17,6 +19,8 @@ data class TodoLanguageRules(
     val triggerPhrases: Set<String>,
     /** Conservative, common imperative words or phrases that may start a sentence. */
     val imperativeStarts: Set<String>,
+    /** Explicit headings that make a group of lines or comma-separated values a list. */
+    val listHeadings: Set<String> = emptySet(),
 )
 
 fun interface TodoDetector {
@@ -32,9 +36,10 @@ class RuleBasedTodoDetector(
 ) : TodoDetector {
     override fun detect(text: String, language: SupportedLanguage): List<TodoCandidate> {
         val languageRules = rules[language] ?: return emptyList()
-        return sentences(text).mapNotNull { sentence ->
+        detectList(text, language, languageRules)?.let { return listOf(it) }
+        return sentences(text).asSequence().mapNotNull { sentence ->
             detectSentence(sentence, language, languageRules)
-        }
+        }.take(MAX_CANDIDATES).toList()
     }
 
     /**
@@ -47,12 +52,60 @@ class RuleBasedTodoDetector(
     ): List<TodoCandidate> {
         if (expectedLanguages.isEmpty()) return emptyList()
         val orderedLanguages = SupportedLanguage.entries.filter(expectedLanguages::contains)
-        return sentences(text).mapNotNull { sentence ->
+        orderedLanguages.firstNotNullOfOrNull { language ->
+            rules[language]?.let { detectList(text, language, it) }
+        }?.let { return listOf(it) }
+        return sentences(text).asSequence().mapNotNull { sentence ->
             orderedLanguages.firstNotNullOfOrNull { language ->
                 rules[language]?.let { detectSentence(sentence, language, it) }
             }
-        }
+        }.take(MAX_CANDIDATES).toList()
     }
+
+    private fun detectList(
+        text: String,
+        language: SupportedLanguage,
+        languageRules: TodoLanguageRules,
+    ): TodoCandidate? {
+        val bounded = text.take(MAX_INPUT_CHARS).trim()
+        if (bounded.isBlank()) return null
+        val lines = bounded.lineSequence().map(String::trim).filter(String::isNotEmpty).toList()
+        val bulletItems = lines.mapNotNull { line ->
+            LEADING_LIST_MARKER.find(line)?.let { marker -> line.removeRange(marker.range).trim() }
+        }.filter(String::isNotBlank)
+        if (bulletItems.size >= MIN_LIST_ITEMS) {
+            return listCandidate(bulletItems, language, "bullet-list")
+        }
+
+        val heading = languageRules.listHeadings
+            .asSequence()
+            .map(::normalizeForMatching)
+            .sortedByDescending(String::length)
+            .firstNotNullOfOrNull { candidate ->
+                val match = Regex(
+                    "(?i)(?:^|\\R)\\s*${Regex.escape(candidate)}\\s*[:\\-]\\s*",
+                ).find(bounded)
+                match?.let { candidate to bounded.substring(it.range.last + 1) }
+            } ?: return null
+        val items = heading.second
+            .split(LIST_ITEM_SEPARATOR)
+            .map { it.trim().replace(LEADING_LIST_MARKER, "") }
+            .filter(String::isNotBlank)
+        if (items.size < MIN_LIST_ITEMS) return null
+        return listCandidate(items, language, heading.first)
+    }
+
+    private fun listCandidate(
+        items: List<String>,
+        language: SupportedLanguage,
+        matchedRule: String,
+    ) = TodoCandidate(
+        suggestedText = items.take(MAX_LIST_ITEMS).joinToString("\n"),
+        kind = ImportantKind.LIST,
+        language = language,
+        reason = TodoSuggestionReason.LIST_PATTERN,
+        matchedRule = matchedRule,
+    )
 
     private fun detectSentence(
         sentence: String,
@@ -93,7 +146,7 @@ class RuleBasedTodoDetector(
         }
     }
 
-    private fun sentences(text: String): List<String> = text
+    private fun sentences(text: String): List<String> = text.take(MAX_INPUT_CHARS)
         .split(SENTENCE_BOUNDARY)
         .map(String::trim)
         .filter(String::isNotEmpty)
@@ -116,7 +169,12 @@ class RuleBasedTodoDetector(
     private companion object {
         val SENTENCE_BOUNDARY = Regex("(?<=[.!?])(?:\\s+|$)|\\R+")
         val LEADING_LIST_MARKER = Regex("^(?:[-*•]|\\d+[.)])\\s+")
+        val LIST_ITEM_SEPARATOR = Regex("\\R+|[,;]")
         val WHITESPACE = Regex("\\s+")
+        const val MIN_LIST_ITEMS = 2
+        const val MAX_LIST_ITEMS = 50
+        const val MAX_CANDIDATES = 20
+        const val MAX_INPUT_CHARS = 50_000
     }
 }
 
@@ -157,6 +215,7 @@ object DefaultTodoRules {
                 "take",
                 "write",
             ),
+            listHeadings = setOf("grocery list", "shopping list", "groceries"),
         ),
         SupportedLanguage.LATVIAN to TodoLanguageRules(
             triggerPhrases = setOf(
@@ -181,6 +240,7 @@ object DefaultTodoRules {
                 "samaksā",
                 "uzraksti",
             ),
+            listHeadings = setOf("iepirkumu saraksts", "pirkumu saraksts", "pirkumi"),
         ),
         SupportedLanguage.ESTONIAN to TodoLanguageRules(
             triggerPhrases = setOf(
@@ -206,6 +266,7 @@ object DefaultTodoRules {
                 "vii",
                 "võta",
             ),
+            listHeadings = setOf("ostunimekiri", "poenimekiri", "ostud"),
         ),
         SupportedLanguage.LITHUANIAN to TodoLanguageRules(
             triggerPhrases = setOf(
@@ -231,6 +292,7 @@ object DefaultTodoRules {
                 "rezervuok",
                 "sumokėk",
             ),
+            listHeadings = setOf("pirkinių sąrašas", "pirkiniai"),
         ),
         SupportedLanguage.FINNISH to TodoLanguageRules(
             triggerPhrases = setOf(
@@ -255,6 +317,7 @@ object DefaultTodoRules {
                 "varaa",
                 "vie",
             ),
+            listHeadings = setOf("ostoslista", "kauppalista", "ostokset"),
         ),
         SupportedLanguage.SWEDISH to TodoLanguageRules(
             triggerPhrases = setOf(
@@ -279,6 +342,7 @@ object DefaultTodoRules {
                 "skriv",
                 "ta",
             ),
+            listHeadings = setOf("inköpslista", "handlingslista", "inköp"),
         ),
         SupportedLanguage.GERMAN to TodoLanguageRules(
             triggerPhrases = setOf(
@@ -309,6 +373,7 @@ object DefaultTodoRules {
                 "schick",
                 "schreibe",
             ),
+            listHeadings = setOf("einkaufsliste", "einkäufe"),
         ),
         SupportedLanguage.SLOVAK to TodoLanguageRules(
             triggerPhrases = setOf(
@@ -336,6 +401,7 @@ object DefaultTodoRules {
                 "zaplať",
                 "zavolaj",
             ),
+            listHeadings = setOf("nákupný zoznam", "nákupy"),
         ),
     )
 }

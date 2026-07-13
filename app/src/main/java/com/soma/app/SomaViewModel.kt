@@ -8,6 +8,7 @@ import com.soma.core.model.AudioFormat
 import com.soma.core.model.EntrySource
 import com.soma.core.model.EntryKind
 import com.soma.core.model.EntryTranscriptionState
+import com.soma.core.model.ImportantKind
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.SupportedLanguage
@@ -36,6 +37,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.util.UUID
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -48,6 +50,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 class SomaViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as SomaApplication
@@ -88,6 +91,11 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     val isDemo: Boolean get() = SomaPrefs.demoMode(app)
 
     init {
+        viewModelScope.launch {
+            // No microphone is opened here. This moves the Android Keystore
+            // lookup and fixed audio-format calculation off the capture gesture.
+            runCatching { recorder.prepare() }
+        }
         viewModelScope.launch {
             repositories.notes.getOrCreate(today(), clock.instant())
             recoverInterruptedRecordings()
@@ -147,7 +155,10 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
 
     fun addText(text: String, onSaved: (Boolean) -> Unit = {}) {
         val clean = text.trim()
-        if (clean.isEmpty()) return
+        if (clean.isEmpty()) {
+            onSaved(false)
+            return
+        }
         viewModelScope.launch {
             val entry = runCatching {
                 entryAppendMutex.withLock {
@@ -169,21 +180,27 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun editEntry(entry: NoteEntry, text: String) {
+    fun editEntry(entry: NoteEntry, text: String, onSaved: (Boolean) -> Unit = {}) {
         val clean = text.trim()
-        if (clean.isEmpty() || recordingOperationEntryId == entry.id) return
+        if (clean.isEmpty() || recordingOperationEntryId == entry.id) {
+            onSaved(false)
+            return
+        }
         viewModelScope.launch {
-            val current = repositories.notes.getEntry(entry.id) ?: return@launch
-            if (current.transcription?.state in setOf(
-                    EntryTranscriptionState.QUEUED,
-                    EntryTranscriptionState.RUNNING,
-                )
-            ) return@launch
-            val mutation = repositories.notes.editEntryText(entry.id, clean, clock.instant()) ?: return@launch
-            val updated = mutation.current ?: return@launch
-            if (updated.text == clean && mutation.previous.text != clean) {
+            val mutation = runCatching {
+                val current = repositories.notes.getEntry(entry.id) ?: return@runCatching null
+                if (current.transcription?.state in setOf(
+                        EntryTranscriptionState.QUEUED,
+                        EntryTranscriptionState.RUNNING,
+                    )
+                ) return@runCatching null
+                repositories.notes.editEntryText(entry.id, clean, clock.instant())
+            }.getOrNull()
+            val updated = mutation?.current
+            onSaved(updated != null)
+            if (mutation != null && updated != null && updated.text == clean && mutation.previous.text != clean) {
                 dismissPendingSuggestions(entry.id)
-                detectSuggestions(updated)
+                runCatching { detectSuggestions(updated) }
             }
         }
     }
@@ -243,29 +260,70 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                 text = suggestion.suggestedText,
                 createdAt = now,
                 updatedAt = now,
+                kind = suggestion.suggestedKind,
                 source = EntrySource(entry.noteDate, entry.id),
             )
             if (repositories.suggestions.accept(suggestion.id, todo, now)) {
-                mutableSuggestions.value = mutableSuggestions.value - entry.id
+                // AI extraction can return more than one explicit action. Keep
+                // presenting them one at a time; each still needs a deliberate tap.
+                refreshSuggestions(listOf(entry))
             }
         }
     }
 
-    fun addTodo(text: String) {
+    fun addTodo(text: String, onSaved: (Boolean) -> Unit = {}) {
         val clean = text.trim()
-        if (clean.isEmpty()) return
+        if (clean.isEmpty()) {
+            onSaved(false)
+            return
+        }
         viewModelScope.launch {
             val now = clock.instant()
-            repositories.todos.insert(
-                Todo(UUID.randomUUID().toString(), clean, now, now),
-            )
+            val saved = runCatching {
+                repositories.todos.insert(
+                    Todo(UUID.randomUUID().toString(), clean, now, now),
+                )
+            }.getOrDefault(false)
+            onSaved(saved)
         }
     }
 
-    fun editTodo(todo: Todo, text: String) {
+    fun addImportantExcerpt(entry: NoteEntry, selectedText: String, onSaved: (Boolean) -> Unit = {}) {
+        val clean = selectedText.trim()
+        if (clean.isEmpty()) {
+            onSaved(false)
+            return
+        }
+        viewModelScope.launch {
+            val now = clock.instant()
+            val saved = runCatching {
+                repositories.todos.insert(
+                    Todo(
+                        id = UUID.randomUUID().toString(),
+                        text = clean,
+                        createdAt = now,
+                        updatedAt = now,
+                        kind = ImportantKind.EXCERPT,
+                        source = EntrySource(entry.noteDate, entry.id),
+                    ),
+                )
+            }.getOrDefault(false)
+            onSaved(saved)
+        }
+    }
+
+    fun editTodo(todo: Todo, text: String, onSaved: (Boolean) -> Unit = {}) {
         val clean = text.trim()
-        if (clean.isEmpty()) return
-        viewModelScope.launch { repositories.todos.update(todo.edit(clean, clock.instant())) }
+        if (clean.isEmpty()) {
+            onSaved(false)
+            return
+        }
+        viewModelScope.launch {
+            val saved = runCatching {
+                repositories.todos.update(todo.edit(clean, clock.instant()))
+            }.getOrDefault(false)
+            onSaved(saved)
+        }
     }
 
     fun toggleTodo(todo: Todo) {
@@ -321,12 +379,26 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
         if (mutableRecordingEntryId.value != null || recordingStartInProgress || stopRecordingInProgress) return
         recordingStartInProgress = true
         stopRecordingRequested = false
+        val now = clock.instant()
+        val date = selectedDate.value
+        val id = UUID.randomUUID().toString()
+        recordingOperationEntryId = id
         viewModelScope.launch {
             recordingMutex.withLock {
                 try {
-                    val now = clock.instant()
-                    val date = selectedDate.value
-                    val id = UUID.randomUUID().toString()
+                    // Start capture before touching Room. The encrypted partial
+                    // container is itself crash-recoverable, and startup repairs
+                    // the tiny window where audio exists before its entry row.
+                    try {
+                        recorder.start(id, app.audioDirectory)
+                        mutableRecordingEntryId.value = id
+                    } catch (error: Throwable) {
+                        File(app.audioDirectory, "$id.partial").delete()
+                        recordingOperationEntryId = null
+                        messages.trySend(app.getString(R.string.recording_start_failed))
+                        return@withLock
+                    }
+
                     val audio = AudioAttachment(
                         fileId = id,
                         format = AudioFormat.WAV,
@@ -344,25 +416,12 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                             transcriptionEnabled = SomaPrefs.transcription(app),
                         )
                         candidate.takeIf { repositories.notes.insertEntry(it) }
-                    } ?: return@withLock
-                    recordingOperationEntryId = id
-                    mutableRecordingEntryId.value = id
-
-                    // A stop can arrive while Room or AudioRecord is initializing. In
-                    // that case do not create a ghost entry or let capture continue off-screen.
-                    if (stopRecordingRequested) {
-                        repositories.notes.deleteEntry(id)
-                        recordingOperationEntryId = null
-                        mutableRecordingEntryId.value = null
-                        return@withLock
                     }
-
-                    try {
-                        recorder.start(id, app.audioDirectory)
-                    } catch (error: Throwable) {
+                    if (entry == null) {
+                        runCatching { recorder.stop() }
                         mutableRecordingEntryId.value = null
                         File(app.audioDirectory, "$id.partial").delete()
-                        repositories.notes.deleteEntry(id)
+                        app.encryptedAudioFile(id).delete()
                         recordingOperationEntryId = null
                         messages.trySend(app.getString(R.string.recording_start_failed))
                         return@withLock
@@ -434,16 +493,40 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun retryTranscription(entry: NoteEntry) {
+        if (isDemo || entry.audio == null) return
+        SomaPrefs.setTranscription(app, true)
+        viewModelScope.launch {
+            val current = repositories.notes.getEntry(entry.id)
+            if (current?.audio == null) {
+                messages.trySend(app.getString(R.string.transcription_retry_failed))
+                return@launch
+            }
+            val now = clock.instant()
+            val queued = repositories.transcriptionJobs.restart(
+                TranscriptionJob.queued(UUID.randomUUID().toString(), current.id, now),
+            )
+            if (queued) {
+                TranscriptionScheduler.enqueue(app)
+            } else {
+                messages.trySend(app.getString(R.string.transcription_retry_failed))
+            }
+        }
+    }
+
     private suspend fun detectSuggestions(entry: NoteEntry) {
         // Typed notes can code-switch just like voice notes. Evaluating the eight
         // small rule sets is deterministic and avoids tying content to the UI locale.
-        val candidates = detector.detect(entry.text, SupportedLanguage.entries.toSet())
+        val candidates = withContext(Dispatchers.Default) {
+            detector.detect(entry.text, SupportedLanguage.entries.toSet())
+        }
         candidates.forEach { candidate ->
             repositories.suggestions.insert(
                 TodoSuggestion(
                     id = UUID.randomUUID().toString(),
                     entryId = entry.id,
                     suggestedText = candidate.suggestedText,
+                    suggestedKind = candidate.kind,
                     language = candidate.language,
                     reason = candidate.reason,
                     matchedRule = candidate.matchedRule,
@@ -461,7 +544,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                         suggestedText = text,
                         language = SomaPrefs.language(app),
                         reason = com.soma.core.model.TodoSuggestionReason.AI_EXTRACTED,
-                        matchedRule = "cloud:groq:openai/gpt-oss-20b",
+                        matchedRule = "cloud:groq:$CLOUD_AI_TODO_MODEL",
                         state = TodoSuggestionState.PENDING,
                         createdAt = clock.instant(),
                     ),
@@ -493,7 +576,8 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
         if (isDemo) return
         app.audioDirectory.listFiles { file -> file.name.endsWith(".partial") }.orEmpty().forEach { partial ->
             val id = partial.name.removeSuffix(".partial")
-            val entry = repositories.notes.getEntry(id) ?: return@forEach
+            val entry = repositories.notes.getEntry(id) ?: createEntryForOrphanedPartial(id, partial)
+                ?: return@forEach
             val final = app.encryptedAudioFile(id)
             try {
                 val metadata = if (final.isFile) {
@@ -527,6 +611,33 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                 file.name.endsWith(".sma") && file.name.removeSuffix(".sma") !in referenced ->
                     runCatching { file.delete() }
             }
+        }
+    }
+
+    /** Repairs a process death between microphone start and the Room insert. */
+    private suspend fun createEntryForOrphanedPartial(id: String, partial: File): NoteEntry? {
+        val startedAt = partial.lastModified().takeIf { it > 0L }
+            ?.let(Instant::ofEpochMilli)
+            ?: clock.instant()
+        val recoveredDate = startedAt.atZone(ZoneId.systemDefault()).toLocalDate()
+            .let { if (it.isAfter(today())) today() else it }
+        return entryAppendMutex.withLock {
+            repositories.notes.getEntry(id)?.let { return@withLock it }
+            val note = repositories.notes.getOrCreate(recoveredDate, startedAt)
+            val candidate = NoteEntry.voice(
+                id = id,
+                noteDate = recoveredDate,
+                position = (note.entries.maxOfOrNull(NoteEntry::position) ?: -1) + 1,
+                audio = AudioAttachment(
+                    fileId = id,
+                    format = AudioFormat.WAV,
+                    durationMillis = 0,
+                    byteCount = 0,
+                ),
+                createdAt = startedAt,
+                transcriptionEnabled = SomaPrefs.transcription(app),
+            )
+            candidate.takeIf { repositories.notes.insertEntry(it) }
         }
     }
 

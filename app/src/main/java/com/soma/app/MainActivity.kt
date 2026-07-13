@@ -136,6 +136,8 @@ private sealed interface AppRoute {
     data object AddTodo : AppRoute
     data object Capture : AppRoute
     data object Calendar : AppRoute
+    data object SpeechLanguages : AppRoute
+    data object TranscriptionVocabulary : AppRoute
     data class ReadEntry(val entry: NoteEntry, val fromTodos: Boolean = false) : AppRoute
     data class EntryOptions(
         val entry: NoteEntry,
@@ -143,6 +145,7 @@ private sealed interface AppRoute {
         val fromTodos: Boolean = false,
     ) : AppRoute
     data class EditEntry(val entry: NoteEntry, val fromTodos: Boolean = false) : AppRoute
+    data class SelectImportant(val entry: NoteEntry, val fromTodos: Boolean = false) : AppRoute
     data class TodoOptions(val todo: Todo) : AppRoute
     data class EditTodo(val todo: Todo) : AppRoute
 }
@@ -222,11 +225,40 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             onBack = { route = AppRoute.Home },
         )
         AppRoute.Settings -> SettingsScreen(
+            onSpeechLanguages = { route = AppRoute.SpeechLanguages },
+            onTranscriptionVocabulary = { route = AppRoute.TranscriptionVocabulary },
             onBackup = { route = AppRoute.Backup },
             onBrowser = { route = AppRoute.Browser },
             onAbout = { route = AppRoute.About },
             onBack = { route = AppRoute.Home },
         )
+        AppRoute.SpeechLanguages -> SpeechLanguagesScreen { route = AppRoute.Settings }
+        AppRoute.TranscriptionVocabulary -> {
+            val store = remember { TranscriptionVocabularyStore(context) }
+            val initial = remember { com.soma.core.model.TranscriptionVocabulary.asEditableText(store.read()) }
+            var saving by remember { mutableStateOf(false) }
+            var saveFailed by remember { mutableStateOf(false) }
+            TextEditorScreen(
+                title = stringResourceCompat(R.string.settings_transcription_vocabulary),
+                initialText = initial,
+                saving = saving,
+                saveFailed = saveFailed,
+                allowBlank = true,
+                supportingText = stringResourceCompat(R.string.transcription_vocabulary_help),
+                onSave = { text ->
+                    if (!saving) {
+                        saving = true
+                        saveFailed = false
+                        val characters = text.toCharArray()
+                        val saved = runCatching { store.write(characters) }.isSuccess
+                        characters.fill('\u0000')
+                        saving = false
+                        if (saved) route = AppRoute.Settings else saveFailed = true
+                    }
+                },
+                onBack = { route = AppRoute.Settings },
+            )
+        }
         AppRoute.Backup -> BackupScreen(viewModel) { route = AppRoute.Settings }
         AppRoute.Browser -> BrowserScreen { route = AppRoute.Settings }
         AppRoute.About -> AboutScreen(
@@ -254,15 +286,27 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             onSelected = { language -> activity?.switchLanguage(language) },
             onBack = { route = AppRoute.Developer },
         )
-        AppRoute.Capture -> TextEditorScreen(
-            title = stringResourceCompat(R.string.add_entry),
-            initialText = "",
-            onSave = {
-                viewModel.addText(it)
-                route = AppRoute.Home
-            },
-            onBack = { route = AppRoute.Home },
-        )
+        AppRoute.Capture -> {
+            var saving by remember { mutableStateOf(false) }
+            var saveFailed by remember { mutableStateOf(false) }
+            TextEditorScreen(
+                title = stringResourceCompat(R.string.add_entry),
+                initialText = "",
+                saving = saving,
+                saveFailed = saveFailed,
+                onSave = { text ->
+                    if (!saving) {
+                        saving = true
+                        saveFailed = false
+                        viewModel.addText(text) { saved ->
+                            saving = false
+                            if (saved) route = AppRoute.Home else saveFailed = true
+                        }
+                    }
+                },
+                onBack = { route = AppRoute.Home },
+            )
+        }
         AppRoute.Calendar -> CalendarScreen(
             viewModel = viewModel,
             onSelect = { picked ->
@@ -271,15 +315,27 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             },
             onBack = { route = AppRoute.Home },
         )
-        AppRoute.AddTodo -> TextEditorScreen(
-            title = stringResourceCompat(R.string.add_details),
-            initialText = "",
-            onSave = {
-                viewModel.addTodo(it)
-                route = AppRoute.Todos
-            },
-            onBack = { route = AppRoute.Todos },
-        )
+        AppRoute.AddTodo -> {
+            var saving by remember { mutableStateOf(false) }
+            var saveFailed by remember { mutableStateOf(false) }
+            TextEditorScreen(
+                title = stringResourceCompat(R.string.add_details),
+                initialText = "",
+                saving = saving,
+                saveFailed = saveFailed,
+                onSave = { text ->
+                    if (!saving) {
+                        saving = true
+                        saveFailed = false
+                        viewModel.addTodo(text) { saved ->
+                            saving = false
+                            if (saved) route = AppRoute.Todos else saveFailed = true
+                        }
+                    }
+                },
+                onBack = { route = AppRoute.Todos },
+            )
+        }
         is AppRoute.ReadEntry -> {
             val entry = liveEntry(current.entry)
             val origin: AppRoute = if (current.fromTodos) AppRoute.Todos else AppRoute.Home
@@ -299,11 +355,16 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             EntryOptionsScreen(
                 entry = entry,
                 onEdit = { route = AppRoute.EditEntry(entry, fromTodos = current.fromTodos) },
+                onMarkImportant = { route = AppRoute.SelectImportant(entry, current.fromTodos) },
                 onReturn = {
                     viewModel.toggleReturnLater(entry)
                     route = origin
                 },
                 onPlay = { viewModel.togglePlayback(entry) },
+                onRetranscribe = {
+                    viewModel.retryTranscription(entry)
+                    route = AppRoute.ReadEntry(entry, current.fromTodos)
+                },
                 onDeleteAudio = {
                     viewModel.deleteAudio(entry)
                     route = origin
@@ -321,14 +382,53 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
                 },
             )
         }
+        is AppRoute.SelectImportant -> {
+            val entry = liveEntry(current.entry)
+            var saving by remember(entry.id) { mutableStateOf(false) }
+            var saveFailed by remember(entry.id) { mutableStateOf(false) }
+            ImportantSelectionScreen(
+                entry = entry,
+                saving = saving,
+                saveFailed = saveFailed,
+                onSave = { selected ->
+                    if (!saving) {
+                        saving = true
+                        saveFailed = false
+                        viewModel.addImportantExcerpt(entry, selected) { saved ->
+                            saving = false
+                            if (saved) {
+                                route = AppRoute.ReadEntry(entry, current.fromTodos)
+                            } else {
+                                saveFailed = true
+                            }
+                        }
+                    }
+                },
+                onBack = { route = AppRoute.EntryOptions(entry, returnToRead = true, fromTodos = current.fromTodos) },
+            )
+        }
         is AppRoute.EditEntry -> {
             val entry = liveEntry(current.entry)
+            var saving by remember(entry.id) { mutableStateOf(false) }
+            var saveFailed by remember(entry.id) { mutableStateOf(false) }
             TextEditorScreen(
                 title = stringResourceCompat(R.string.edit),
                 initialText = entry.text,
-                onSave = {
-                    viewModel.editEntry(entry, it)
-                    route = if (current.fromTodos) AppRoute.Todos else AppRoute.Home
+                saving = saving,
+                saveFailed = saveFailed,
+                onSave = { text ->
+                    if (!saving) {
+                        saving = true
+                        saveFailed = false
+                        viewModel.editEntry(entry, text) { saved ->
+                            saving = false
+                            if (saved) {
+                                route = if (current.fromTodos) AppRoute.Todos else AppRoute.Home
+                            } else {
+                                saveFailed = true
+                            }
+                        }
+                    }
                 },
                 onBack = { route = AppRoute.EntryOptions(entry, fromTodos = current.fromTodos) },
             )
@@ -346,15 +446,27 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             },
             onBack = { route = AppRoute.Todos },
         )
-        is AppRoute.EditTodo -> TextEditorScreen(
-            title = stringResourceCompat(R.string.edit),
-            initialText = current.todo.text,
-            onSave = {
-                viewModel.editTodo(current.todo, it)
-                route = AppRoute.Todos
-            },
-            onBack = { route = AppRoute.TodoOptions(current.todo) },
-        )
+        is AppRoute.EditTodo -> {
+            var saving by remember(current.todo.id) { mutableStateOf(false) }
+            var saveFailed by remember(current.todo.id) { mutableStateOf(false) }
+            TextEditorScreen(
+                title = stringResourceCompat(R.string.edit),
+                initialText = current.todo.text,
+                saving = saving,
+                saveFailed = saveFailed,
+                onSave = { text ->
+                    if (!saving) {
+                        saving = true
+                        saveFailed = false
+                        viewModel.editTodo(current.todo, text) { saved ->
+                            saving = false
+                            if (saved) route = AppRoute.Todos else saveFailed = true
+                        }
+                    }
+                },
+                onBack = { route = AppRoute.TodoOptions(current.todo) },
+            )
+        }
     }
 }
 

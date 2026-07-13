@@ -13,29 +13,46 @@ cloud API keys only when explicitly enabled in Developer settings.
 ## What it does
 
 - Opens directly to today's single daily note and creates it on first use.
-- Captures inline text or a 16 kHz mono voice note without waiting for sync or
-  transcription.
+- Opens a focused capture editor when the bottom line or `+` is tapped, and
+  starts a 16 kHz mono voice note when the bottom line is deliberately held;
+  neither waits for sync or transcription.
 - Keeps encrypted audio playable even if transcription fails.
 - Transcribes locally with whisper.cpp and a bundled multilingual tiny Q5_1
-  model; pause-based VAD performs language detection per utterance.
+  model; pause-based VAD performs language detection per utterance. Local
+  decoding stays conservative on Light Phone hardware but automatically uses
+  more threads and beam search on more capable Android devices.
+- Lets the user maintain a small encrypted transcription vocabulary for names,
+  mixed-language words, and uncommon spellings. It prompts local Whisper and
+  Groq without an extra fee; ElevenLabs uses it as Scribe v2 keyterms, which
+  currently add 20% to that provider's transcription price.
+- Shows the engine that actually produced a completed transcript when the voice
+  entry is opened, including a quiet reason when a cloud choice fell back to
+  local Whisper. This audit trail is also preserved in both export formats.
 - Shows a quiet creation time on every entry. User edits keep the entry in its
   original position, record an encrypted revision, and expose the edit time when
   the entry is opened.
-- Suggests possible todos with explicit, testable language rules. A suggestion
-  becomes a todo only after a tap.
-- Keeps one flat, oldest-first list of open todos. After 30 untouched days, one
+- Suggests possible actions and explicit grocery/list blocks with testable rules
+  for all eight languages. A suggestion enters Important only after a tap.
+- Lets the user open an entry, select an exact word or phrase with Android's
+  native handles, and copy it into Important without moving or changing the
+  original note. The copied excerpt keeps its source link.
+- Keeps one flat, oldest-first Important section for actions, lists, and saved
+  excerpts. After 30 untouched days, one
   quiet “keep / let go” choice appears when the item is viewed.
-- Starts each day with an optional, dismissible summary of open todos and notes
+- Starts each day with an optional, dismissible summary of current Important items and notes
   explicitly marked for return.
-- Pages lists in fixed groups of five, matching Paka. Tap `+` for quick entry;
-  long-press it for details; long-press a row for deliberate secondary actions.
+- Pages Important and settings in fixed groups of five, matching Paka. The daily note
+  instead packs its timestamped entries continuously into full pages, breaking
+  only at entry boundaries. Tap `+` for quick entry; long-press it for details;
+  long-press a row for deliberate secondary actions.
 - Uses Paka's native black-screen palette and exact settings gear. Light mode is
   available only from the hidden Developer screen.
 - Offers one optional daily reminder, off by default, and optional vibration.
 - Supports English, Latvian, Estonian, Lithuanian, Finnish, Swedish, German, and
   Slovak.
 - Exports either a restorable encrypted `.soma` backup or a standard readable
-  ZIP containing Markdown, CSV, JSON/JSONL edit history, and optional WAV audio.
+  ZIP containing Markdown, CSV, JSON/JSONL edit history, transcription
+  vocabulary, and optional WAV audio.
 
 Transcription is intentionally modest. The small local model can be inaccurate,
 especially during dense mid-sentence language switching. Transcripts remain
@@ -46,7 +63,7 @@ editable. The `browser` and `purist` builds never send audio or text elsewhere.
 - The normal `browser` and `purist` builds have no cloud service, analytics,
   advertising, crash reporting, update checker, Google Play Services dependency,
   outbound HTTP client library, or outbound implementation.
-- Note text, transcripts, todo text, rule suggestions, and protected diagnostics
+- Note text, transcripts, Important text, rule suggestions, and protected diagnostics
   are encrypted at rest with AES-256-GCM and a non-exportable Android Keystore
   key. Ciphertext is authenticated against its row and field.
 - Recordings go directly from `AudioRecord` into crash-recoverable encrypted
@@ -97,18 +114,34 @@ repository. Choose one flavor:
 - `cloud` is a separate experimental build that can replace the normal build
   while preserving its data when signed with the same key. Developer settings can
   enable Groq Whisper Large v3 or ElevenLabs Scribe v2 transcription and Groq
-  GPT-OSS todo suggestions. It is off by default and requires the user's keys.
+  GPT-OSS Important suggestions. It is off by default and uses BYOK: the key belongs
+  to the user, Soma has no cloud account or proxy, and the provider charges the
+  user's provider account directly.
+  ElevenLabs is the initial accuracy-first speech choice; Groq remains one tap
+  away and can share its key with AI Important extraction.
+  Choosing one speech language sends that language to the provider; choosing
+  several keeps pause-separated language auto-detection. A provider result outside
+  the selected set, a missing key, blocked Wi-Fi, or any API failure falls back to
+  bundled local Whisper. Open a completed voice entry to see which engine actually
+  produced it and whether fallback occurred. AI is consulted only when the local
+  Important rules find no candidate, and every result is still an optional inline
+  suggestion.
+  A completed voice entry can be deliberately retranscribed from its long-press
+  options; the existing audio and text remain recoverable throughout the retry.
+  Transcription vocabulary is omitted from provider requests when empty. When
+  present it is sent with audio to the selected provider; ElevenLabs documents
+  a 20% keyterm surcharge, which Soma also states in the vocabulary editor.
 
 Download the chosen APK on the phone, allow installation from that file source
 when Android asks, and open the APK to install it. Preview artifacts are signed
 with an Android development key and use development package ids, so they do not
-establish the signing identity of a future stable release. The two flavors are
+establish the signing identity of a future stable release. The preview flavors are
 separate apps with separate data; install and use one rather than switching
 between them. Export a portable encrypted backup before uninstalling a preview.
 
 ## Browser view and build flavors
 
-The standard `browser` flavor can serve notes, todos, and authenticated audio to
+The standard `browser` flavor can serve notes, Important items, and authenticated audio to
 a browser on the same trusted Wi-Fi network. It is off by default. Starting it
 selects a concrete Wi-Fi site-local address—never a wildcard, loopback, mobile,
 or public address—and shows a URL plus a single-use six-digit code. A successful
@@ -132,7 +165,7 @@ browser certificate warnings would undermine the intended simple workflow.
 | Module | Responsibility |
 | --- | --- |
 | `app` | Compose UI, lifecycle, reminders, WorkManager transcription drain, demo mode, and flavor bridges |
-| `core` | Platform-neutral models, paging, date/policy logic, repositories, and rule-based todo detection |
+| `core` | Platform-neutral models, paging, date/policy logic, repositories, and rule-based Important detection |
 | `storage` | Room schema/repositories, field encryption, and portable passphrase-encrypted backups |
 | `voice` | Direct encrypted recording, interrupted-tail recovery, WAV streaming, and playback |
 | `whisper` | Isolated `Transcriber` interface, energy VAD, JNI bridge, vendored whisper.cpp, and bundled model |
@@ -142,7 +175,8 @@ Every runtime graph intentionally contains no third-party HTTP client library.
 The `browser`/`purist` source sets contain no outbound implementation. Only the
 separate `cloud` source set uses the Android platform HTTPS connection API; API
 keys are AES-GCM encrypted under a dedicated Android Keystore key and are never
-exported. Local Whisper remains the failure fallback.
+exported. Transcription vocabulary uses a different Keystore key and is included
+in portable and readable exports. Local Whisper remains the failure fallback.
 
 ## Building and verification
 
@@ -158,8 +192,20 @@ tools/check_apk_permissions.sh purist app/build/outputs/apk/purist/debug/app-pur
 tools/check_apk_permissions.sh cloud app/build/outputs/apk/cloud/debug/app-cloud-debug.apk
 ```
 
+The installable Light Phone preview keeps the debug application id/signing key,
+packages only the device's ABI, and enables release shrinking:
+
+```sh
+./gradlew :app:assembleCloudPreview
+```
+
 The provider comparison harness and corpus layout are documented in
 [`tools/STT_BENCHMARK.md`](tools/STT_BENCHMARK.md).
+Capture latency, idle-work, transcription, memory, and APK-size budgets are
+documented in [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md). They are measured on
+real Light Phone hardware before a stable release; unit tests also bound local
+detection input and result counts so unusually large entries cannot create
+unbounded suggestion work.
 
 `check_no_outbound_clients.sh` audits both flavor runtime graphs and first-party
 source for known client APIs, Google service SDKs, analytics, and reporting
@@ -190,6 +236,7 @@ source code, Light branding, or proprietary Light assets.
 ## Documentation
 
 - [Data and backup formats](docs/FORMATS.md)
+- [Performance and battery contract](docs/PERFORMANCE.md)
 - [Threat model](docs/THREAT_MODEL.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 - [Acknowledgments](ACKNOWLEDGMENTS.md)

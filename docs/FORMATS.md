@@ -7,7 +7,7 @@ are rejected rather than guessed.
 
 ## On-device Room database
 
-The Room database is `soma.db`, schema version 2, using write-ahead logging. Its
+The Room database is `soma.db`, schema version 4, using write-ahead logging. Its
 exported schemas are checked in under
 `storage/schemas/com.soma.storage.db.SomaDatabase/`.
 
@@ -15,8 +15,8 @@ The seven tables are:
 
 - `daily_notes`, with one unique `epoch_day` per note;
 - `entries`, ordered by the unique pair `(note_id, position)`;
-- `todos`, including optional source-note/source-entry links;
-- `todo_suggestions`, including rule, language, and decision state;
+- `todos`, including `ACTION`, `LIST`, or `EXCERPT` kind and optional source links;
+- `todo_suggestions`, including suggested kind, rule, language, and decision state;
 - `still_open_dismissals`, keyed by day; and
 - `transcription_jobs`, including retry and lease state; and
 - `entry_revisions`, containing encrypted previous text for deliberate user edits.
@@ -24,7 +24,7 @@ The seven tables are:
 User-authored entry text, todo text, suggestion text and matched rule, and
 transcription failure diagnostics are stored as encrypted BLOBs. Structural
 metadata needed for queries—dates, ordering, states, ids, timestamps, language
-names, audio metadata, and relationships—is not encrypted. SQLite page layout,
+names, Important kinds, audio metadata, and relationships—is not encrypted. SQLite page layout,
 row counts, and timing therefore remain visible to an attacker who can read the
 app's private files. There is no full-text index in version 1; a later search
 migration can add one without changing the domain model.
@@ -138,7 +138,7 @@ so identical snapshots produce different files.
 | --- | --- |
 | Magic | 8 ASCII bytes: `SOMABACK` |
 | Container version | 32-bit integer, currently `1` |
-| Payload version | 32-bit integer, currently `2` |
+| Payload version | 32-bit integer, currently `5` |
 | KDF id | 32-bit length + ASCII `PBKDF2-HMAC-SHA256` |
 | PBKDF2 iterations | 32-bit integer, `600000` |
 | Derived key size | 32-bit integer, `256` bits |
@@ -154,19 +154,22 @@ authentication. Trailing bytes and truncated inputs are rejected. A wrong
 passphrase and authenticated-byte corruption intentionally report the same
 authentication error.
 
-### Plaintext payload, versions 1 and 2
+### Plaintext payload, versions 1 through 5
 
 The encrypted payload is a deterministic `DataOutputStream` serialization in
 this order:
 
 1. payload version and export instant;
 2. daily notes and their ordered text or voice entries;
-3. todos and optional source links;
-4. todo suggestions and their rule/language/decision state;
+3. Important items and optional source links;
+4. Important suggestions and their rule/language/decision state;
 5. per-day still-open dismissals;
 6. transcription jobs and failure state; and
-7. optional portable WAV byte sequences; and
-8. in payload version 2, encrypted-at-source user edit revisions.
+7. optional portable WAV byte sequences;
+8. in payload version 2, encrypted-at-source user edit revisions;
+9. in payload version 3, the transcription engine and safe fallback category; and
+10. in payload version 4, the user-controlled transcription vocabulary; and
+11. in payload version 5, the Important kind for items and suggestions.
 
 Each list begins with a 32-bit count. Strings use a 32-bit byte length followed
 by strict UTF-8, not Java modified UTF. Instants use epoch seconds plus
@@ -192,9 +195,10 @@ unencrypted ZIP intended for long-term independence from Soma. It contains:
 
 - `README.txt` and `manifest.json`;
 - one `notes/YYYY-MM-DD.md` file per daily note;
-- `todos.csv`;
+- `todos.csv`, including the portable `action`, `list`, or `excerpt` kind;
 - `data/notes.json` with exact ids, order, types, timestamps, text, and audio metadata;
 - `data/history.jsonl` with every preserved user edit revision; and
+- `settings/transcription-vocabulary.txt` with user-provided speech spellings; and
 - optional standard 16 kHz mono `audio/*.wav` files.
 
 Structured timestamps are ISO-8601 UTC instants. The archive can be consumed by

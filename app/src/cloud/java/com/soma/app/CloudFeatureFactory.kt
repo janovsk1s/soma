@@ -6,12 +6,14 @@ import android.net.NetworkCapabilities
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import com.soma.core.model.TranscriptionFallbackReason
 import com.soma.whisper.TranscribedChunk
 import com.soma.whisper.Transcriber
 import com.soma.whisper.TranscriptionResult
 import com.soma.whisper.VoiceActivityDetector
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.ByteBuffer
@@ -66,12 +68,17 @@ private class AndroidCloudFeatureController(private val context: Context) : Clou
             CloudSpeechProvider.GROQ -> secrets.read(CloudSpeechProvider.GROQ)
             CloudSpeechProvider.ELEVENLABS -> secrets.read(CloudSpeechProvider.ELEVENLABS)
         }
-        if (!setting.transcriptionEnabled || key == null) return localFactory()
+        if (!setting.transcriptionEnabled) return localFactory()
         return FallbackCloudTranscriber(
             context = context,
             provider = setting.provider,
             apiKey = key,
             wifiOnly = setting.wifiOnly,
+            languagePolicy = CloudSpeechLanguagePolicy.from(
+                spoken = SomaPrefs.speechLanguages(context),
+                appLanguage = SomaPrefs.language(context),
+            ),
+            vocabulary = TranscriptionVocabularyStore(context).read(),
             localFactory = localFactory,
         )
     }
@@ -87,35 +94,51 @@ private class AndroidCloudFeatureController(private val context: Context) : Clou
 private class FallbackCloudTranscriber(
     private val context: Context,
     private val provider: CloudSpeechProvider,
-    private val apiKey: String,
+    private val apiKey: String?,
     private val wifiOnly: Boolean,
+    private val languagePolicy: CloudSpeechLanguagePolicy,
+    private val vocabulary: List<String>,
     private val localFactory: () -> Transcriber,
     private val vad: VoiceActivityDetector = VoiceActivityDetector(),
 ) : Transcriber {
     private var local: Transcriber? = null
 
     override suspend fun transcribe(samples: FloatArray, sampleRate: Int): TranscriptionResult {
-        if (wifiOnly && !context.isOnWifi()) return local().transcribe(samples, sampleRate)
+        val key = apiKey
+            ?: return localFallback(samples, sampleRate, TranscriptionFallbackReason.API_KEY_MISSING)
+        if (wifiOnly && !context.isOnWifi()) {
+            return localFallback(samples, sampleRate, TranscriptionFallbackReason.WIFI_REQUIRED)
+        }
         return try {
             require(sampleRate == SAMPLE_RATE) { "Cloud transcription requires 16 kHz PCM" }
             val speech = vad.split(samples, sampleRate)
-            if (speech.isEmpty()) return TranscriptionResult("", emptyList())
+            if (speech.isEmpty()) {
+                return TranscriptionResult(
+                    text = "",
+                    chunks = emptyList(),
+                    provenance = cloudSuccessProvenance(provider),
+                )
+            }
             val chunks = try {
-                speech.map { chunk ->
-                    val wav = pcmWav(chunk.samples, sampleRate)
-                    try {
-                        val response = when (provider) {
-                            CloudSpeechProvider.GROQ -> CloudHttp.transcribeGroq(apiKey, wav)
-                            CloudSpeechProvider.ELEVENLABS -> CloudHttp.transcribeElevenLabs(apiKey, wav)
-                        }
-                        TranscribedChunk(
-                            text = response.text.trim(),
-                            languageCode = response.languageCode,
+                if (provider.preservesRecordingContext) {
+                    listOf(
+                        transcribeCloudChunk(
+                            key = key,
+                            samples = samples,
+                            sampleRate = sampleRate,
+                            startMillis = 0,
+                            endMillis = samples.size * 1_000L / sampleRate,
+                        ),
+                    )
+                } else {
+                    speech.map { chunk ->
+                        transcribeCloudChunk(
+                            key = key,
+                            samples = chunk.samples,
+                            sampleRate = sampleRate,
                             startMillis = chunk.startMillis,
                             endMillis = chunk.endMillis,
                         )
-                    } finally {
-                        wav.fill(0)
                     }
                 }
             } finally {
@@ -124,14 +147,62 @@ private class FallbackCloudTranscriber(
             TranscriptionResult(
                 text = chunks.map(TranscribedChunk::text).filter(String::isNotBlank).joinToString("\n"),
                 chunks = chunks,
+                provenance = cloudSuccessProvenance(provider),
             )
+        } catch (error: CloudProviderException) {
+            localFallback(samples, sampleRate, error.fallbackReason)
+        } catch (error: IOException) {
+            localFallback(samples, sampleRate, TranscriptionFallbackReason.NETWORK_ERROR)
         } catch (error: Exception) {
             if (error is CancellationException) throw error
             // Cloud is experimental: a provider, key, or network failure must never
             // strand the recording. The encrypted original remains and local tiny runs.
-            local().transcribe(samples, sampleRate)
+            localFallback(samples, sampleRate, TranscriptionFallbackReason.PROVIDER_ERROR)
         }
     }
+
+    private suspend fun transcribeCloudChunk(
+        key: String,
+        samples: FloatArray,
+        sampleRate: Int,
+        startMillis: Long,
+        endMillis: Long,
+    ): TranscribedChunk {
+        val wav = pcmWav(samples, sampleRate)
+        return try {
+            val response = when (provider) {
+                CloudSpeechProvider.GROQ -> CloudHttp.transcribeGroq(
+                    key,
+                    wav,
+                    languagePolicy.requestCode(provider),
+                    vocabulary,
+                )
+                CloudSpeechProvider.ELEVENLABS -> CloudHttp.transcribeElevenLabs(
+                    key,
+                    wav,
+                    languagePolicy.requestCode(provider),
+                    vocabulary,
+                )
+            }
+            check(response.text.isNotBlank()) { "Cloud provider returned an empty transcript" }
+            TranscribedChunk(
+                text = response.text.trim(),
+                languageCode = languagePolicy.resolved(response.languageCode),
+                startMillis = startMillis,
+                endMillis = endMillis,
+            )
+        } finally {
+            wav.fill(0)
+        }
+    }
+
+    private suspend fun localFallback(
+        samples: FloatArray,
+        sampleRate: Int,
+        reason: TranscriptionFallbackReason,
+    ): TranscriptionResult = local().transcribe(samples, sampleRate).copy(
+        provenance = cloudFallbackProvenance(provider, reason),
+    )
 
     private fun local(): Transcriber = local ?: localFactory().also { local = it }
 
@@ -148,30 +219,54 @@ private class FallbackCloudTranscriber(
 private data class CloudTranscript(val text: String, val languageCode: String)
 
 private object CloudHttp {
-    suspend fun transcribeGroq(apiKey: String, wav: ByteArray): CloudTranscript = withContext(Dispatchers.IO) {
+    suspend fun transcribeGroq(
+        apiKey: String,
+        wav: ByteArray,
+        language: String?,
+        vocabulary: List<String>,
+    ): CloudTranscript = withContext(Dispatchers.IO) {
+        val fields = linkedMapOf(
+            "model" to "whisper-large-v3",
+            "response_format" to "verbose_json",
+        ).apply {
+            if (language != null) put("language", language)
+            if (vocabulary.isNotEmpty()) put("prompt", vocabulary.joinToString(", "))
+        }
         val json = multipart(
             url = "https://api.groq.com/openai/v1/audio/transcriptions",
             headers = mapOf("Authorization" to "Bearer $apiKey"),
-            fields = mapOf("model" to "whisper-large-v3", "response_format" to "verbose_json"),
+            fields = fields.map { it.toPair() },
             wav = wav,
         )
         CloudTranscript(
             text = json.getString("text"),
-            languageCode = normalizedLanguage(json.optString("language", "und")),
+            languageCode = CloudSpeechLanguagePolicy.normalize(json.optString("language", "und")),
         )
     }
 
-    suspend fun transcribeElevenLabs(apiKey: String, wav: ByteArray): CloudTranscript =
+    suspend fun transcribeElevenLabs(
+        apiKey: String,
+        wav: ByteArray,
+        language: String?,
+        keyterms: List<String>,
+    ): CloudTranscript =
         withContext(Dispatchers.IO) {
+            val fields = buildList {
+                add("model_id" to "scribe_v2")
+                if (language != null) add("language_code" to language)
+                // Repeated multipart fields are the form representation used for a
+                // list. Omitting them entirely keeps standard Scribe v2 billing.
+                keyterms.forEach { add("keyterms" to it) }
+            }
             val json = multipart(
                 url = "https://api.elevenlabs.io/v1/speech-to-text",
                 headers = mapOf("xi-api-key" to apiKey),
-                fields = mapOf("model_id" to "scribe_v2"),
+                fields = fields,
                 wav = wav,
             )
             CloudTranscript(
                 text = json.getString("text"),
-                languageCode = normalizedLanguage(json.optString("language_code", "und")),
+                languageCode = CloudSpeechLanguagePolicy.normalize(json.optString("language_code", "und")),
             )
         }
 
@@ -191,7 +286,7 @@ private object CloudHttp {
             .put("required", JSONArray().put("todos"))
             .put("additionalProperties", false)
         val body = JSONObject()
-            .put("model", "openai/gpt-oss-20b")
+            .put("model", CLOUD_AI_TODO_MODEL)
             .put("reasoning_effort", "low")
             .put("max_completion_tokens", 256)
             .put(
@@ -236,7 +331,7 @@ private object CloudHttp {
     private fun multipart(
         url: String,
         headers: Map<String, String>,
-        fields: Map<String, String>,
+        fields: List<Pair<String, String>>,
         wav: ByteArray,
     ): JSONObject {
         val boundary = "soma-${UUID.randomUUID()}"
@@ -279,23 +374,13 @@ private object CloudHttp {
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             val response = stream?.use { it.readNBytes(MAX_RESPONSE_BYTES).toString(Charsets.UTF_8) }.orEmpty()
-            check(status in 200..299) { "Cloud provider returned HTTP $status" }
+            if (status !in 200..299) {
+                throw CloudProviderException(cloudFailureReason(status, response))
+            }
             return JSONObject(response)
         } finally {
             connection.disconnect()
         }
-    }
-
-    private fun normalizedLanguage(value: String): String = when (value.lowercase()) {
-        "english" -> "en"
-        "latvian" -> "lv"
-        "estonian" -> "et"
-        "lithuanian" -> "lt"
-        "finnish" -> "fi"
-        "swedish" -> "sv"
-        "german" -> "de"
-        "slovak" -> "sk"
-        else -> value.lowercase().ifBlank { "und" }
     }
 
     private const val CONNECT_TIMEOUT_MILLIS = 20_000
@@ -303,6 +388,10 @@ private object CloudHttp {
     private const val MAX_RESPONSE_BYTES = 2 * 1024 * 1024
     private const val MAX_NOTE_CHARACTERS = 4_000
 }
+
+private class CloudProviderException(
+    val fallbackReason: TranscriptionFallbackReason,
+) : IOException("Cloud provider request failed")
 
 private class CloudSecretStore(context: Context) {
     private val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
@@ -368,10 +457,14 @@ private class CloudSecretStore(context: Context) {
     }
 }
 
+@Suppress("DEPRECATION")
 private fun Context.isOnWifi(): Boolean {
     val connectivity = getSystemService(ConnectivityManager::class.java) ?: return false
-    val network = connectivity.activeNetwork ?: return false
-    return connectivity.getNetworkCapabilities(network)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+    return connectivity.allNetworks.any { network ->
+        val capabilities = connectivity.getNetworkCapabilities(network) ?: return@any false
+        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
 }
 
 private fun pcmWav(samples: FloatArray, sampleRate: Int): ByteArray {

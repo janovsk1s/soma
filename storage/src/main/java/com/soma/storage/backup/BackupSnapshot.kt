@@ -8,6 +8,7 @@ import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.Todo
 import com.soma.core.model.TodoSuggestion
 import com.soma.core.model.TranscriptionJob
+import com.soma.core.model.TranscriptionVocabulary
 import java.time.Instant
 
 /**
@@ -27,6 +28,7 @@ data class BackupSnapshot(
     val stillOpenDismissals: List<StillOpenDismissal> = emptyList(),
     val transcriptionJobs: List<TranscriptionJob> = emptyList(),
     val audioContainers: List<BackupAudioContainer> = emptyList(),
+    val transcriptionVocabulary: List<String> = emptyList(),
 ) {
     init {
         require(payloadVersion > 0) { "Payload version must be positive" }
@@ -55,6 +57,10 @@ data class BackupSnapshot(
         require(audioContainers.map { it.fileId }.distinct().size == audioContainers.size) {
             "A backup cannot contain duplicate audio file ids"
         }
+        require(
+            TranscriptionVocabulary.parse(TranscriptionVocabulary.asEditableText(transcriptionVocabulary)) ==
+                transcriptionVocabulary,
+        ) { "A backup contains invalid transcription vocabulary" }
         val entriesById = notes.flatMap { note -> note.entries.map { entry -> entry.id to entry } }.toMap()
         require(entryRevisions.all { it.entryId in entriesById }) {
             "A backup revision references a missing entry"
@@ -91,7 +97,7 @@ data class BackupSnapshot(
     }
 
     companion object {
-        const val CURRENT_PAYLOAD_VERSION: Int = 2
+        const val CURRENT_PAYLOAD_VERSION: Int = 5
         val SUPPORTED_PAYLOAD_VERSIONS: IntRange = 1..CURRENT_PAYLOAD_VERSION
     }
 }

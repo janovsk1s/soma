@@ -2,6 +2,8 @@ package com.soma.whisper
 
 import android.content.Context
 import android.os.Process
+import com.soma.core.model.TranscriptionVocabulary
+import com.soma.core.model.TranscriptionProvenance
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -15,7 +17,12 @@ class WhisperModelException(cause: Throwable? = null) : IllegalStateException(
 class WhisperCppTranscriber(
     context: Context,
     private val vad: VoiceActivityDetector = VoiceActivityDetector(),
-    private val threadCount: Int = preferredThreadCount(),
+    private val profile: LocalTranscriptionProfile = LocalTranscriptionProfile.forDevice(context),
+    /** The user's spoken languages; identification never picks outside this set. */
+    private val allowedLanguages: Array<String> = ALL_SUPPORTED_LANGUAGES,
+    /** Wins ambiguous chunks unless another allowed language clearly outscores it. */
+    private val preferredLanguage: String? = null,
+    private val vocabulary: List<String> = emptyList(),
 ) : Transcriber {
     private val assets = context.applicationContext.assets
     private val mutex = Mutex()
@@ -27,11 +34,26 @@ class WhisperCppTranscriber(
                 require(sampleRate == SAMPLE_RATE) { "Whisper requires 16 kHz PCM" }
                 Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND)
                 val chunks = vad.split(samples, sampleRate)
-                if (chunks.isEmpty()) return@withContext TranscriptionResult("", emptyList())
+                if (chunks.isEmpty()) {
+                    return@withContext TranscriptionResult(
+                        text = "",
+                        chunks = emptyList(),
+                        provenance = TranscriptionProvenance.local(),
+                    )
+                }
                 val results = try {
                     val pointer = contextPointer()
                     chunks.map { chunk ->
-                        val native = WhisperNative.transcribe(pointer, chunk.samples, threadCount, ALLOWED_LANGUAGES)
+                        val native = WhisperNative.transcribe(
+                            pointer,
+                            chunk.samples,
+                            profile.threadCount,
+                            profile.beamSize,
+                            profile.greedyBestOf,
+                            allowedLanguages,
+                            preferredLanguage,
+                            TranscriptionVocabulary.asWhisperPrompt(vocabulary),
+                        )
                         check(native.size == 2) { "Unexpected Whisper response" }
                         TranscribedChunk(
                             text = cleanWhisperTranscript(native[1]),
@@ -48,6 +70,7 @@ class WhisperCppTranscriber(
                 TranscriptionResult(
                     text = results.map(TranscribedChunk::text).filter(String::isNotBlank).joinToString("\n"),
                     chunks = results,
+                    provenance = TranscriptionProvenance.local(),
                 )
             }
         }
@@ -76,12 +99,10 @@ class WhisperCppTranscriber(
         const val SAMPLE_RATE = 16_000
         const val MODEL_ASSET = "ggml-tiny-q5_1.bin"
 
-        /** Language identification may only pick from the app's supported set. */
-        val ALLOWED_LANGUAGES: Array<String> =
+        /** Fallback when no user selection exists: the full supported set. */
+        val ALL_SUPPORTED_LANGUAGES: Array<String> =
             com.soma.core.model.SupportedLanguage.entries.map { it.languageTag }.toTypedArray()
 
-        fun preferredThreadCount(): Int =
-            (Runtime.getRuntime().availableProcessors() - 1).coerceIn(1, 3)
     }
 }
 
