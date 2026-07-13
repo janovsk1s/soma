@@ -4,6 +4,20 @@ Notable changes to Soma are documented here.
 
 ## 0.1.0-preview.3 — 2026-07-13
 
+### Fixed
+
+- Voice recording works on the device: the Keystore audio-wrapping key now generates
+  its own GCM nonce instead of being handed one, which Android prohibits
+  (`CALLER_NONCE_PROHIBITED`) and which failed every recording and backup audio import.
+- Speech is detected on the device: the voice-activity floor now sits below the Light
+  Phone III microphone's measured low-gain speech level, which previously classified
+  every recording as silence.
+- Local transcription in preview/debug APKs now compiles whisper.cpp and ggml with
+  native optimization while retaining debug symbols; unoptimized inference took
+  several minutes for a short voice note on the Light Phone III.
+- Whisper non-speech tokens such as `[BLANK_AUDIO]` are suppressed and cleaned before
+  editable transcript text reaches the note.
+
 ### Changed
 
 - The todos button in the home header is now a drawn open-ring glyph — the same marker

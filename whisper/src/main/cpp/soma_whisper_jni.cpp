@@ -138,6 +138,7 @@ Java_com_soma_whisper_WhisperNative_transcribe(
     params.no_timestamps = true;
     params.single_segment = false;
     params.print_special = false;
+    params.suppress_nst = true;
     params.print_progress = false;
     params.print_realtime = false;
     params.print_timestamps = false;

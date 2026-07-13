@@ -34,7 +34,7 @@ class WhisperCppTranscriber(
                         val native = WhisperNative.transcribe(pointer, chunk.samples, threadCount)
                         check(native.size == 2) { "Unexpected Whisper response" }
                         TranscribedChunk(
-                            text = native[1].trim(),
+                            text = cleanWhisperTranscript(native[1]),
                             languageCode = native[0],
                             startMillis = chunk.startMillis,
                             endMillis = chunk.endMillis,
@@ -80,3 +80,11 @@ class WhisperCppTranscriber(
             (Runtime.getRuntime().availableProcessors() - 1).coerceIn(1, 3)
     }
 }
+
+internal fun cleanWhisperTranscript(text: String): String =
+    text.replace(BLANK_AUDIO_MARKER, " ", ignoreCase = true)
+        .replace(REPEATED_INLINE_WHITESPACE, " ")
+        .trim()
+
+private const val BLANK_AUDIO_MARKER = "[BLANK_AUDIO]"
+private val REPEATED_INLINE_WHITESPACE = Regex("[ \\t]{2,}")

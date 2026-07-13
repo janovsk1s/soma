@@ -15,6 +15,13 @@ set(GGML_BACKEND_DL OFF CACHE BOOL "" FORCE)
 set(GGML_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GGML_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
+# Preview APKs are debug-signed so they can update in place on a test phone, but
+# unoptimized ggml inference is more than an order of magnitude slower. Retain
+# debug symbols while optimizing the native transcription engine and ggml.
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_compile_options(-O2)
+endif()
+
 add_subdirectory(${WHISPER_ROOT}/ggml ${CMAKE_CURRENT_BINARY_DIR}/ggml)
 
 add_library(

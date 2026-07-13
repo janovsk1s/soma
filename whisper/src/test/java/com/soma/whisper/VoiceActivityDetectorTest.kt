@@ -38,8 +38,18 @@ class VoiceActivityDetectorTest {
         assertTrue(detector.split(tone(100), rate).isEmpty())
     }
 
-    private fun tone(milliseconds: Int): FloatArray =
+    @Test
+    fun lowGainLightPhoneSpeechIsDetected() {
+        val quietSpeech = tone(milliseconds = 800, amplitude = 0.0006)
+
+        val chunks = detector.split(FloatArray(rate / 2) + quietSpeech + FloatArray(rate / 2), rate)
+
+        assertEquals(1, chunks.size)
+        assertTrue(chunks.single().endMillis - chunks.single().startMillis >= 700)
+    }
+
+    private fun tone(milliseconds: Int, amplitude: Double = 0.15): FloatArray =
         FloatArray(rate * milliseconds / 1_000) { index ->
-            (sin(2.0 * PI * 220.0 * index / rate) * 0.15).toFloat()
+            (sin(2.0 * PI * 220.0 * index / rate) * amplitude).toFloat()
         }
 }

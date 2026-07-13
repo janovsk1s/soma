@@ -19,10 +19,10 @@ data class SpeechChunk(
  */
 class VoiceActivityDetector(
     private val frameMillis: Int = 30,
-    // Light Phone III's unprocessed VOICE_RECOGNITION feed peaks near 0.004 RMS
-    // for conversational speech at arm's length; the floor must sit well below
-    // that. Noisy rooms are handled by the adaptive noiseMultiplier and cap.
-    private val minimumEnergy: Float = 0.001f,
+    // Light Phone III's unprocessed VOICE_RECOGNITION feed can put most speech
+    // frames near 0.0003 RMS. Keep the static floor below that; noisy rooms are
+    // handled by the adaptive noiseMultiplier and cap.
+    private val minimumEnergy: Float = 0.0002f,
     private val noiseMultiplier: Float = 3.0f,
     private val startFrames: Int = 2,
     private val minimumSpeechMillis: Int = 240,
