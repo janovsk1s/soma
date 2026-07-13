@@ -2,7 +2,7 @@
 
 Notable changes to Soma are documented here.
 
-## Unreleased
+## 0.1.0-preview.12 — 2026-07-13
 
 ### Changed
 
