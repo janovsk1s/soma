@@ -115,8 +115,10 @@ fun TodosButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun StopButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Canvas(modifier.size(48.dp).then(tapModifier(onClick, "stop"))) { drawStop() }
+fun StopButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    Canvas(modifier.size(48.dp).then(if (enabled) tapModifier(onClick, "stop") else Modifier)) {
+        drawStop(if (enabled) Ink else DimInk)
+    }
 }
 
 @Composable
@@ -227,7 +229,7 @@ private fun DrawScope.drawPlay() {
     drawPath(path, Ink)
 }
 
-private fun DrawScope.drawStop() {
+private fun DrawScope.drawStop(color: androidx.compose.ui.graphics.Color = Ink) {
     val side = size.minDimension
-    drawRect(Ink, Offset(side * 0.34f, side * 0.34f), Size(side * 0.32f, side * 0.32f))
+    drawRect(color, Offset(side * 0.34f, side * 0.34f), Size(side * 0.32f, side * 0.32f))
 }

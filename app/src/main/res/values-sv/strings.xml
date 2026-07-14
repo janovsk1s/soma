@@ -31,6 +31,9 @@
     <string name="voice_transcribing">röstanteckningen transkriberas…</string>
     <string name="voice_failed">röstanteckning — transkription saknas</string>
     <string name="recording_now">spelar in…</string>
+    <string name="recording_starting">startar inspelning…</string>
+    <string name="recording_elapsed">● spelar in %1$s</string>
+    <string name="recording_saving">sparar inspelning…</string>
     <string name="recording_demo_disabled">Inspelning är inte tillgänglig i det minnesbaserade demoläget.</string>
     <string name="recording_start_failed">Inspelningen kunde inte starta. Posten behölls.</string>
     <string name="recording_recovered">Inspelningen stoppades oväntat. Återställningsbart ljud behölls.</string>

@@ -31,6 +31,9 @@
     <string name="voice_transcribing">häälmärge — transkribeeritakse…</string>
     <string name="voice_failed">häälmärge — transkriptsioon pole saadaval</string>
     <string name="recording_now">lindistamine…</string>
+    <string name="recording_starting">lindistamine algab…</string>
+    <string name="recording_elapsed">● lindistamine %1$s</string>
+    <string name="recording_saving">lindistamise salvestamine…</string>
     <string name="recording_demo_disabled">Demorežiimis ei saa lindistada.</string>
     <string name="recording_start_failed">Lindistamist ei saanud alustada. Kirje jäeti alles.</string>
     <string name="recording_recovered">Lindistamine peatus ootamatult. Taastatav heli jäeti alles.</string>

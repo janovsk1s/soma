@@ -214,7 +214,23 @@ class RuleBasedTodoDetectorTest {
 
     @Test
     fun `calendar dates do not become number references`() {
-        assertTrue(detector.detect("2026-07-14", SupportedLanguage.ENGLISH).isEmpty())
+        val formats = listOf(
+            "2026-07-14",
+            "2026.07.14",
+            "14.07.2026",
+            "07.14.2026",
+            "14/07/2026",
+            "07/14/2026",
+        )
+
+        SupportedLanguage.entries.forEach { language ->
+            formats.forEach { date ->
+                assertTrue(
+                    "Calendar date $date became a reference for $language",
+                    detector.detect(date, language).isEmpty(),
+                )
+            }
+        }
     }
 
     @Test

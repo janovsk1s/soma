@@ -2,6 +2,23 @@
 
 Notable changes to Soma are documented here.
 
+## 0.1.0-preview.15 — 2026-07-14
+
+### Changed
+
+- The bottom capture bar now changes immediately from its writing hint to
+  `starting recording…`, then shows a calm elapsed recording timer and a square
+  stop action. While the encrypted container is finalized it reads
+  `saving recording…` and ignores repeated taps.
+- Recording elapsed time uses Android's monotonic clock, so timezone or manual
+  wall-clock changes cannot make the timer jump.
+
+### Fixed
+
+- Day-first, month-first, dotted, slashed, and year-first calendar dates no
+  longer become false phone/reference suggestions. Regression coverage runs the
+  common formats through all eight supported languages.
+
 ## 0.1.0-preview.14 — 2026-07-14
 
 ### Added

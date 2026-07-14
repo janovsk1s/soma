@@ -31,6 +31,9 @@
     <string name="voice_transcribing">balso įrašas — transkribuojamas…</string>
     <string name="voice_failed">balso įrašas — transkripcijos nėra</string>
     <string name="recording_now">įrašoma…</string>
+    <string name="recording_starting">pradedamas įrašymas…</string>
+    <string name="recording_elapsed">● įrašoma %1$s</string>
+    <string name="recording_saving">įrašas išsaugomas…</string>
     <string name="recording_demo_disabled">Demonstraciniu režimu įrašyti negalima.</string>
     <string name="recording_start_failed">Nepavyko pradėti įrašymo. Įrašas išsaugotas.</string>
     <string name="recording_recovered">Įrašymas netikėtai sustojo. Garsas, kurį buvo galima atkurti, išsaugotas.</string>

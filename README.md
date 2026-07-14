@@ -31,6 +31,9 @@ cloud API keys only when explicitly enabled in Developer settings.
 - Shows a quiet creation time on every entry. User edits keep the entry in its
   original position, record an encrypted revision, and expose the edit time when
   the entry is opened.
+- Long-pressing the bottom input starts voice capture; the bar immediately shows
+  starting, elapsed recording time, a square stop action, and encrypted-save
+  completion instead of continuing to display the writing hint.
 - Suggests possible actions and explicit grocery/list blocks with testable rules
   for all eight languages. A suggestion enters Important only after a tap.
 - Lets the user open an entry, select an exact word or phrase with Android's

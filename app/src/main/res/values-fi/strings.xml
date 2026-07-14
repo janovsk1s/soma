@@ -31,6 +31,9 @@
     <string name="voice_transcribing">äänimuistiinpanoa litteroidaan…</string>
     <string name="voice_failed">äänimuistiinpano — litterointia ei ole saatavilla</string>
     <string name="recording_now">nauhoitetaan…</string>
+    <string name="recording_starting">nauhoitus alkaa…</string>
+    <string name="recording_elapsed">● nauhoitus %1$s</string>
+    <string name="recording_saving">tallennetaan nauhoitusta…</string>
     <string name="recording_demo_disabled">Nauhoitus ei ole käytettävissä demotilassa.</string>
     <string name="recording_start_failed">Nauhoitusta ei voitu aloittaa. Merkintä säilytettiin.</string>
     <string name="recording_recovered">Nauhoitus pysähtyi odottamatta. Palautettavissa oleva ääni säilytettiin.</string>

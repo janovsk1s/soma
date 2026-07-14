@@ -31,6 +31,9 @@
     <string name="voice_transcribing">hlasová poznámka sa prepisuje…</string>
     <string name="voice_failed">hlasová poznámka — prepis nie je dostupný</string>
     <string name="recording_now">nahráva sa…</string>
+    <string name="recording_starting">spúšťa sa nahrávanie…</string>
+    <string name="recording_elapsed">● nahrávanie %1$s</string>
+    <string name="recording_saving">ukladá sa nahrávka…</string>
     <string name="recording_demo_disabled">Nahrávanie nie je v demo režime dostupné.</string>
     <string name="recording_start_failed">Nahrávanie sa nepodarilo spustiť. Záznam zostal zachovaný.</string>
     <string name="recording_recovered">Nahrávanie sa neočakávane zastavilo. Obnoviteľný zvuk zostal zachovaný.</string>

@@ -1,6 +1,7 @@
 package com.soma.app
 
 import android.app.Application
+import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.soma.core.model.AudioAttachment
@@ -29,7 +30,6 @@ import com.soma.voice.EncryptedAudioReader
 import com.soma.voice.EncryptedAudioRecorder
 import com.soma.voice.EncryptedAudioRecovery
 import com.soma.voice.PlaybackState
-import com.soma.voice.RecordingState
 import java.io.File
 import java.time.Clock
 import java.time.Instant
@@ -66,6 +66,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     private val mutableSuggestions = MutableStateFlow<Map<String, TodoSuggestion>>(emptyMap())
     private val mutablePromptedTodos = MutableStateFlow<Set<String>>(emptySet())
     private val mutableRecordingEntryId = MutableStateFlow<String?>(null)
+    private val mutableRecordingUiState = MutableStateFlow<RecordingUiState>(RecordingUiState.Idle)
     private val draftStore = EditorDraftStore(app)
     private val mutableCaptureDraft = MutableStateFlow("")
     private val mutableImportantDraft = MutableStateFlow("")
@@ -99,8 +100,8 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(FLOW_STOP_TIMEOUT_MILLIS), emptyList())
     val suggestions: StateFlow<Map<String, TodoSuggestion>> = mutableSuggestions.asStateFlow()
     val promptedTodoIds: StateFlow<Set<String>> = mutablePromptedTodos.asStateFlow()
-    val recordingState: StateFlow<RecordingState> = recorder.state
     val recordingEntryId: StateFlow<String?> = mutableRecordingEntryId.asStateFlow()
+    internal val recordingUiState: StateFlow<RecordingUiState> = mutableRecordingUiState.asStateFlow()
     val captureDraft: StateFlow<String> = mutableCaptureDraft.asStateFlow()
     val importantDraft: StateFlow<String> = mutableImportantDraft.asStateFlow()
     val playbackState: StateFlow<PlaybackState> = player.state
@@ -487,6 +488,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
         if (mutableRecordingEntryId.value != null || recordingStartInProgress || stopRecordingInProgress) return
         recordingStartInProgress = true
         stopRecordingRequested = false
+        mutableRecordingUiState.value = RecordingUiState.Starting
         val now = clock.instant()
         val date = selectedDate.value
         val id = UUID.randomUUID().toString()
@@ -500,9 +502,18 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                     try {
                         recorder.start(id, app.audioDirectory)
                         mutableRecordingEntryId.value = id
+                        mutableRecordingUiState.value = if (stopRecordingRequested) {
+                            RecordingUiState.Saving
+                        } else {
+                            RecordingUiState.Recording(
+                                entryId = id,
+                                startedAtElapsedRealtimeMillis = SystemClock.elapsedRealtime(),
+                            )
+                        }
                     } catch (error: Throwable) {
                         File(app.audioDirectory, "$id.partial").delete()
                         recordingOperationEntryId = null
+                        mutableRecordingUiState.value = RecordingUiState.Idle
                         messages.trySend(app.getString(R.string.recording_start_failed))
                         return@withLock
                     }
@@ -526,17 +537,20 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                         candidate.takeIf { repositories.notes.insertEntry(it) }
                     }
                     if (entry == null) {
+                        mutableRecordingUiState.value = RecordingUiState.Saving
                         runCatching { recorder.stop() }
                         mutableRecordingEntryId.value = null
                         File(app.audioDirectory, "$id.partial").delete()
                         app.encryptedAudioFile(id).delete()
                         recordingOperationEntryId = null
+                        mutableRecordingUiState.value = RecordingUiState.Idle
                         messages.trySend(app.getString(R.string.recording_start_failed))
                         return@withLock
                     }
 
                     if (stopRecordingRequested) {
                         stopRecordingInProgress = true
+                        mutableRecordingUiState.value = RecordingUiState.Saving
                         finishRecordingLocked(id)
                     }
                 } finally {
@@ -550,6 +564,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     fun stopRecording() {
         if (!recordingStartInProgress && mutableRecordingEntryId.value == null) return
         stopRecordingRequested = true
+        mutableRecordingUiState.value = RecordingUiState.Saving
         if (recordingStartInProgress) return
         val entryId = mutableRecordingEntryId.value ?: return
         if (stopRecordingInProgress) return
@@ -585,6 +600,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
             recordingOperationEntryId = null
             stopRecordingInProgress = false
             stopRecordingRequested = false
+            mutableRecordingUiState.value = RecordingUiState.Idle
         }
     }
 

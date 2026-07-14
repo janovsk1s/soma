@@ -31,6 +31,9 @@
     <string name="voice_transcribing">Sprachnotiz wird transkribiert…</string>
     <string name="voice_failed">Sprachnotiz — Transkript nicht verfügbar</string>
     <string name="recording_now">Aufnahme läuft…</string>
+    <string name="recording_starting">Aufnahme wird gestartet…</string>
+    <string name="recording_elapsed">● Aufnahme %1$s</string>
+    <string name="recording_saving">Aufnahme wird gespeichert…</string>
     <string name="recording_demo_disabled">Aufnahmen sind im Demo-Modus deaktiviert.</string>
     <string name="recording_start_failed">Die Aufnahme konnte nicht gestartet werden. Der Eintrag blieb erhalten.</string>
     <string name="recording_recovered">Die Aufnahme wurde unerwartet beendet. Wiederherstellbares Audio blieb erhalten.</string>

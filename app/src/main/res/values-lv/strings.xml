@@ -31,6 +31,9 @@
     <string name="voice_transcribing">balss piezīme — tiek transkribēta…</string>
     <string name="voice_failed">balss piezīme — transkripts nav pieejams</string>
     <string name="recording_now">notiek ierakstīšana…</string>
+    <string name="recording_starting">sāk ierakstīšanu…</string>
+    <string name="recording_elapsed">● ieraksts %1$s</string>
+    <string name="recording_saving">saglabā ierakstu…</string>
     <string name="recording_demo_disabled">Demo režīmā ierakstīšana nav pieejama.</string>
     <string name="recording_start_failed">Ierakstīšanu neizdevās sākt. Piezīmes ieraksts tika paturēts.</string>
     <string name="recording_recovered">Ierakstīšana negaidīti apstājās. Atkopjamais audio tika paturēts.</string>

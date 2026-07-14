@@ -1,5 +1,6 @@
 package com.soma.app
 
+import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
@@ -22,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -57,6 +59,8 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 @Composable
 fun HomeScreen(
@@ -76,6 +80,7 @@ fun HomeScreen(
     val returnLater by viewModel.returnLater.collectAsState()
     val suggestions by viewModel.suggestions.collectAsState()
     val recordingEntryId by viewModel.recordingEntryId.collectAsState()
+    val recordingUiState by viewModel.recordingUiState.collectAsState()
     var stillOpenDismissed by remember(viewModel.today()) { mutableStateOf(false) }
     LaunchedEffect(viewModel.today()) {
         stillOpenDismissed = viewModel.isStillOpenDismissed()
@@ -157,18 +162,27 @@ fun HomeScreen(
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            val recordingLabel = recordingBarLabel(recordingUiState)
             CaptureBar(
                 modifier = Modifier.weight(1f),
-                placeholder = stringResource(R.string.entry_hint),
+                placeholder = recordingLabel,
                 onOpen = {
-                    if (recordingEntryId != null) viewModel.stopRecording()
-                    onCapture()
+                    when (recordingUiState) {
+                        RecordingUiState.Idle -> onCapture()
+                        RecordingUiState.Starting, is RecordingUiState.Recording -> viewModel.stopRecording()
+                        RecordingUiState.Saving -> Unit
+                    }
                 },
                 onLongPress = {
-                    if (recordingEntryId == null) onRecordRequested() else viewModel.stopRecording()
+                    when (recordingUiState) {
+                        RecordingUiState.Idle -> onRecordRequested()
+                        RecordingUiState.Starting, is RecordingUiState.Recording -> viewModel.stopRecording()
+                        RecordingUiState.Saving -> Unit
+                    }
                 },
+                enabled = recordingUiState != RecordingUiState.Saving,
             )
-            if (recordingEntryId == null) {
+            if (recordingUiState == RecordingUiState.Idle) {
                 PlusButton(
                     onClick = onCapture,
                     onLongClick = onCapture,
@@ -178,11 +192,39 @@ fun HomeScreen(
                 StopButton(
                     onClick = viewModel::stopRecording,
                     modifier = Modifier.offset(x = 8.dp),
+                    enabled = recordingUiState != RecordingUiState.Saving,
                 )
             }
         }
     }
 }
+
+@Composable
+private fun recordingBarLabel(state: RecordingUiState): String {
+    var elapsedSeconds by remember(state) { mutableLongStateOf(0L) }
+    LaunchedEffect(state) {
+        val recording = state as? RecordingUiState.Recording ?: return@LaunchedEffect
+        while (isActive) {
+            elapsedSeconds = (
+                (SystemClock.elapsedRealtime() - recording.startedAtElapsedRealtimeMillis) /
+                    MILLIS_PER_SECOND
+                ).coerceAtLeast(0L)
+            delay(RECORDING_TIMER_REFRESH_MILLIS)
+        }
+    }
+    return when (state) {
+        RecordingUiState.Idle -> stringResource(R.string.entry_hint)
+        RecordingUiState.Starting -> stringResource(R.string.recording_starting)
+        is RecordingUiState.Recording -> stringResource(
+            R.string.recording_elapsed,
+            formatRecordingElapsed(elapsedSeconds),
+        )
+        RecordingUiState.Saving -> stringResource(R.string.recording_saving)
+    }
+}
+
+private const val MILLIS_PER_SECOND = 1_000L
+private const val RECORDING_TIMER_REFRESH_MILLIS = 250L
 
 /**
  * Looks like the familiar input line but never focuses inline: the Light Phone
@@ -195,10 +237,11 @@ fun CaptureBar(
     placeholder: String,
     onOpen: () -> Unit,
     onLongPress: () -> Unit,
+    enabled: Boolean = true,
 ) {
     Box(
         modifier = modifier
-            .then(tapLongModifier(onOpen, onLongPress, placeholder))
+            .then(if (enabled) tapLongModifier(onOpen, onLongPress, placeholder) else Modifier)
             .drawBehind {
                 drawLine(
                     DimInk,

@@ -41,6 +41,9 @@
     <string name="transcription_retry_failed">The recording could not be queued again.</string>
     <string name="voice_failed">voice note — transcript unavailable</string>
     <string name="recording_now">recording…</string>
+    <string name="recording_starting">starting recording…</string>
+    <string name="recording_elapsed">● recording %1$s</string>
+    <string name="recording_saving">saving recording…</string>
     <string name="recording_demo_disabled">Recording is unavailable in demo mode.</string>
     <string name="recording_start_failed">The recording could not start. The entry was kept.</string>
     <string name="recording_recovered">The recording stopped unexpectedly. Recoverable audio was kept.</string>

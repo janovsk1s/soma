@@ -247,7 +247,9 @@ class RuleBasedTodoDetector(
         val PHONE_NUMBER = Regex(
             "(?<![\\p{L}\\p{N}])\\+?(?:\\d[\\s().-]?){6,}\\d(?![\\p{L}\\p{N}])",
         )
-        val DATE_LIKE = Regex("\\d{4}[-/.]\\d{1,2}[-/.]\\d{1,2}")
+        // Match both year-first and the day/month-first forms used throughout
+        // Soma's supported locales before the permissive phone-number rule runs.
+        val DATE_LIKE = Regex("\\d{1,4}[-/.]\\d{1,2}[-/.]\\d{1,4}")
         const val MIN_LIST_ITEMS = 2
         const val MIN_REFERENCE_DIGITS = 7
         const val MAX_PHONE_DIGITS = 15
