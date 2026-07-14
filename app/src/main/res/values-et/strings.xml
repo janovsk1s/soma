@@ -147,6 +147,8 @@
     <string name="photo_permission_needed">Foto tegemiseks on vaja kaamera luba.</string>
     <string name="photo_demo_disabled">Demorežiimis pole fotod saadaval.</string>
     <string name="photo_save_failed">Fotot ei saanud salvestada.</string>
+    <string name="photo_comment_hint">lisa foto kohta märkus…</string>
+    <string name="photo_comment_unavailable">Sellel fotol on juba märkus.</string>
     <string name="image_removed">foto eemaldatud</string>
     <string name="backup_demo_disabled">Demorežiimis pole varukoopiad saadaval.</string>
     <string name="backup_working">töötlemine…</string>

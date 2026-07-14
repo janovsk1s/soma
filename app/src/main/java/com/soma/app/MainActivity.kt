@@ -176,15 +176,20 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
     // Saved so an interrupted, no-payload editor (Capture, add-todo) is restored
     // after process death; entry-carrying routes fall back to Home (see AppRouteSaver).
     var route: AppRoute by rememberSaveable(stateSaver = AppRouteSaver) { mutableStateOf(AppRoute.Home) }
+    var pendingRecordingComment by remember { mutableStateOf<NoteEntry?>(null) }
     val microphonePermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
-        if (granted) viewModel.startRecording()
+        val comment = pendingRecordingComment
+        pendingRecordingComment = null
+        if (granted) viewModel.startRecording(comment)
         else Toast.makeText(context, R.string.microphone_permission_needed, Toast.LENGTH_LONG).show()
     }
-    val requestRecording = {
+    val requestRecording: (NoteEntry?) -> Unit = { comment ->
+        pendingRecordingComment = comment
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            viewModel.startRecording()
+            pendingRecordingComment = null
+            viewModel.startRecording(comment)
         } else {
             microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
         }
@@ -219,28 +224,41 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             viewModel = viewModel,
             onTodos = {
                 viewModel.stopRecording()
+                viewModel.clearPhotoCommentPrompt()
                 route = AppRoute.Todos
             },
             onResurfacedImportant = { route = AppRoute.TodoOptions(it) },
             onSettings = {
                 viewModel.stopRecording()
+                viewModel.clearPhotoCommentPrompt()
                 route = AppRoute.Settings
             },
             onCalendar = {
                 viewModel.stopRecording()
+                viewModel.clearPhotoCommentPrompt()
                 route = AppRoute.Calendar
             },
             onCapture = { route = AppRoute.Capture },
             onPhotoRequested = requestPhoto,
+            onPhotoCaption = { entry ->
+                viewModel.clearPhotoCommentPrompt()
+                route = AppRoute.EditEntry(entry)
+            },
+            onPhotoCommentRecord = { entry ->
+                viewModel.clearPhotoCommentPrompt()
+                requestRecording(entry)
+            },
             onReadEntry = {
                 viewModel.stopRecording()
+                viewModel.clearPhotoCommentPrompt()
                 route = AppRoute.ReadEntry(it)
             },
             onEntryOptions = {
                 viewModel.stopRecording()
+                viewModel.clearPhotoCommentPrompt()
                 route = AppRoute.EntryOptions(it)
             },
-            onRecordRequested = requestRecording,
+            onRecordRequested = { requestRecording(null) },
         )
         AppRoute.Todos -> TodosScreen(
             viewModel = viewModel,

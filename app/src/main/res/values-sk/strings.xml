@@ -147,6 +147,8 @@
     <string name="photo_permission_needed">Na fotografovanie je potrebné povolenie kamery.</string>
     <string name="photo_demo_disabled">Fotografie nie sú v demo režime dostupné.</string>
     <string name="photo_save_failed">Fotografiu sa nepodarilo uložiť.</string>
+    <string name="photo_comment_hint">pridajte poznámku k fotografii…</string>
+    <string name="photo_comment_unavailable">Táto fotografia už má poznámku.</string>
     <string name="image_removed">fotografia odstránená</string>
     <string name="backup_demo_disabled">Zálohy nie sú v demo režime dostupné.</string>
     <string name="backup_working">spracúva sa…</string>

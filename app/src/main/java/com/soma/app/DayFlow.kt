@@ -60,8 +60,12 @@ fun DayFlowPager(
             when {
                 entry.id == recordingEntryId -> recordingText
                 entry.text.isNotBlank() -> entry.text
-                entry.kind == EntryKind.IMAGE -> ""
                 entry.transcription?.state == EntryTranscriptionState.FAILED -> failedText
+                entry.transcription?.state in setOf(
+                    EntryTranscriptionState.QUEUED,
+                    EntryTranscriptionState.RUNNING,
+                ) -> transcribingText
+                entry.kind == EntryKind.IMAGE -> ""
                 else -> transcribingText
             }
         }

@@ -86,7 +86,7 @@ internal object HtmlRenderer {
                         append(Html.escape(entry.text))
                     }
                     append("</p>")
-                    if (entry.kind == BrowserEntryKind.VOICE && entry.audioId != null) {
+                    if (entry.audioId != null) {
                         append("<audio controls preload=\"none\" src=\"/audio/")
                         append(Html.pathSegment(entry.audioId))
                         append("\">Audio playback is not supported by this browser.</audio>")

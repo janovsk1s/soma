@@ -81,7 +81,7 @@ interface EntryDao {
         """
         SELECT e.* FROM entries e
         LEFT JOIN transcription_jobs j ON j.entry_id = e.id
-        WHERE e.type = 'VOICE' AND e.audio_file_id IS NOT NULL
+        WHERE e.audio_file_id IS NOT NULL
           AND e.deleted_at_millis IS NULL AND e.audio_deleted_at_millis IS NULL
           AND (
             e.audio_duration_millis = 0 OR e.audio_byte_count = 0 OR

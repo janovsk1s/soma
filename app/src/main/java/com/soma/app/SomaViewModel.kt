@@ -70,6 +70,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     private val mutablePromptedTodos = MutableStateFlow<Set<String>>(emptySet())
     private val mutableRecordingEntryId = MutableStateFlow<String?>(null)
     private val mutableRecordingUiState = MutableStateFlow<RecordingUiState>(RecordingUiState.Idle)
+    private val mutablePhotoCommentEntryId = MutableStateFlow<String?>(null)
     private val mutableDeletionUndo = MutableStateFlow<DeletionUndo?>(null)
     private val draftStore = EditorDraftStore(app)
     private val mutableCaptureDraft = MutableStateFlow("")
@@ -108,6 +109,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     val promptedTodoIds: StateFlow<Set<String>> = mutablePromptedTodos.asStateFlow()
     val recordingEntryId: StateFlow<String?> = mutableRecordingEntryId.asStateFlow()
     internal val recordingUiState: StateFlow<RecordingUiState> = mutableRecordingUiState.asStateFlow()
+    internal val photoCommentEntryId: StateFlow<String?> = mutablePhotoCommentEntryId.asStateFlow()
     internal val deletionUndo: StateFlow<DeletionUndo?> = mutableDeletionUndo.asStateFlow()
     val captureDraft: StateFlow<String> = mutableCaptureDraft.asStateFlow()
     val importantDraft: StateFlow<String> = mutableImportantDraft.asStateFlow()
@@ -221,11 +223,13 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
 
     fun showOlderDay() {
         stopRecording()
+        clearPhotoCommentPrompt()
         mutableDate.value = mutableDate.value.minusDays(1)
     }
 
     fun showNewerDay() {
         stopRecording()
+        clearPhotoCommentPrompt()
         val newer = mutableDate.value.plusDays(1)
         if (!newer.isAfter(today())) mutableDate.value = newer
     }
@@ -233,6 +237,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     fun showDay(date: LocalDate) {
         if (!date.isAfter(today())) {
             stopRecording()
+            clearPhotoCommentPrompt()
             mutableDate.value = date
         }
     }
@@ -328,8 +333,13 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
             }
             photo.jpegBytes.fill(0)
             if (!saved) messages.trySend(app.getString(R.string.photo_save_failed))
+            if (saved) mutablePhotoCommentEntryId.value = id
             onSaved(saved)
         }
+    }
+
+    fun clearPhotoCommentPrompt() {
+        mutablePhotoCommentEntryId.value = null
     }
 
     fun editEntry(entry: NoteEntry, text: String, onSaved: (Boolean) -> Unit = {}) {
@@ -402,7 +412,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
             val mutation = repositories.notes.mutateEntry(entry.id) { current ->
                 if (current.activeAudio == null) {
                     current
-                } else if (current.text.isBlank()) {
+                } else if (current.text.isBlank() && current.activeImage == null) {
                     current.copy(deletedAt = deletedAt)
                 } else {
                     current.copy(audioDeletedAt = deletedAt)
@@ -431,7 +441,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
             val mutation = repositories.notes.mutateEntry(entry.id) { current ->
                 if (current.activeImage == null) {
                     current
-                } else if (current.text.isBlank()) {
+                } else if (current.text.isBlank() && current.activeAudio == null) {
                     current.copy(deletedAt = deletedAt)
                 } else {
                     current.copy(imageDeletedAt = deletedAt)
@@ -489,13 +499,21 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                 when {
                     current.deletedAt != null -> null
                     current.audioDeletedAt != null -> current.copy(
-                        kind = EntryKind.TEXT,
+                        kind = if (current.image != null && current.imageDeletedAt == null) {
+                            EntryKind.IMAGE
+                        } else {
+                            EntryKind.TEXT
+                        },
                         audio = null,
                         transcription = null,
                         audioDeletedAt = null,
                     )
                     current.imageDeletedAt != null -> current.copy(
-                        kind = EntryKind.TEXT,
+                        kind = if (current.audio != null && current.audioDeletedAt == null) {
+                            EntryKind.VOICE
+                        } else {
+                            EntryKind.TEXT
+                        },
                         image = null,
                         imageDeletedAt = null,
                     )
@@ -504,8 +522,12 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
             }
             val changed = mutation != null && mutation.current != mutation.previous
             if (changed && !isDemo) {
-                mutation.previous.audio?.let { app.encryptedAudioFile(it.fileId).delete() }
-                mutation.previous.image?.let { app.encryptedImageFile(it.fileId).delete() }
+                mutation.previous.audio
+                    ?.takeIf { mutation.current?.audio?.fileId != it.fileId }
+                    ?.let { app.encryptedAudioFile(it.fileId).delete() }
+                mutation.previous.image
+                    ?.takeIf { mutation.current?.image?.fileId != it.fileId }
+                    ?.let { app.encryptedImageFile(it.fileId).delete() }
             }
             if (changed && mutableDeletionUndo.value?.entryId == entry.id) {
                 mutableDeletionUndo.value = null
@@ -659,18 +681,29 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     private fun stalenessPolicy(): TodoStalenessPolicy =
         TodoStalenessPolicy(clock, ZoneId.systemDefault())
 
-    fun startRecording() {
+    fun startRecording(photoComment: NoteEntry? = null) {
         if (isDemo) {
             messages.trySend(app.getString(R.string.recording_demo_disabled))
             return
         }
+        if (
+            photoComment != null && (
+                photoComment.kind != EntryKind.IMAGE || photoComment.activeImage == null ||
+                    photoComment.audio != null || photoComment.text.isNotBlank()
+                )
+        ) {
+            mutablePhotoCommentEntryId.value = null
+            messages.trySend(app.getString(R.string.photo_comment_unavailable))
+            return
+        }
         if (mutableRecordingEntryId.value != null || recordingStartInProgress || stopRecordingInProgress) return
+        if (photoComment != null) mutablePhotoCommentEntryId.value = null
         recordingStartInProgress = true
         stopRecordingRequested = false
         mutableRecordingUiState.value = RecordingUiState.Starting
         val now = clock.instant()
-        val date = selectedDate.value
-        val id = UUID.randomUUID().toString()
+        val date = photoComment?.noteDate ?: selectedDate.value
+        val id = photoComment?.id ?: UUID.randomUUID().toString()
         recordingOperationEntryId = id
         viewModelScope.launch {
             recordingMutex.withLock {
@@ -703,17 +736,44 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                         durationMillis = 0,
                         byteCount = 0,
                     )
-                    val entry = entryAppendMutex.withLock {
-                        repositories.notes.getOrCreate(date, now)
-                        val candidate = NoteEntry.voice(
-                            id = id,
-                            noteDate = date,
-                            position = repositories.notes.nextEntryPosition(date),
-                            audio = audio,
-                            createdAt = now,
-                            transcriptionEnabled = SomaPrefs.transcription(app),
-                        )
-                        candidate.takeIf { repositories.notes.insertEntry(it) }
+                    val transcription = TranscriptionInfo(
+                        state = if (SomaPrefs.transcription(app)) {
+                            EntryTranscriptionState.QUEUED
+                        } else {
+                            EntryTranscriptionState.DISABLED
+                        },
+                        updatedAt = now,
+                    )
+                    val entry = if (photoComment == null) {
+                        entryAppendMutex.withLock {
+                            repositories.notes.getOrCreate(date, now)
+                            val candidate = NoteEntry.voice(
+                                id = id,
+                                noteDate = date,
+                                position = repositories.notes.nextEntryPosition(date),
+                                audio = audio,
+                                createdAt = now,
+                                transcriptionEnabled = SomaPrefs.transcription(app),
+                            )
+                            candidate.takeIf { repositories.notes.insertEntry(it) }
+                        }
+                    } else {
+                        repositories.notes.mutateEntry(id) { current ->
+                            if (
+                                current.kind != EntryKind.IMAGE || current.activeImage == null ||
+                                current.audio != null || current.text.isNotBlank()
+                            ) {
+                                current
+                            } else {
+                                current.copy(
+                                    audio = audio,
+                                    transcription = transcription,
+                                    updatedAt = maxOf(current.updatedAt, now),
+                                )
+                            }
+                        }?.takeIf { mutation ->
+                            mutation.previous.audio == null && mutation.current?.audio?.fileId == id
+                        }?.current
                     }
                     if (entry == null) {
                         mutableRecordingUiState.value = RecordingUiState.Saving
@@ -879,8 +939,13 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
         if (isDemo) return
         app.audioDirectory.listFiles { file -> file.name.endsWith(".partial") }.orEmpty().forEach { partial ->
             val id = partial.name.removeSuffix(".partial")
-            val entry = repositories.notes.getEntry(id) ?: createEntryForOrphanedPartial(id, partial)
-                ?: return@forEach
+            val existing = repositories.notes.getEntry(id)
+            val entry = when {
+                existing?.kind == EntryKind.IMAGE && existing.audio == null && existing.text.isBlank() ->
+                    attachRecoveredPhotoComment(existing, partial)
+                existing != null -> existing
+                else -> createEntryForOrphanedPartial(id, partial)
+            } ?: return@forEach
             val final = app.encryptedAudioFile(id)
             try {
                 val metadata = if (final.isFile) {
@@ -924,6 +989,36 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                     runCatching { file.delete() }
             }
         }
+    }
+
+    /** Repairs a process death after microphone start but before audio was attached to the photo row. */
+    private suspend fun attachRecoveredPhotoComment(entry: NoteEntry, partial: File): NoteEntry? {
+        val startedAt = partial.lastModified().takeIf { it > 0L }
+            ?.let(Instant::ofEpochMilli)
+            ?: clock.instant()
+        return repositories.notes.mutateEntry(entry.id) { current ->
+            if (current.kind != EntryKind.IMAGE || current.image == null || current.audio != null) {
+                current
+            } else {
+                current.copy(
+                    audio = AudioAttachment(
+                        fileId = entry.id,
+                        format = AudioFormat.WAV,
+                        durationMillis = 0,
+                        byteCount = 0,
+                    ),
+                    transcription = TranscriptionInfo(
+                        state = if (SomaPrefs.transcription(app)) {
+                            EntryTranscriptionState.QUEUED
+                        } else {
+                            EntryTranscriptionState.DISABLED
+                        },
+                        updatedAt = startedAt,
+                    ),
+                    updatedAt = maxOf(current.updatedAt, startedAt),
+                )
+            }
+        }?.current
     }
 
     /** Repairs a process death between microphone start and the Room insert. */

@@ -147,6 +147,8 @@
     <string name="photo_permission_needed">Norint fotografuoti reikia kameros leidimo.</string>
     <string name="photo_demo_disabled">Demonstraciniu režimu nuotraukos nepasiekiamos.</string>
     <string name="photo_save_failed">Nuotraukos nepavyko išsaugoti.</string>
+    <string name="photo_comment_hint">pridėk pastabą apie nuotrauką…</string>
+    <string name="photo_comment_unavailable">Ši nuotrauka jau turi pastabą.</string>
     <string name="image_removed">nuotrauka pašalinta</string>
     <string name="backup_demo_disabled">Demonstraciniu režimu atsarginės kopijos nepasiekiamos.</string>
     <string name="backup_working">vykdoma…</string>

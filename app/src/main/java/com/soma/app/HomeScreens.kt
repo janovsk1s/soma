@@ -71,6 +71,8 @@ fun HomeScreen(
     onCalendar: () -> Unit,
     onCapture: () -> Unit,
     onPhotoRequested: () -> Unit,
+    onPhotoCaption: (NoteEntry) -> Unit,
+    onPhotoCommentRecord: (NoteEntry) -> Unit,
     onReadEntry: (NoteEntry) -> Unit,
     onEntryOptions: (NoteEntry) -> Unit,
     onRecordRequested: () -> Unit,
@@ -82,7 +84,12 @@ fun HomeScreen(
     val suggestions by viewModel.suggestions.collectAsState()
     val recordingEntryId by viewModel.recordingEntryId.collectAsState()
     val recordingUiState by viewModel.recordingUiState.collectAsState()
+    val photoCommentEntryId by viewModel.photoCommentEntryId.collectAsState()
     val deletionUndo by viewModel.deletionUndo.collectAsState()
+    val photoComment = note?.entries?.firstOrNull { entry ->
+        entry.id == photoCommentEntryId && entry.activeImage != null &&
+            entry.audio == null && entry.text.isBlank()
+    }
     var stillOpenDismissed by remember(viewModel.today()) { mutableStateOf(false) }
     LaunchedEffect(viewModel.today()) {
         stillOpenDismissed = viewModel.isStillOpenDismissed()
@@ -185,20 +192,23 @@ fun HomeScreen(
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val recordingLabel = recordingBarLabel(recordingUiState)
+            val idleLabel = stringResource(
+                if (photoComment != null) R.string.photo_comment_hint else R.string.entry_hint,
+            )
+            val recordingLabel = recordingBarLabel(recordingUiState, idleLabel)
             CaptureBar(
                 modifier = Modifier.weight(1f),
                 placeholder = recordingLabel,
                 onOpen = {
                     when (recordingUiState) {
-                        RecordingUiState.Idle -> onCapture()
+                        RecordingUiState.Idle -> photoComment?.let(onPhotoCaption) ?: onCapture()
                         RecordingUiState.Starting, is RecordingUiState.Recording -> viewModel.stopRecording()
                         RecordingUiState.Saving -> Unit
                     }
                 },
                 onLongPress = {
                     when (recordingUiState) {
-                        RecordingUiState.Idle -> onRecordRequested()
+                        RecordingUiState.Idle -> photoComment?.let(onPhotoCommentRecord) ?: onRecordRequested()
                         RecordingUiState.Starting, is RecordingUiState.Recording -> viewModel.stopRecording()
                         RecordingUiState.Saving -> Unit
                     }
@@ -207,8 +217,14 @@ fun HomeScreen(
             )
             if (recordingUiState == RecordingUiState.Idle) {
                 PlusButton(
-                    onClick = onCapture,
-                    onLongClick = onPhotoRequested,
+                    onClick = {
+                        viewModel.clearPhotoCommentPrompt()
+                        onCapture()
+                    },
+                    onLongClick = {
+                        viewModel.clearPhotoCommentPrompt()
+                        onPhotoRequested()
+                    },
                     modifier = Modifier.offset(x = 8.dp),
                 )
             } else {
@@ -223,7 +239,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun recordingBarLabel(state: RecordingUiState): String {
+private fun recordingBarLabel(state: RecordingUiState, idleLabel: String): String {
     var elapsedSeconds by remember(state) { mutableLongStateOf(0L) }
     LaunchedEffect(state) {
         val recording = state as? RecordingUiState.Recording ?: return@LaunchedEffect
@@ -236,7 +252,7 @@ private fun recordingBarLabel(state: RecordingUiState): String {
         }
     }
     return when (state) {
-        RecordingUiState.Idle -> stringResource(R.string.entry_hint)
+        RecordingUiState.Idle -> idleLabel
         RecordingUiState.Starting -> stringResource(R.string.recording_starting)
         is RecordingUiState.Recording -> stringResource(
             R.string.recording_elapsed,
@@ -412,7 +428,14 @@ fun EntryReadScreen(
                         contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                     )
                 }
-                if (entry.text.isNotBlank() || entry.activeImage == null) {
+                if (
+                    entry.text.isNotBlank() || entry.activeImage == null ||
+                    entry.transcription?.state in setOf(
+                        EntryTranscriptionState.QUEUED,
+                        EntryTranscriptionState.RUNNING,
+                        EntryTranscriptionState.FAILED,
+                    )
+                ) {
                     Text(
                         entry.text.ifBlank {
                             stringResource(

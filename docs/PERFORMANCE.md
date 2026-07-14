@@ -44,6 +44,9 @@ and 20 candidates, and emits at most one bounded list block.
   capture screen leaves. Capture uses the latency-optimized mode at a bounded
   1280×960 target; the camera is never kept warm in the background. Visible
   encrypted photos are downsampled to at most 1080 px for display.
+- The optional post-capture spoken comment reuses the encrypted audio recorder
+  and existing one-at-a-time transcription queue. Soma does not keep the camera
+  alive while the user records or types the comment.
 - Room uses write-ahead logging; encryption, database access, export, audio,
   and transcription never run synchronously inside a Compose draw callback.
 - Important detection runs only after Save or after a transcript lands, never

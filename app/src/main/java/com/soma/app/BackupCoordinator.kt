@@ -332,7 +332,7 @@ class BackupCoordinator(
                 } else {
                     // A text-only backup retains the editable transcript but not a dead device-bound reference.
                     entry.copy(
-                        kind = EntryKind.TEXT,
+                        kind = if (entry.image != null) EntryKind.IMAGE else EntryKind.TEXT,
                         text = entry.text.ifBlank { app.getString(R.string.voice_audio_not_in_backup) },
                         audio = null,
                         transcription = null,
@@ -356,7 +356,7 @@ class BackupCoordinator(
                     )
                 } else {
                     withAudio.copy(
-                        kind = EntryKind.TEXT,
+                        kind = if (withAudio.audio != null) EntryKind.VOICE else EntryKind.TEXT,
                         text = withAudio.text.ifBlank { app.getString(R.string.photo_not_in_backup) },
                         image = null,
                         imageDeletedAt = null,

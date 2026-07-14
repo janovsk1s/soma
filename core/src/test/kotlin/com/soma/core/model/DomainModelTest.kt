@@ -82,6 +82,24 @@ class DomainModelTest {
     }
 
     @Test
+    fun `image can keep an encrypted spoken comment and transcript`() {
+        val image = ImageAttachment("image-1", ImageFormat.JPEG, 1280, 960, 0, 12_000)
+        val spokenComment = NoteEntry.image("image-entry", date, 0, image, now).copy(
+            audio = audio(),
+            text = "milk rice on the train",
+            transcription = TranscriptionInfo(
+                state = EntryTranscriptionState.SUCCEEDED,
+                updatedAt = now.plusSeconds(4),
+            ),
+        )
+
+        assertEquals(EntryKind.IMAGE, spokenComment.kind)
+        assertEquals(image, spokenComment.activeImage)
+        assertEquals(audio(), spokenComment.activeAudio)
+        assertTrue(spokenComment.hasTranscript)
+    }
+
+    @Test
     fun `daily note accepts only ordered entries from its date`() {
         val first = NoteEntry.text("one", date, 1, "One", now)
         val second = NoteEntry.text("two", date, 2, "Two", now)

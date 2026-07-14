@@ -147,6 +147,8 @@
     <string name="photo_permission_needed">Kuvan ottamiseen tarvitaan kameran käyttöoikeus.</string>
     <string name="photo_demo_disabled">Kuvat eivät ole käytettävissä demotilassa.</string>
     <string name="photo_save_failed">Kuvaa ei voitu tallentaa.</string>
+    <string name="photo_comment_hint">lisää kuvasta muistiinpano…</string>
+    <string name="photo_comment_unavailable">Kuvassa on jo muistiinpano.</string>
     <string name="image_removed">kuva poistettu</string>
     <string name="backup_demo_disabled">Varmuuskopiointi ei ole käytettävissä demotilassa.</string>
     <string name="backup_working">käsitellään…</string>

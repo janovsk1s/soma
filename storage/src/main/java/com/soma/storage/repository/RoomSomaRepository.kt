@@ -326,7 +326,9 @@ class RoomSomaRepository(
     override suspend fun enqueue(job: TranscriptionJob): Boolean = database.withTransaction {
         require(job.state == TranscriptionJobState.QUEUED) { "Only queued jobs can be enqueued" }
         val entry = entryDao.getById(job.entryId) ?: return@withTransaction false
-        if (entry.type != EntryTypeValue.VOICE) return@withTransaction false
+        if (entry.type !in setOf(EntryTypeValue.VOICE, EntryTypeValue.IMAGE) || entry.audioFileId == null) {
+            return@withTransaction false
+        }
         if (jobDao.insert(mapper.jobToEntity(job)) == INSERT_CONFLICT) return@withTransaction false
         check(
             entryDao.update(
@@ -352,7 +354,9 @@ class RoomSomaRepository(
     override suspend fun restart(job: TranscriptionJob): Boolean = database.withTransaction {
         require(job.state == TranscriptionJobState.QUEUED) { "Only queued jobs can restart transcription" }
         val entry = entryDao.getById(job.entryId) ?: return@withTransaction false
-        if (entry.type != EntryTypeValue.VOICE || entry.audioFileId == null) return@withTransaction false
+        if (entry.type !in setOf(EntryTypeValue.VOICE, EntryTypeValue.IMAGE) || entry.audioFileId == null) {
+            return@withTransaction false
+        }
         jobDao.deleteByEntryId(job.entryId)
         if (jobDao.insert(mapper.jobToEntity(job)) == INSERT_CONFLICT) return@withTransaction false
         check(

@@ -147,6 +147,8 @@
     <string name="photo_permission_needed">Zum Fotografieren ist die Kameraberechtigung erforderlich.</string>
     <string name="photo_demo_disabled">Fotos sind im Demo-Modus nicht verfügbar.</string>
     <string name="photo_save_failed">Das Foto konnte nicht gespeichert werden.</string>
+    <string name="photo_comment_hint">Notiz zum Foto hinzufügen…</string>
+    <string name="photo_comment_unavailable">Dieses Foto hat bereits eine Notiz.</string>
     <string name="image_removed">Foto entfernt</string>
     <string name="backup_demo_disabled">Sicherungen sind im Demo-Modus deaktiviert.</string>
     <string name="backup_working">wird verarbeitet…</string>

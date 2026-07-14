@@ -94,6 +94,34 @@ class PortableBackupCodecTest {
     }
 
     @Test
+    fun `photo entry round trip can carry a spoken comment`() {
+        val commentedPhoto = IMAGE_ENTRY.copy(
+            text = "Milchreis recipe",
+            audio = AUDIO.copy(fileId = "audio-image-comment"),
+            transcription = TranscriptionInfo(
+                state = EntryTranscriptionState.SUCCEEDED,
+                detectedLanguages = listOf(SupportedLanguage.GERMAN),
+                provenance = TranscriptionProvenance.local(),
+                updatedAt = START.plusSeconds(8),
+            ),
+        )
+        val snapshot = BackupSnapshot(
+            exportedAt = START.plusSeconds(9),
+            notes = listOf(DailyNote(DATE, START, listOf(commentedPhoto))),
+            todos = emptyList(),
+            suggestions = emptyList(),
+        )
+
+        val encoded = BackupPayloadCodec.encode(snapshot)
+        try {
+            val decoded = BackupPayloadCodec.decode(encoded, BackupSnapshot.CURRENT_PAYLOAD_VERSION)
+            assertEquals(commentedPhoto, decoded.notes.single().entries.single())
+        } finally {
+            encoded.fill(0)
+        }
+    }
+
+    @Test
     fun `new backup passphrase must contain twelve characters`() {
         val passphrase = "eleven-char".toCharArray()
         try {

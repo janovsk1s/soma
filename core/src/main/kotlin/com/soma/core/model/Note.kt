@@ -130,10 +130,10 @@ data class NoteEntry(
         require(lastUserEditedAt == null || !lastUserEditedAt.isBefore(createdAt)) {
             "Entry edit cannot precede creation"
         }
-        require(kind == EntryKind.VOICE || audio == null) { "Text entries cannot have audio" }
+        require(kind != EntryKind.TEXT || audio == null) { "Text entries cannot have audio" }
         require(kind == EntryKind.IMAGE || image == null) { "Non-image entries cannot have an image" }
-        require(kind == EntryKind.VOICE || transcription == null) {
-            "Non-voice entries cannot have transcription state"
+        require(audio != null || transcription == null) {
+            "Transcription state requires an audio attachment"
         }
         require(kind != EntryKind.VOICE || audio != null) { "Voice entries require audio" }
         require(kind != EntryKind.IMAGE || image != null) { "Image entries require an image" }
@@ -155,7 +155,7 @@ data class NoteEntry(
     }
 
     val hasTranscript: Boolean
-        get() = kind == EntryKind.VOICE && text.isNotBlank()
+        get() = audio != null && text.isNotBlank()
 
     val isDeleted: Boolean
         get() = deletedAt != null

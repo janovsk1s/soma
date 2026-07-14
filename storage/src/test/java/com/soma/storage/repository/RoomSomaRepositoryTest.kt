@@ -248,6 +248,45 @@ class RoomSomaRepositoryTest {
         }
 
     @Test
+    fun `spoken photo comment transcribes without losing the image or authored timestamp`() = runBlocking {
+        repository.getOrCreate(date, start)
+        val image = ImageAttachment("image-photo-1", ImageFormat.JPEG, 1280, 960, 0, 4_096)
+        val audio = AudioAttachment("audio-photo-1", AudioFormat.WAV, 1_500, 48_044)
+        val photo = NoteEntry.image("photo-1", date, 0, image, start).copy(
+            audio = audio,
+            transcription = com.soma.core.model.TranscriptionInfo(
+                state = EntryTranscriptionState.QUEUED,
+                updatedAt = start.plusSeconds(1),
+            ),
+        )
+        assertTrue(repository.insertEntry(photo))
+        assertTrue(repository.enqueue(TranscriptionJob.queued("photo-job", photo.id, start.plusSeconds(1))))
+        repository.claimNext("worker", start.plusSeconds(1), Duration.ofMinutes(5))
+
+        assertTrue(
+            repository.complete(
+                "photo-job",
+                "worker",
+                TranscriptionResult(
+                    segments = listOf(
+                        TranscriptSegment(0, 1_500, "Milchreis recipe", SupportedLanguage.GERMAN),
+                    ),
+                    provenance = TranscriptionProvenance.local(),
+                ),
+                start.plusSeconds(5),
+            ),
+        )
+
+        val transcribed = requireNotNull(repository.getEntry(photo.id))
+        assertEquals(com.soma.core.model.EntryKind.IMAGE, transcribed.kind)
+        assertEquals(image, transcribed.activeImage)
+        assertEquals(audio, transcribed.activeAudio)
+        assertEquals("Milchreis recipe", transcribed.text)
+        assertEquals(start, transcribed.createdAt)
+        assertNull(transcribed.lastUserEditedAt)
+    }
+
+    @Test
     fun `retryable then terminal transcription failures preserve the recording`() = runBlocking {
         repository.getOrCreate(date, start)
         repository.insertEntry(voiceEntry("voice-1"))

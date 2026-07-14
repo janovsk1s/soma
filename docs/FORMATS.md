@@ -188,7 +188,8 @@ The encrypted payload is a deterministic `DataOutputStream` serialization in
 this order:
 
 1. payload version and export instant;
-2. daily notes and their ordered text, voice, or image entries;
+2. daily notes and their ordered text, voice, or image entries (an image entry
+   may also carry one encrypted spoken comment and its editable transcript);
 3. Important items and optional source links;
 4. Important suggestions and their rule/language/decision state;
 5. per-day still-open dismissals;

@@ -147,6 +147,8 @@
     <string name="photo_permission_needed">Lai uzņemtu foto, vajadzīga kameras atļauja.</string>
     <string name="photo_demo_disabled">Demo režīmā foto nav pieejami.</string>
     <string name="photo_save_failed">Foto neizdevās saglabāt.</string>
+    <string name="photo_comment_hint">pievieno piezīmi par foto…</string>
+    <string name="photo_comment_unavailable">Šim foto jau ir piezīme.</string>
     <string name="image_removed">foto dzēsts</string>
     <string name="backup_demo_disabled">Demo režīmā dublējumi nav pieejami.</string>
     <string name="backup_working">apstrādā…</string>

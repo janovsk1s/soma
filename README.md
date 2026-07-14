@@ -19,6 +19,9 @@ cloud API keys only when explicitly enabled in Developer settings.
 - Long-pressing `+` opens a one-shutter photo capture. The JPEG is encrypted
   directly from CameraX memory, appears inline in the daily note, and never
   enters the gallery or a plaintext temporary file.
+- After capture, the bottom line offers one calm follow-up: tap to type about
+  that photo or hold to attach an encrypted spoken comment. Spoken comments use
+  the selected local/cloud transcription engine and remain playable on the photo.
 - Keeps encrypted audio playable even if transcription fails.
 - Transcribes locally with whisper.cpp and a bundled multilingual tiny Q5_1
   model; pause-based VAD performs language detection per utterance. Local

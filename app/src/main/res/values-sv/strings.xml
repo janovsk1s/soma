@@ -147,6 +147,8 @@
     <string name="photo_permission_needed">Kamerabehörighet krävs för att ta ett foto.</string>
     <string name="photo_demo_disabled">Foton är inte tillgängliga i demoläget.</string>
     <string name="photo_save_failed">Fotot kunde inte sparas.</string>
+    <string name="photo_comment_hint">lägg till en anteckning om fotot…</string>
+    <string name="photo_comment_unavailable">Fotot har redan en anteckning.</string>
     <string name="image_removed">foto borttaget</string>
     <string name="backup_demo_disabled">Säkerhetskopiering är inte tillgänglig i demoläget.</string>
     <string name="backup_working">bearbetar…</string>

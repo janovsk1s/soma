@@ -75,7 +75,7 @@ data class BackupSnapshot(
         }
         val attachmentIds = entriesById.values.mapNotNull { it.audio?.fileId }
         require(attachmentIds.distinct().size == attachmentIds.size) {
-            "Each voice entry must own a distinct audio file"
+            "Each audio attachment must own a distinct file"
         }
         require(attachmentIds.all { AudioAttachment.isValidFileId(it) }) {
             "A backup contains an unsafe audio file id"
@@ -97,8 +97,9 @@ data class BackupSnapshot(
             require(suggestion.entryId in entriesById) { "A suggestion references a missing entry" }
         }
         transcriptionJobs.forEach { job ->
-            require(entriesById[job.entryId]?.kind == EntryKind.VOICE) {
-                "A transcription job must reference a voice entry"
+            val entry = entriesById[job.entryId]
+            require(entry?.audio != null && entry.kind in setOf(EntryKind.VOICE, EntryKind.IMAGE)) {
+                "A transcription job must reference an entry with audio"
             }
         }
         todos.forEach { todo ->

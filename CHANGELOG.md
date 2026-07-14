@@ -2,6 +2,25 @@
 
 Notable changes to Soma are documented here.
 
+## 0.1.0-preview.19 — 2026-07-14
+
+### Added
+
+- After a photo is saved, the bottom input quietly changes to "add a note about
+  the photo…". Tap it to type a caption or hold it to record an encrypted spoken
+  comment on that same photo; starting a different entry dismisses the prompt.
+- Spoken photo comments use the existing local, ElevenLabs Scribe v2, or Groq
+  transcription path and expose the same playback, provenance, retry, export,
+  backup, and authenticated LAN controls as ordinary voice notes.
+
+### Changed
+
+- Image entries can carry both an encrypted JPEG and encrypted WAV without
+  changing the photo's original creation time, position, or edit history.
+- Deleting or purging only one attachment keeps the other usable. Interrupted
+  photo-comment recordings are reconciled on the next launch instead of being
+  discarded as orphaned audio.
+
 ## 0.1.0-preview.18 — 2026-07-14
 
 ### Added

@@ -209,6 +209,28 @@ class LanBrowserServerTest {
     }
 
     @Test
+    fun `photo with a spoken comment exposes both authenticated media controls`() {
+        val date = LocalDate.of(2026, 7, 14)
+        val entry = BrowserEntry(
+            id = "photo-comment",
+            text = "Milchreis recipe",
+            kind = BrowserEntryKind.IMAGE,
+            audioId = "photo-audio",
+            imageId = "photo-image",
+        )
+        val server = server(FakeDataSource(entries = listOf(entry)))
+        val endpoint = server.start()
+        val cookie = authenticate(endpoint).cookie
+
+        val response = request(endpoint, "GET", "/day/$date", cookie = cookie)
+
+        assertEquals(200, response.status)
+        assertTrue(response.text.contains("/audio/photo-audio"))
+        assertTrue(response.text.contains("/image/photo-image"))
+        assertTrue(response.text.contains("Milchreis recipe"))
+    }
+
+    @Test
     fun `day route exposes escaped previous wordings without script`() {
         val date = LocalDate.of(2026, 7, 14)
         val created = Instant.parse("2026-07-14T08:00:00Z")

@@ -158,6 +158,8 @@
     <string name="photo_permission_needed">Camera permission is needed to take a photo.</string>
     <string name="photo_demo_disabled">Photos are unavailable in demo mode.</string>
     <string name="photo_save_failed">The photo could not be saved.</string>
+    <string name="photo_comment_hint">add a note about the photo…</string>
+    <string name="photo_comment_unavailable">This photo already has a note.</string>
     <string name="image_removed">photo removed</string>
     <string name="backup_demo_disabled">Backups are unavailable in demo mode.</string>
     <string name="backup_working">working…</string>
