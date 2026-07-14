@@ -200,6 +200,24 @@ interface TrackingLogDao {
     @Query("SELECT * FROM tracking_logs ORDER BY occurred_at_millis ASC, id ASC")
     suspend fun listAll(): List<TrackingLogEntity>
 
+    @Query(
+        """
+        SELECT * FROM tracking_logs
+        WHERE
+            ((:archived = 0 AND archived_at_millis IS NULL) OR
+             (:archived = 1 AND archived_at_millis IS NOT NULL))
+            AND (:kind IS NULL OR kind = :kind)
+        ORDER BY occurred_at_millis DESC, id ASC
+        LIMIT :limit OFFSET :offset
+        """,
+    )
+    suspend fun listPage(
+        kind: String?,
+        archived: Boolean,
+        limit: Int,
+        offset: Int,
+    ): List<TrackingLogEntity>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(log: TrackingLogEntity): Long
 

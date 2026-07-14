@@ -267,6 +267,18 @@ class RoomSomaRepository(
     override suspend fun listAllLogs(): List<LogRecord> =
         trackingLogDao.listAll().map(mapper::trackingLogFromEntity)
 
+    override suspend fun listLogs(
+        kind: LogKind?,
+        archived: Boolean,
+        limit: Int,
+        offset: Int,
+    ): List<LogRecord> {
+        require(limit > 0) { "Limit must be positive" }
+        require(offset >= 0) { "Offset must not be negative" }
+        return trackingLogDao.listPage(kind?.name, archived, limit, offset)
+            .map(mapper::trackingLogFromEntity)
+    }
+
     override suspend fun insert(log: LogRecord): Boolean = database.withTransaction {
         require(log.revision == 0L) { "A new tracking log must start at revision zero" }
         trackingLogDao.insert(mapper.trackingLogToEntity(log)) != INSERT_CONFLICT

@@ -24,6 +24,8 @@ data class LanServerConfig(
     val exportEnabled: Boolean = false,
     /** BCP-47 application language used for the sensitive export confirmation. */
     val languageTag: String = "en",
+    /** One bundled monochrome landscape, fixed for the lifetime of this server session. */
+    val forestBackground: ForestBackground = ForestBackground.LATVIA,
 ) {
     init {
         require(!bindAddress.isAnyLocalAddress) { "A concrete LAN address is required" }
@@ -48,6 +50,18 @@ data class LanServerConfig(
         val MAX_IDLE_TIMEOUT: Duration = Duration.ofMinutes(15)
         val MAX_REQUEST_READ_TIMEOUT: Duration = Duration.ofSeconds(30)
     }
+}
+
+/** Landscapes correspond to Soma's eight application languages and never require a web request. */
+enum class ForestBackground(val resourceName: String, val countryName: String) {
+    ENGLAND("en.webp", "England"),
+    LATVIA("lv.webp", "Latvia"),
+    ESTONIA("et.webp", "Estonia"),
+    LITHUANIA("lt.webp", "Lithuania"),
+    FINLAND("fi.webp", "Finland"),
+    SWEDEN("sv.webp", "Sweden"),
+    GERMANY("de.webp", "Germany"),
+    SLOVAKIA("sk.webp", "Slovakia"),
 }
 
 /** The address and single-use access code shown on Soma's Browser view screen. */
@@ -162,6 +176,46 @@ data class BrowserTodo(
     val state: BrowserTodoState,
     val sourceDate: LocalDate? = null,
     val sourceEntryId: String? = null,
+)
+
+enum class BrowserLogFilter {
+    MEALS,
+    RECIPES,
+    WORKOUTS,
+    ARCHIVED,
+}
+
+enum class BrowserLogKind {
+    MEAL,
+    RECIPE,
+    WORKOUT,
+}
+
+data class BrowserFoodItem(
+    val name: String,
+    val quantity: String? = null,
+    val nutrition: String? = null,
+    val provenance: String? = null,
+)
+
+data class BrowserWorkoutExercise(
+    val name: String,
+    val machine: String? = null,
+    val sets: List<String> = emptyList(),
+)
+
+data class BrowserLog(
+    val id: String,
+    val kind: BrowserLogKind,
+    val title: String,
+    val note: String,
+    val occurredAt: Instant,
+    val occurredLabel: String,
+    val sourceDate: LocalDate? = null,
+    val foods: List<BrowserFoodItem> = emptyList(),
+    val exercises: List<BrowserWorkoutExercise> = emptyList(),
+    val revisionCount: Long = 0,
+    val archived: Boolean = false,
 )
 
 enum class BrowserInsightKind {
@@ -284,6 +338,9 @@ interface ReadOnlySomaDataSource {
     fun entriesForDay(date: LocalDate, request: PageRequest): PagedResult<BrowserEntry>?
 
     fun listTodos(filter: BrowserTodoFilter, request: PageRequest): PagedResult<BrowserTodo>
+
+    fun listLogs(filter: BrowserLogFilter, request: PageRequest): PagedResult<BrowserLog> =
+        PagedResult(emptyList(), 0)
 
     fun metadataInsights(request: PageRequest): BrowserInsights = BrowserInsights(
         annotatedEntryCount = 0,

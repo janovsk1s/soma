@@ -130,6 +130,7 @@
     <string name="browser_connected">yhdistetty</string>
     <string name="browser_waiting">odottaa yhteyttä</string>
     <string name="browser_security_note">Vain luettavissa. Pysähtyy, kun poistut tästä näkymästä, tai 15 minuutin käyttämättömyyden jälkeen.</string>
+    <string name="browser_stable_address_note">Soma käyttää tavallisesti porttia 8787 uudelleen. Puhelimen osoite voi silti muuttua, kun reititin yhdistää sen uudelleen.</string>
     <string name="browser_starting">käynnistetään…</string>
     <string name="browser_start_failed">Selainnäkymää ei voitu käynnistää.</string>
     <string name="browser_stopped">Selainnäkymä pysäytettiin.</string>

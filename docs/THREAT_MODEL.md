@@ -167,7 +167,10 @@ Browser view is off by default and must be started from its dedicated screen.
 The Android bridge accepts only an active interface whose name is Wi-Fi-like and
 selects a concrete site-local address. The server then rejects wildcard,
 loopback, link-local, and public bind addresses, rejects non-site-local peers,
-and validates the exact `Host` value. It never binds to `0.0.0.0`.
+and validates the exact `Host` value. It never binds to `0.0.0.0`. The bridge
+prefers fixed port `8787` for a repeatable bookmark and falls back to an ephemeral
+port only after a bind failure. A fixed port does not broaden the accepted
+interfaces or peers, and the Wi-Fi address can still be reassigned by the router.
 
 The first browser session must submit a random six-digit code displayed on the
 phone. A correct code is single-use and creates a 256-bit random session token.
@@ -176,8 +179,9 @@ window. It cannot carry `Secure` because the intentionally local endpoint is
 plain HTTP. Comparisons use constant-time digest comparison. Five wrong codes
 stop the server; starting again creates a new code and token.
 
-Authenticated routes support days, entries, Important items, local metadata
-insights and their static connection graph, ranged audio, and image playback. Metadata owned by a tombstoned entry
+Authenticated routes support days, entries, Important items, confirmed meal,
+recipe and workout logs, local metadata insights and their static connection
+graph, ranged audio, and image playback. Metadata owned by a tombstoned entry
 and entry links to a tombstoned target are omitted. Mutation routes do not exist.
 An export route exists only when the user enables the ephemeral Data export control
 before starting that LAN session. It is GET-only, single-flight, text-only, and
@@ -189,6 +193,12 @@ five record or connection rows. Responses send
 `Cache-Control: no-store`, a restrictive content
 security policy, framing and MIME-sniffing protections, no-referrer policy, and
 camera/microphone/geolocation denial. The server does not log note data.
+
+The only route available before authentication besides the access-code form is
+`/assets/forest.webp`. It returns one of eight application-bundled monochrome
+landscapes fixed for the server session. These files are immutable release assets,
+contain no user data, and require no outbound request. All notes, logs, metadata,
+media, and export routes remain authenticated.
 
 The server stops when the Browser view is disposed, when the activity receives
 `ON_STOP`, on explicit stop, after 15 minutes without authenticated activity, or

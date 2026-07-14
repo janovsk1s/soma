@@ -56,6 +56,8 @@ fun BrowserScreen(onBack: () -> Unit) {
             audioProvider = audio,
             imageProvider = images,
             metadata = repositories.metadata,
+            trackingLogs = repositories.trackingLogs,
+            languageTag = SomaPrefs.language(context).languageTag,
         )
         BrowserViewController(
             source,
@@ -170,6 +172,13 @@ fun BrowserScreen(onBack: () -> Unit) {
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Normal,
                         modifier = Modifier.padding(top = 48.dp),
+                    )
+                    Text(
+                        stringResource(R.string.browser_stable_address_note),
+                        color = DimInk,
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                        modifier = Modifier.padding(top = 10.dp),
                     )
                     if (!current.authenticated) {
                         Text(

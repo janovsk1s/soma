@@ -186,15 +186,23 @@ between them. Export a portable encrypted backup before uninstalling a preview.
 
 ## Browser view and build flavors
 
-The standard `browser` flavor can serve notes, Important items, authenticated audio,
-photos, local metadata Insights, a connection graph, and an optional text-only
-Markdown-vault export to a browser on the same
-trusted Wi-Fi network. Insights shows counts and five-per-page tag/date/entry
-connections. The graph is a server-rendered monochrome SVG with five edges per
-page—no cloud summary, JavaScript, or graph library. Browser view is off by default. Starting it
-selects a concrete Wi-Fi site-local address—never a wildcard, loopback, mobile,
-or public address—and shows a URL plus a single-use six-digit code. A successful
-login receives a random 256-bit session cookie. Five wrong codes stop the server.
+The standard `browser` flavor can serve notes, Important items, confirmed meal,
+recipe and workout logs, authenticated audio, photos, local metadata Insights, a
+connection graph, and an optional text-only Markdown-vault export to a browser on
+the same trusted Wi-Fi network. Logs and connections are shown five per page. The
+graph is a server-rendered monochrome SVG—no cloud summary, JavaScript, or graph
+library. Browser view is off by default. Starting it selects a concrete Wi-Fi
+site-local address—never a wildcard, loopback, mobile, or public address—and shows
+a URL plus a single-use six-digit code. Soma prefers port `8787` so the URL remains
+bookmarkable across sessions; it falls back to an available ephemeral port only
+if another process already owns `8787`. The router can still assign the phone a
+different IP address.
+
+Each session selects one of eight bundled, monochrome forest photographs
+corresponding to Soma's English, Latvian, Estonian, Lithuanian, Finnish, Swedish,
+German, and Slovak localizations. The chosen image stays fixed for that session,
+uses no remote image host, and contains no user data. A successful login receives
+a random 256-bit session cookie. Five wrong codes stop the server.
 
 The HTTP surface cannot edit or delete app data. A plaintext export route exists
 only when the user enables Data export before starting that Browser-view session;

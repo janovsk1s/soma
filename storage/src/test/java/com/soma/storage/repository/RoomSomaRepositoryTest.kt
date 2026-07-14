@@ -311,6 +311,52 @@ class RoomSomaRepositoryTest {
     }
 
     @Test
+    fun `tracking log pages filter archive and decrypt only requested rows`() = runBlocking {
+        val meals = (0..6).map { index ->
+            val occurredAt = start.plusSeconds(index.toLong())
+            LogRecord(
+                id = "meal-$index",
+                kind = LogKind.MEAL,
+                title = "Meal $index",
+                occurredAt = occurredAt,
+                createdAt = occurredAt,
+                updatedAt = occurredAt,
+            ).also { assertTrue(repository.insert(it)) }
+        }
+        val workoutAt = start.plusSeconds(20)
+        assertTrue(
+            repository.insert(
+                LogRecord(
+                    id = "workout-newest",
+                    kind = LogKind.WORKOUT,
+                    title = "Workout",
+                    occurredAt = workoutAt,
+                    createdAt = workoutAt,
+                    updatedAt = workoutAt,
+                ),
+            ),
+        )
+        val archived = meals.first().archive(start.plusSeconds(30))
+        assertTrue(repository.update(archived))
+
+        assertEquals(
+            listOf("meal-4", "meal-3", "meal-2"),
+            repository.listLogs(LogKind.MEAL, archived = false, limit = 3, offset = 2)
+                .map(LogRecord::id),
+        )
+        assertEquals(
+            listOf("workout-newest"),
+            repository.listLogs(LogKind.WORKOUT, archived = false, limit = 5)
+                .map(LogRecord::id),
+        )
+        assertEquals(
+            listOf("meal-0"),
+            repository.listLogs(kind = null, archived = true, limit = 5)
+                .map(LogRecord::id),
+        )
+    }
+
+    @Test
     fun `suggestion acceptance creates todo and resolves suggestion atomically`() = runBlocking {
         repository.getOrCreate(date, start)
         repository.insertEntry(NoteEntry.text("entry-1", date, 0, "Need to call Anna", start))

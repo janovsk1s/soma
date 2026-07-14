@@ -4,11 +4,17 @@ import com.soma.core.model.DailyNote
 import com.soma.core.model.EntryKind
 import com.soma.core.model.EntryLinkKind
 import com.soma.core.model.EntryTranscriptionState
+import com.soma.core.model.FoodQuantityUnit
+import com.soma.core.model.LogKind
+import com.soma.core.model.LogRecord
 import com.soma.core.model.MetadataSource
+import com.soma.core.model.NutritionBasis
+import com.soma.core.model.NutritionSource
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.TodoState
 import com.soma.core.repository.DailyNoteRepository
 import com.soma.core.repository.EntryMetadataRepository
+import com.soma.core.repository.TrackingLogRepository
 import com.soma.core.repository.TodoRepository
 import com.soma.lanserver.AudioResource
 import com.soma.lanserver.BrowserDay
@@ -20,11 +26,17 @@ import com.soma.lanserver.BrowserGraphNodeKind
 import com.soma.lanserver.BrowserInsight
 import com.soma.lanserver.BrowserInsightKind
 import com.soma.lanserver.BrowserInsights
+import com.soma.lanserver.BrowserFoodItem
+import com.soma.lanserver.BrowserLog
+import com.soma.lanserver.BrowserLogFilter
+import com.soma.lanserver.BrowserLogKind
 import com.soma.lanserver.BrowserMetadataSource
 import com.soma.lanserver.BrowserTodo
 import com.soma.lanserver.BrowserTodoFilter
 import com.soma.lanserver.BrowserTodoState
+import com.soma.lanserver.BrowserWorkoutExercise
 import com.soma.lanserver.ImageResource
+import com.soma.lanserver.ForestBackground
 import com.soma.lanserver.LanBrowserServer
 import com.soma.lanserver.LanServerConfig
 import com.soma.lanserver.LanServerEndpoint
@@ -44,9 +56,12 @@ import java.io.InputStream
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.NetworkInterface
+import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -116,6 +131,97 @@ data class BrowserViewTodo(
     val sourceDate: LocalDate?,
     val sourceEntryId: String?,
 )
+
+enum class BrowserViewLogFilter {
+    MEALS,
+    RECIPES,
+    WORKOUTS,
+    ARCHIVED,
+}
+
+enum class BrowserViewLogKind {
+    MEAL,
+    RECIPE,
+    WORKOUT,
+}
+
+data class BrowserViewFoodItem(
+    val name: String,
+    val quantity: String?,
+    val nutrition: String?,
+    val provenance: String?,
+)
+
+data class BrowserViewWorkoutExercise(
+    val name: String,
+    val machine: String?,
+    val sets: List<String>,
+)
+
+data class BrowserViewLog(
+    val id: String,
+    val kind: BrowserViewLogKind,
+    val title: String,
+    val note: String,
+    val occurredAt: Instant,
+    val occurredLabel: String,
+    val sourceDate: LocalDate?,
+    val foods: List<BrowserViewFoodItem>,
+    val exercises: List<BrowserViewWorkoutExercise>,
+    val revisionCount: Long,
+    val archived: Boolean,
+)
+
+private data class BrowserLogCopy(
+    val piece: String,
+    val serving: String,
+    val packageLabel: String,
+    val officialAverage: String,
+    val estimate: String,
+    val unquantified: String,
+    val user: String,
+    val aiEstimate: String,
+    val repetitions: String,
+    val seconds: String,
+) {
+    companion object {
+        fun forLanguage(languageTag: String): BrowserLogCopy =
+            when (languageTag.substringBefore('-').lowercase()) {
+                "lv" -> BrowserLogCopy(
+                    "gab.", "porcija", "Iepakojuma etiķete", "Oficiālais vidējais",
+                    "Aplēse", "Bez daudzuma", "Lietotājs", "MI aplēse", "atk.", "s",
+                )
+                "et" -> BrowserLogCopy(
+                    "tk", "portsjon", "Pakendi märgistus", "Ametlik keskmine",
+                    "Hinnang", "Kogus määramata", "Kasutaja", "AI hinnang", "kordust", "s",
+                )
+                "lt" -> BrowserLogCopy(
+                    "vnt.", "porcija", "Pakuotės etiketė", "Oficialus vidurkis",
+                    "Apytikslė", "Kiekis nenurodytas", "Naudotojas", "DI įvertis", "kart.", "s",
+                )
+                "fi" -> BrowserLogCopy(
+                    "kpl", "annos", "Pakkausmerkintä", "Virallinen keskiarvo",
+                    "Arvio", "Määrää ei ilmoitettu", "Käyttäjä", "Tekoälyarvio", "toistoa", "s",
+                )
+                "sv" -> BrowserLogCopy(
+                    "st", "portion", "Förpackningsetikett", "Officiellt genomsnitt",
+                    "Uppskattning", "Okvantifierad", "Användare", "AI-uppskattning", "reps", "s",
+                )
+                "de" -> BrowserLogCopy(
+                    "Stk.", "Portion", "Packungsangabe", "Offizieller Durchschnitt",
+                    "Schätzung", "Ohne Mengenangabe", "Benutzer", "KI-Schätzung", "Wdh.", "s",
+                )
+                "sk" -> BrowserLogCopy(
+                    "ks", "porcia", "Údaj z obalu", "Oficiálny priemer",
+                    "Odhad", "Bez množstva", "Používateľ", "Odhad AI", "opak.", "s",
+                )
+                else -> BrowserLogCopy(
+                    "piece", "serving", "Package label", "Official average",
+                    "Estimate", "Unquantified", "User", "AI estimate", "reps", "sec",
+                )
+            }
+    }
+}
 
 enum class BrowserViewInsightKind {
     TAG,
@@ -281,6 +387,11 @@ interface BrowserViewDataSource {
         request: BrowserViewPageRequest,
     ): BrowserViewPage<BrowserViewTodo>
 
+    suspend fun listLogs(
+        filter: BrowserViewLogFilter,
+        request: BrowserViewPageRequest,
+    ): BrowserViewPage<BrowserViewLog> = BrowserViewPage(emptyList(), false)
+
     suspend fun metadataInsights(request: BrowserViewPageRequest): BrowserViewInsights = BrowserViewInsights(
         annotatedEntryCount = 0,
         manualLayerCount = 0,
@@ -310,9 +421,13 @@ class RepositoryBrowserViewDataSource(
     private val audioProvider: BrowserViewAudioProvider = BrowserViewAudioProvider.NONE,
     private val imageProvider: BrowserViewImageProvider = BrowserViewImageProvider.NONE,
     private val metadata: EntryMetadataRepository? = null,
+    private val trackingLogs: TrackingLogRepository? = null,
     private val zoneId: ZoneId = ZoneId.systemDefault(),
     private val today: () -> LocalDate = { LocalDate.now(zoneId) },
+    languageTag: String = "en",
 ) : BrowserViewDataSource {
+    private val logCopy = BrowserLogCopy.forLanguage(languageTag)
+
     override suspend fun listDays(request: BrowserViewPageRequest): BrowserViewPage<BrowserViewDay> {
         val notes = notes.listBeforeOrOn(
             date = today(),
@@ -387,6 +502,26 @@ class RepositoryBrowserViewDataSource(
                 sourceEntryId = todo.source?.entryId,
             )
         }
+    }
+
+    override suspend fun listLogs(
+        filter: BrowserViewLogFilter,
+        request: BrowserViewPageRequest,
+    ): BrowserViewPage<BrowserViewLog> {
+        val repository = trackingLogs ?: return BrowserViewPage(emptyList(), false)
+        val kind = when (filter) {
+            BrowserViewLogFilter.MEALS -> LogKind.MEAL
+            BrowserViewLogFilter.RECIPES -> LogKind.RECIPE
+            BrowserViewLogFilter.WORKOUTS -> LogKind.WORKOUT
+            BrowserViewLogFilter.ARCHIVED -> null
+        }
+        val records = repository.listLogs(
+            kind = kind,
+            archived = filter == BrowserViewLogFilter.ARCHIVED,
+            limit = request.limit + 1,
+            offset = request.offset,
+        )
+        return records.toPage(request.limit) { record -> record.toBrowserViewLog() }
     }
 
     override suspend fun metadataInsights(request: BrowserViewPageRequest): BrowserViewInsights {
@@ -574,6 +709,81 @@ class RepositoryBrowserViewDataSource(
         return label.toGraphLabel(GRAPH_LABEL_CHARACTERS)
     }
 
+    private fun LogRecord.toBrowserViewLog(): BrowserViewLog = BrowserViewLog(
+        id = id,
+        kind = when (kind) {
+            LogKind.MEAL -> BrowserViewLogKind.MEAL
+            LogKind.RECIPE -> BrowserViewLogKind.RECIPE
+            LogKind.WORKOUT -> BrowserViewLogKind.WORKOUT
+        },
+        title = title,
+        note = note,
+        occurredAt = occurredAt,
+        occurredLabel = LOG_TIME_FORMATTER.withZone(zoneId).format(occurredAt),
+        sourceDate = source?.noteDate,
+        foods = foods.map { food ->
+            BrowserViewFoodItem(
+                name = food.name,
+                quantity = food.quantity?.let { quantity ->
+                    "${quantity.compact()} ${food.unit?.shortName().orEmpty()}".trim()
+                },
+                nutrition = food.nutrition?.let { nutrition ->
+                    val energy = nutrition.energyKcal
+                    val minimum = nutrition.energyKcalMin
+                    val maximum = nutrition.energyKcalMax
+                    when {
+                        energy != null -> "${energy.compact()} kcal"
+                        minimum != null && maximum != null ->
+                            "${minimum.compact()}–${maximum.compact()} kcal"
+                        else -> null
+                    }
+                },
+                provenance = food.nutrition?.let { nutrition ->
+                    "${nutrition.basis.displayName()} · ${nutrition.source.displayName()}"
+                },
+            )
+        },
+        exercises = exercises.map { exercise ->
+            BrowserViewWorkoutExercise(
+                name = exercise.name,
+                machine = exercise.machine,
+                sets = exercise.sets.map { set ->
+                    buildList {
+                        set.repetitions?.let { add("$it ${logCopy.repetitions}") }
+                        set.weightKilograms?.let { add("${it.compact()} kg") }
+                        set.durationSeconds?.let { add("$it ${logCopy.seconds}") }
+                    }.joinToString(" · ")
+                },
+            )
+        },
+        revisionCount = revision + 1,
+        archived = archivedAt != null,
+    )
+
+    private fun Double.compact(): String = BigDecimal.valueOf(this).stripTrailingZeros().toPlainString()
+
+    private fun FoodQuantityUnit.shortName(): String = when (this) {
+        FoodQuantityUnit.GRAM -> "g"
+        FoodQuantityUnit.MILLILITRE -> "ml"
+        FoodQuantityUnit.PIECE -> logCopy.piece
+        FoodQuantityUnit.SERVING -> logCopy.serving
+    }
+
+    private fun NutritionBasis.displayName(): String = when (this) {
+        NutritionBasis.PACKAGE_LABEL -> logCopy.packageLabel
+        NutritionBasis.OFFICIAL_AVERAGE -> logCopy.officialAverage
+        NutritionBasis.ESTIMATED -> logCopy.estimate
+        NutritionBasis.UNQUANTIFIED -> logCopy.unquantified
+    }
+
+    private fun NutritionSource.displayName(): String = when (this) {
+        NutritionSource.USER -> logCopy.user
+        NutritionSource.OPEN_FOOD_FACTS -> "Open Food Facts"
+        NutritionSource.FINELI -> "Fineli"
+        NutritionSource.CIQUAL -> "Ciqual"
+        NutritionSource.AI_ESTIMATE -> logCopy.aiEstimate
+    }
+
     private fun String.toGraphLabel(maximumCharacters: Int): String {
         val normalized = replace(WHITESPACE, " ").trim()
         return if (normalized.length <= maximumCharacters) {
@@ -598,6 +808,7 @@ class RepositoryBrowserViewDataSource(
             EntryTranscriptionState.QUEUED,
             EntryTranscriptionState.RUNNING,
         )
+        val LOG_TIME_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
     }
 }
 
@@ -699,21 +910,33 @@ class BrowserViewController(
                 return@withContext BrowserViewStartResult.NotStarted(BrowserViewStartFailure.CANCELLED)
             }
 
-            val candidate = LanBrowserServer(
+            val forest = nextForestBackground()
+            fun serverFor(port: Int) = LanBrowserServer(
                 config = LanServerConfig(
                     bindAddress = address,
+                    port = port,
                     lightMode = lightMode,
                     exportEnabled = exportEnabled,
                     languageTag = languageTag,
+                    forestBackground = forest,
                 ),
                 dataSource = lanDataSource,
                 stateListener = LanServerStateListener { lanState -> onLanState(token, lanState) },
             )
+            var candidate = serverFor(PREFERRED_PORT)
             val lanEndpoint = try {
                 candidate.start()
             } catch (_: Exception) {
+                // A predictable bookmark-friendly port is preferred. Another local
+                // process may own it, so capture must not be blocked by that collision.
                 candidate.close()
-                return@withContext failStart(token, BrowserViewStartFailure.BIND_FAILED)
+                candidate = serverFor(0)
+                try {
+                    candidate.start()
+                } catch (_: Exception) {
+                    candidate.close()
+                    return@withContext failStart(token, BrowserViewStartFailure.BIND_FAILED)
+                }
             }
             val endpoint = lanEndpoint.toBrowserEndpoint()
             val accepted = synchronized(lock) {
@@ -818,6 +1041,16 @@ class BrowserViewController(
         url = url,
         accessCode = accessCode,
     )
+
+    private companion object {
+        const val PREFERRED_PORT = 8787
+        val forestSequence = AtomicInteger((System.nanoTime() and Int.MAX_VALUE.toLong()).toInt())
+
+        fun nextForestBackground(): ForestBackground {
+            val all = ForestBackground.entries
+            return all[Math.floorMod(forestSequence.getAndIncrement(), all.size)]
+        }
+    }
 }
 
 private class LanDataSourceAdapter(
@@ -883,6 +1116,42 @@ private class LanDataSourceAdapter(
                 },
                 sourceDate = todo.sourceDate,
                 sourceEntryId = todo.sourceEntryId,
+            )
+        }
+    }
+
+    override fun listLogs(
+        filter: BrowserLogFilter,
+        request: PageRequest,
+    ): PagedResult<BrowserLog> {
+        val browserFilter = when (filter) {
+            BrowserLogFilter.MEALS -> BrowserViewLogFilter.MEALS
+            BrowserLogFilter.RECIPES -> BrowserViewLogFilter.RECIPES
+            BrowserLogFilter.WORKOUTS -> BrowserViewLogFilter.WORKOUTS
+            BrowserLogFilter.ARCHIVED -> BrowserViewLogFilter.ARCHIVED
+        }
+        val page = await { delegate.listLogs(browserFilter, request.toBrowserRequest()) }
+        return page.toLanResult(request) { log ->
+            BrowserLog(
+                id = log.id,
+                kind = when (log.kind) {
+                    BrowserViewLogKind.MEAL -> BrowserLogKind.MEAL
+                    BrowserViewLogKind.RECIPE -> BrowserLogKind.RECIPE
+                    BrowserViewLogKind.WORKOUT -> BrowserLogKind.WORKOUT
+                },
+                title = log.title,
+                note = log.note,
+                occurredAt = log.occurredAt,
+                occurredLabel = log.occurredLabel,
+                sourceDate = log.sourceDate,
+                foods = log.foods.map { food ->
+                    BrowserFoodItem(food.name, food.quantity, food.nutrition, food.provenance)
+                },
+                exercises = log.exercises.map { exercise ->
+                    BrowserWorkoutExercise(exercise.name, exercise.machine, exercise.sets)
+                },
+                revisionCount = log.revisionCount,
+                archived = log.archived,
             )
         }
     }

@@ -6,6 +6,7 @@ import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.TodoState
 import com.soma.core.repository.DailyNoteRepository
 import com.soma.core.repository.EntryMetadataRepository
+import com.soma.core.repository.TrackingLogRepository
 import com.soma.core.repository.TodoRepository
 import com.soma.voice.AudioWrappingKeyProvider
 import com.soma.voice.EncryptedAudioReader
@@ -185,8 +186,10 @@ class RepositoryBrowserViewDataSource(
     private val audioProvider: BrowserViewAudioProvider = BrowserViewAudioProvider.NONE,
     private val imageProvider: BrowserViewImageProvider = BrowserViewImageProvider.NONE,
     @Suppress("UNUSED_PARAMETER") private val metadata: EntryMetadataRepository? = null,
+    @Suppress("UNUSED_PARAMETER") private val trackingLogs: TrackingLogRepository? = null,
     private val zoneId: ZoneId = ZoneId.systemDefault(),
     private val today: () -> LocalDate = { LocalDate.now(zoneId) },
+    @Suppress("UNUSED_PARAMETER") languageTag: String = "en",
 ) : BrowserViewDataSource {
     override suspend fun listDays(request: BrowserViewPageRequest): BrowserViewPage<BrowserViewDay> {
         val notes = notes.listBeforeOrOn(

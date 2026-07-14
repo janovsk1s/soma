@@ -63,12 +63,32 @@ class LanBrowserServerTest {
         val darkServer = server(FakeDataSource())
         val darkPage = request(darkServer.start(), "GET", "/")
         assertTrue(darkPage.text.contains("color-scheme:dark"))
-        assertTrue(darkPage.text.contains("--paper:#000;--ink:#fff;--dim:#888"))
+        assertTrue(darkPage.text.contains("--paper:#000;--ink:#fff;--dim:#aaa"))
+        assertTrue(darkPage.text.contains("url('/assets/forest.webp')"))
 
         val lightServer = server(FakeDataSource(), lightMode = true)
         val lightPage = request(lightServer.start(), "GET", "/")
         assertTrue(lightPage.text.contains("color-scheme:light"))
         assertTrue(lightPage.text.contains("--paper:#fff;--ink:#000;--dim:#555"))
+
+        val latvianServer = server(FakeDataSource(), languageTag = "lv")
+        val latvianPage = request(latvianServer.start(), "GET", "/")
+        assertTrue(latvianPage.text.contains("Piekļuves kods"))
+        assertTrue(latvianPage.text.contains("Turpināt"))
+        assertTrue(latvianPage.text.contains("input:focus-visible"))
+    }
+
+    @Test
+    fun `bundled session forest is available before login without an external origin`() {
+        val server = server(FakeDataSource())
+        val endpoint = server.start()
+
+        val page = request(endpoint, "GET", "/")
+        assertTrue(page.headers.getValue("content-security-policy").contains("img-src 'self'"))
+        val forest = request(endpoint, "GET", "/assets/forest.webp")
+        assertEquals(200, forest.status)
+        assertEquals("image/webp", forest.headers["content-type"])
+        assertTrue(forest.body.size > 10_000)
     }
 
     @Test
@@ -209,6 +229,39 @@ class LanBrowserServerTest {
 
         val attemptedWrite = request(endpoint, "POST", "/todos", cookie = cookie)
         assertEquals(405, attemptedWrite.status)
+    }
+
+    @Test
+    fun `logs are localized escaped read only and page five confirmed records`() {
+        val date = LocalDate.of(2026, 7, 14)
+        val logs = (1..6).map { index ->
+            BrowserLog(
+                id = "log-$index",
+                kind = BrowserLogKind.WORKOUT,
+                title = if (index == 1) "<script>Leg press</script>" else "Workout $index",
+                note = "Calm session",
+                occurredAt = Instant.parse("2026-07-14T10:15:30Z"),
+                occurredLabel = "2026-07-14 12:15",
+                sourceDate = date,
+                exercises = listOf(BrowserWorkoutExercise("Leg press", "Machine 4", listOf("10 reps · 80 kg"))),
+                revisionCount = 2,
+            )
+        }
+        val data = FakeDataSource(logs = logs, ignoreRequestedLimit = true)
+        val server = server(data, languageTag = "lv")
+        val endpoint = server.start()
+        val cookie = authenticate(endpoint).cookie
+
+        val page = request(endpoint, "GET", "/logs?kind=workout", cookie = cookie)
+        assertEquals(200, page.status)
+        assertEquals(5, Regex("class=\"entry log-entry\"").findAll(page.text).count())
+        assertFalse(page.text.contains("Workout 6"))
+        assertFalse(page.text.contains("<script>Leg press</script>"))
+        assertTrue(page.text.contains("&lt;script&gt;Leg press&lt;/script&gt;"))
+        assertTrue(page.text.contains("Treniņi"))
+        assertTrue(page.text.contains("Svarīgais"))
+        assertTrue(page.text.contains("10 reps · 80 kg"))
+        assertEquals(405, request(endpoint, "POST", "/logs", cookie = cookie).status)
     }
 
     @Test
@@ -611,6 +664,7 @@ class LanBrowserServerTest {
         private val days: List<BrowserDay> = emptyList(),
         private val entries: List<BrowserEntry> = emptyList(),
         private val todos: List<BrowserTodo> = emptyList(),
+        private val logs: List<BrowserLog> = emptyList(),
         private val audio: ByteArray? = null,
         private val image: ByteArray? = null,
         private val ignoreRequestedLimit: Boolean = false,
@@ -653,6 +707,11 @@ class LanBrowserServerTest {
             filter: BrowserTodoFilter,
             request: PageRequest,
         ): PagedResult<BrowserTodo> = PagedResult(page(todos, request), todos.size)
+
+        override fun listLogs(
+            filter: BrowserLogFilter,
+            request: PageRequest,
+        ): PagedResult<BrowserLog> = PagedResult(page(logs, request), logs.size)
 
         override fun metadataInsights(request: PageRequest): BrowserInsights = insights.copy(
             connections = PagedResult(

@@ -130,6 +130,7 @@
     <string name="browser_connected">pripojené</string>
     <string name="browser_waiting">čaká sa na pripojenie</string>
     <string name="browser_security_note">Iba na čítanie. Zastaví sa po opustení tejto obrazovky alebo po 15 minútach nečinnosti.</string>
+    <string name="browser_stable_address_note">Soma zvyčajne opakovane používa port 8787. Adresa telefónu sa však môže zmeniť, keď ho smerovač znova pripojí.</string>
     <string name="browser_starting">spúšťa sa…</string>
     <string name="browser_start_failed">Zobrazenie v prehliadači sa nepodarilo spustiť.</string>
     <string name="browser_stopped">Zobrazenie v prehliadači bolo zastavené.</string>

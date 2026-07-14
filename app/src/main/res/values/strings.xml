@@ -189,6 +189,7 @@
     <string name="browser_connected">connected</string>
     <string name="browser_waiting">waiting for connection</string>
     <string name="browser_security_note">Read-only. Stops when you leave this screen or after 15 minutes idle.</string>
+    <string name="browser_stable_address_note">Soma normally reuses port 8787. The phone address can still change when the router reconnects it.</string>
     <string name="browser_starting">starting…</string>
     <string name="browser_start_failed">Browser view could not start.</string>
     <string name="browser_stopped">Browser view stopped.</string>

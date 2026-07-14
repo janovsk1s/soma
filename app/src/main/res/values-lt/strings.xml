@@ -130,6 +130,7 @@
     <string name="browser_connected">prisijungta</string>
     <string name="browser_waiting">laukiama ryšio</string>
     <string name="browser_security_note">Tik skaityti. Sustabdoma išėjus iš šio ekrano arba po 15 minučių neveiklos.</string>
+    <string name="browser_stable_address_note">Soma paprastai pakartotinai naudoja 8787 prievadą. Telefonui vėl prisijungus prie maršrutizatoriaus, jo adresas vis tiek gali pasikeisti.</string>
     <string name="browser_starting">paleidžiama…</string>
     <string name="browser_start_failed">Nepavyko paleisti naršyklės rodinio.</string>
     <string name="browser_stopped">Naršyklės rodinys sustabdytas.</string>

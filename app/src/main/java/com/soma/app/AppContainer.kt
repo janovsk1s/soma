@@ -297,6 +297,21 @@ class InMemorySomaRepository private constructor(
     override suspend fun listAllLogs(): List<LogRecord> =
         trackingLogs.value.values.sortedWith(compareBy(LogRecord::occurredAt, LogRecord::id))
 
+    override suspend fun listLogs(
+        kind: LogKind?,
+        archived: Boolean,
+        limit: Int,
+        offset: Int,
+    ): List<LogRecord> {
+        require(limit > 0) { "Limit must be positive" }
+        require(offset >= 0) { "Offset must not be negative" }
+        return trackingLogs.value.values
+            .filter { (it.archivedAt != null) == archived && (kind == null || it.kind == kind) }
+            .sortedWith(compareByDescending<LogRecord> { it.occurredAt }.thenBy(LogRecord::id))
+            .drop(offset)
+            .take(limit)
+    }
+
     override suspend fun insert(log: LogRecord): Boolean = mutex.withLock {
         require(log.revision == 0L) { "A new tracking log must start at revision zero" }
         if (log.id in trackingLogs.value) return@withLock false

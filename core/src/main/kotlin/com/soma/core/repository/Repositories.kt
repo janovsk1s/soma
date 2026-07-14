@@ -101,6 +101,14 @@ interface TrackingLogRepository {
 
     suspend fun listAllLogs(): List<LogRecord>
 
+    /** Newest-first page used by read-only surfaces without decrypting the full archive. */
+    suspend fun listLogs(
+        kind: LogKind?,
+        archived: Boolean,
+        limit: Int,
+        offset: Int = 0,
+    ): List<LogRecord>
+
     /** Returns false rather than replacing a duplicate id. */
     suspend fun insert(log: LogRecord): Boolean
 

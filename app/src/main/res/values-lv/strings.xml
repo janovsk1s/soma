@@ -130,6 +130,7 @@
     <string name="browser_connected">savienots</string>
     <string name="browser_waiting">gaida savienojumu</string>
     <string name="browser_security_note">Tikai lasāms. Apstājas, kad pamet šo ekrānu vai pēc 15 minūšu dīkstāves.</string>
+    <string name="browser_stable_address_note">Soma parasti atkārtoti izmanto portu 8787. Tālruņa adrese var mainīties, kad maršrutētājs to pieslēdz no jauna.</string>
     <string name="browser_starting">sāk…</string>
     <string name="browser_start_failed">Pārlūka skatu neizdevās sākt.</string>
     <string name="browser_stopped">Pārlūka skats apturēts.</string>

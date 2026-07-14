@@ -56,6 +56,7 @@ class LanBrowserServer(
     private var wrongCodeAttempts = 0
     private var lastAuthenticatedActivity: Instant = Instant.EPOCH
     private val exportInProgress = AtomicBoolean(false)
+    private val forestAsset: ByteArray by lazy { ForestAssets.load(config.forestBackground) }
 
     /** Binds synchronously and returns the URL/code to display on the phone. */
     @Throws(IOException::class)
@@ -190,6 +191,16 @@ class LanBrowserServer(
             )
         }
 
+        // This is a bundled, non-user-specific image used by the login page too.
+        // Serving it before authentication does not expose any Soma data.
+        if (request.path == FOREST_ASSET_PATH) {
+            return if (request.method in READ_METHODS) {
+                DispatchResult(forestResponse())
+            } else {
+                DispatchResult(errorResponse(405, "Only reading is available."))
+            }
+        }
+
         if (request.path == "/auth") {
             if (request.method != "POST") {
                 return DispatchResult(
@@ -208,7 +219,9 @@ class LanBrowserServer(
                 markAuthenticatedActivity()
                 DispatchResult(redirect("/days"))
             } else {
-                DispatchResult(htmlResponse(200, HtmlRenderer.login(lightMode = config.lightMode)))
+                DispatchResult(
+                    htmlResponse(200, HtmlRenderer.login(lightMode = config.lightMode, languageTag = config.languageTag)),
+                )
             }
         }
 
@@ -226,6 +239,7 @@ class LanBrowserServer(
                 request.path == "/days" -> daysResponse(request)
                 request.path.startsWith("/day/") -> dayResponse(request)
                 request.path == "/todos" -> todosResponse(request)
+                request.path == "/logs" -> logsResponse(request)
                 request.path == "/insights" -> insightsResponse(request)
                 request.path == "/graph" -> graphResponse(request)
                 request.path.startsWith("/audio/") -> audioResponse(request)
@@ -296,14 +310,17 @@ class LanBrowserServer(
             )
         }
         return DispatchResult(
-            htmlResponse(401, HtmlRenderer.login("That code did not match.", config.lightMode)),
+            htmlResponse(
+                401,
+                HtmlRenderer.login("That code did not match.", config.lightMode, config.languageTag),
+            ),
         )
     }
 
     private fun daysResponse(request: HttpRequest): HttpResponse {
         val page = pageNumber(request)
         val result = dataSource.listDays(pageRequest(page)).bounded()
-        return htmlResponse(200, HtmlRenderer.days(page, result, config.lightMode))
+        return htmlResponse(200, HtmlRenderer.days(page, result, config.lightMode, config.languageTag))
     }
 
     private fun dayResponse(request: HttpRequest): HttpResponse {
@@ -317,7 +334,7 @@ class LanBrowserServer(
         val page = pageNumber(request)
         val result = dataSource.entriesForDay(date, pageRequest(page))?.bounded()
             ?: return errorResponse(404, "That day does not exist.")
-        return htmlResponse(200, HtmlRenderer.day(date, page, result, config.lightMode))
+        return htmlResponse(200, HtmlRenderer.day(date, page, result, config.lightMode, config.languageTag))
     }
 
     private fun todosResponse(request: HttpRequest): HttpResponse {
@@ -332,7 +349,25 @@ class LanBrowserServer(
         }
         val page = pageNumber(request)
         val result = dataSource.listTodos(filter, pageRequest(page)).bounded()
-        return htmlResponse(200, HtmlRenderer.todos(filter, page, result, config.lightMode))
+        return htmlResponse(200, HtmlRenderer.todos(filter, page, result, config.lightMode, config.languageTag))
+    }
+
+    private fun logsResponse(request: HttpRequest): HttpResponse {
+        val kindValues = request.query["kind"]
+        if (kindValues != null && kindValues.size != 1) throw HttpParseException(400, "One log kind is required")
+        val filter = when (kindValues?.singleOrNull()?.lowercase()) {
+            null, "meal" -> BrowserLogFilter.MEALS
+            "recipe" -> BrowserLogFilter.RECIPES
+            "workout" -> BrowserLogFilter.WORKOUTS
+            "archived" -> BrowserLogFilter.ARCHIVED
+            else -> throw HttpParseException(400, "Unknown log kind")
+        }
+        val page = pageNumber(request)
+        val result = dataSource.listLogs(filter, pageRequest(page)).bounded()
+        return htmlResponse(
+            200,
+            HtmlRenderer.logs(filter, page, result, config.lightMode, config.languageTag),
+        )
     }
 
     private fun insightsResponse(request: HttpRequest): HttpResponse {
@@ -381,7 +416,7 @@ class LanBrowserServer(
     private fun graphResponse(request: HttpRequest): HttpResponse {
         val page = pageNumber(request)
         val graph = dataSource.connectionGraph(pageRequest(page)).bounded()
-        return htmlResponse(200, HtmlRenderer.graph(page, graph, config.lightMode))
+        return htmlResponse(200, HtmlRenderer.graph(page, graph, config.lightMode, config.languageTag))
     }
 
     private fun audioResponse(request: HttpRequest): HttpResponse {
@@ -435,6 +470,12 @@ class LanBrowserServer(
             body = ResponseBody.Stream(resource.contentLength, 0, resource.openStream),
         )
     }
+
+    private fun forestResponse(): HttpResponse = secureResponse(
+        status = 200,
+        headers = mapOf("Content-Type" to "image/webp"),
+        body = ResponseBody.Bytes(forestAsset),
+    )
 
     private fun pageNumber(request: HttpRequest): Int {
         val values = request.query["page"] ?: return 1
@@ -659,11 +700,27 @@ class LanBrowserServer(
         const val MIN_IDLE_POLL_MILLIS = 25
         const val MAX_IDLE_POLL_MILLIS = 1_000
         const val MAX_PAGE_NUMBER = Int.MAX_VALUE / PAGE_SIZE
+        const val FOREST_ASSET_PATH = "/assets/forest.webp"
         val ACCESS_CODE = Regex("[0-9]{6}")
         val ALLOWED_METHODS = setOf("GET", "HEAD", "POST")
         val READ_METHODS = setOf("GET", "HEAD")
-        const val CSP = "default-src 'none'; style-src 'unsafe-inline'; media-src 'self'; " +
+        const val CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; media-src 'self'; " +
             "form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+    }
+}
+
+private object ForestAssets {
+    private const val MAX_FOREST_BYTES = 512 * 1024
+
+    fun load(background: ForestBackground): ByteArray {
+        val path = "/com/soma/lanserver/forest/${background.resourceName}"
+        val bytes = requireNotNull(ForestAssets::class.java.getResourceAsStream(path)) {
+            "Missing bundled forest background: ${background.resourceName}"
+        }.use { input -> input.readBytes() }
+        require(bytes.isNotEmpty() && bytes.size <= MAX_FOREST_BYTES) {
+            "Bundled forest background has an invalid size"
+        }
+        return bytes
     }
 }
 

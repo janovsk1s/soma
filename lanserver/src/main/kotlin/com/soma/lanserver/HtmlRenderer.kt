@@ -4,12 +4,20 @@ import java.time.LocalDate
 import kotlin.math.max
 
 internal object HtmlRenderer {
-    fun login(error: String? = null, lightMode: Boolean = false): String = page(
+    fun login(
+        error: String? = null,
+        lightMode: Boolean = false,
+        languageTag: String = "en",
+    ): String = page(
         title = "Browser view",
         navigation = false,
         lightMode = lightMode,
+        languageTag = languageTag,
         body = buildString {
-            append("<main><header><h1>Soma</h1><p>Browser view</p></header>")
+            val copy = BrowserWebCopy.forLanguage(languageTag)
+            append("<main><header><h1>Soma</h1><p>")
+            append(Html.escape(copy.browserView))
+            append("</p></header>")
             if (error != null) {
                 append("<p class=\"message\" role=\"alert\">")
                 append(Html.escape(error))
@@ -18,19 +26,25 @@ internal object HtmlRenderer {
             append(
                 """
                 <form method="post" action="/auth">
-                  <label for="code">Access code</label>
+                  <label for="code">${Html.escape(copy.accessCode)}</label>
                   <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required autofocus>
-                  <button type="submit">Continue</button>
+                  <button type="submit">${Html.escape(copy.continueLabel)}</button>
                 </form>
-                <p class="quiet">Use the one-time code shown on your phone.</p></main>
+                <p class="quiet">${Html.escape(copy.useCode)}</p></main>
                 """.trimIndent(),
             )
         },
     )
 
-    fun days(pageNumber: Int, result: PagedResult<BrowserDay>, lightMode: Boolean = false): String = page(
+    fun days(
+        pageNumber: Int,
+        result: PagedResult<BrowserDay>,
+        lightMode: Boolean = false,
+        languageTag: String = "en",
+    ): String = page(
         title = "Days",
         lightMode = lightMode,
+        languageTag = languageTag,
         body = buildString {
             append("<main><header><h1>Days</h1><p>Daily notes</p></header>")
             val days = result.items.take(PAGE_SIZE)
@@ -66,9 +80,11 @@ internal object HtmlRenderer {
         pageNumber: Int,
         result: PagedResult<BrowserEntry>,
         lightMode: Boolean = false,
+        languageTag: String = "en",
     ): String = page(
         title = date.toString(),
         lightMode = lightMode,
+        languageTag = languageTag,
         body = buildString {
             append("<main><header><a class=\"back\" href=\"/days\">← Days</a><h1>")
             append(Html.escape(date.toString()))
@@ -131,9 +147,11 @@ internal object HtmlRenderer {
         pageNumber: Int,
         result: PagedResult<BrowserTodo>,
         lightMode: Boolean = false,
+        languageTag: String = "en",
     ): String = page(
         title = "Todos",
         lightMode = lightMode,
+        languageTag = languageTag,
         body = buildString {
             append("<main><header><h1>Todos</h1><p>")
             append(if (filter == BrowserTodoFilter.OPEN) "Still open" else "Done / archived")
@@ -172,6 +190,104 @@ internal object HtmlRenderer {
         },
     )
 
+    fun logs(
+        filter: BrowserLogFilter,
+        pageNumber: Int,
+        result: PagedResult<BrowserLog>,
+        lightMode: Boolean = false,
+        languageTag: String = "en",
+    ): String {
+        val copy = BrowserWebCopy.forLanguage(languageTag)
+        val selectedLabel = when (filter) {
+            BrowserLogFilter.MEALS -> copy.meals
+            BrowserLogFilter.RECIPES -> copy.recipes
+            BrowserLogFilter.WORKOUTS -> copy.workouts
+            BrowserLogFilter.ARCHIVED -> copy.archived
+        }
+        return page(
+            title = copy.logs,
+            lightMode = lightMode,
+            languageTag = languageTag,
+            body = buildString {
+                append("<main><header><h1>").append(Html.escape(copy.logs)).append("</h1><p>")
+                    .append(Html.escape(copy.confirmedRecords)).append(" · ")
+                    .append(Html.escape(selectedLabel)).append("</p></header>")
+                append("<nav class=\"tabs\" aria-label=\"").append(Html.escape(copy.logs)).append("\">")
+                tab(copy.meals, "/logs?kind=meal", filter == BrowserLogFilter.MEALS)
+                tab(copy.recipes, "/logs?kind=recipe", filter == BrowserLogFilter.RECIPES)
+                tab(copy.workouts, "/logs?kind=workout", filter == BrowserLogFilter.WORKOUTS)
+                tab(copy.archived, "/logs?kind=archived", filter == BrowserLogFilter.ARCHIVED)
+                append("</nav>")
+                val logs = result.items.take(PAGE_SIZE)
+                if (logs.isEmpty()) {
+                    append("<p class=\"empty\">").append(Html.escape(copy.noLogs)).append("</p>")
+                } else {
+                    append("<ol class=\"list log-list\">")
+                    logs.forEach { log ->
+                        append("<li><article class=\"entry log-entry\"><header class=\"log-header\"><h2>")
+                            .append(Html.escape(log.title)).append("</h2><time datetime=\"")
+                            .append(Html.escape(log.occurredAt.toString())).append("\">")
+                            .append(Html.escape(log.occurredLabel)).append("</time></header>")
+                        if (log.note.isNotBlank()) {
+                            append("<p class=\"log-note\">").append(Html.escape(log.note)).append("</p>")
+                        }
+                        if (log.foods.isNotEmpty()) {
+                            append("<ul class=\"log-parts\">")
+                            log.foods.forEach { food ->
+                                append("<li><span><strong>").append(Html.escape(food.name)).append("</strong>")
+                                food.quantity?.let { append(" <span class=\"quiet\">").append(Html.escape(it)).append("</span>") }
+                                append("</span>")
+                                if (food.nutrition != null || food.provenance != null) {
+                                    append("<small>")
+                                    listOfNotNull(food.nutrition, food.provenance).forEachIndexed { index, value ->
+                                        if (index > 0) append(" · ")
+                                        append(Html.escape(value))
+                                    }
+                                    append("</small>")
+                                }
+                                append("</li>")
+                            }
+                            append("</ul>")
+                        }
+                        if (log.exercises.isNotEmpty()) {
+                            append("<ul class=\"log-parts\">")
+                            log.exercises.forEach { exercise ->
+                                append("<li><strong>").append(Html.escape(exercise.name)).append("</strong>")
+                                exercise.machine?.let { machine ->
+                                    append(" <span class=\"quiet\">· ").append(Html.escape(machine)).append("</span>")
+                                }
+                                exercise.sets.forEachIndexed { index, set ->
+                                    append("<small>").append(index + 1).append(" · ").append(Html.escape(set)).append("</small>")
+                                }
+                                append("</li>")
+                            }
+                            append("</ul>")
+                        }
+                        append("<footer class=\"log-footer\">")
+                        log.sourceDate?.let { sourceDate ->
+                            append("<a href=\"/day/").append(Html.pathSegment(sourceDate.toString())).append("\">")
+                                .append(Html.escape(copy.sourceNote)).append("</a>")
+                        }
+                        if (log.revisionCount > 1) {
+                            append("<span>").append(log.revisionCount).append(' ')
+                                .append(Html.escape(copy.versions)).append("</span>")
+                        }
+                        append("</footer></article></li>")
+                    }
+                    append("</ol>")
+                }
+                val base = when (filter) {
+                    BrowserLogFilter.MEALS -> "/logs?kind=meal"
+                    BrowserLogFilter.RECIPES -> "/logs?kind=recipe"
+                    BrowserLogFilter.WORKOUTS -> "/logs?kind=workout"
+                    BrowserLogFilter.ARCHIVED -> "/logs?kind=archived"
+                }
+                append(pager(base, pageNumber, result.totalCount, hasQuery = true))
+                append("</main>")
+            },
+        )
+    }
+
     fun insights(
         pageNumber: Int,
         insights: BrowserInsights,
@@ -181,6 +297,7 @@ internal object HtmlRenderer {
     ): String = page(
         title = "Insights",
         lightMode = lightMode,
+        languageTag = languageTag,
         body = buildString {
             append("<main><header><h1>Insights</h1><p>Local metadata only</p></header>")
             if (exportEnabled) {
@@ -248,9 +365,11 @@ internal object HtmlRenderer {
         pageNumber: Int,
         result: PagedResult<BrowserGraphEdge>,
         lightMode: Boolean = false,
+        languageTag: String = "en",
     ): String = page(
         title = "Graph",
         lightMode = lightMode,
+        languageTag = languageTag,
         body = buildString {
             append("<main><header><h1>Graph</h1><p>Local connections · five per page</p></header>")
             val edges = result.items.take(PAGE_SIZE)
@@ -414,6 +533,7 @@ internal object HtmlRenderer {
         lightMode: Boolean = false,
         languageTag: String = "en",
     ): String = buildString {
+        val copy = BrowserWebCopy.forLanguage(languageTag)
         append("<!doctype html><html lang=\"")
         append(Html.escape(ExportCopy.supportedLanguageTag(languageTag)))
         append("\"><head><meta charset=\"utf-8\">")
@@ -425,41 +545,117 @@ internal object HtmlRenderer {
         append(STYLES)
         append("</style></head><body>")
         if (navigation) {
-            append(
-                "<nav class=\"primary\" aria-label=\"Main\">" +
-                    "<a href=\"/days\">Days</a><a href=\"/todos\">Todos</a>" +
-                    "<a href=\"/insights\">Insights</a><a href=\"/graph\">Graph</a></nav>",
-            )
+            append("<nav class=\"primary\" aria-label=\"Main\"><a href=\"/days\">")
+                .append(Html.escape(copy.days)).append("</a><a href=\"/todos\">")
+                .append(Html.escape(copy.important)).append("</a><a href=\"/logs\">")
+                .append(Html.escape(copy.logs)).append("</a><a href=\"/insights\">")
+                .append(Html.escape(copy.insights)).append("</a><a href=\"/graph\">")
+                .append(Html.escape(copy.graph)).append("</a></nav>")
         }
         append(body)
         append("</body></html>")
     }
 
-    private const val DARK_THEME = ":root{color-scheme:dark;--paper:#000;--ink:#fff;--dim:#888}"
-    private const val LIGHT_THEME = ":root{color-scheme:light;--paper:#fff;--ink:#000;--dim:#555}"
+    private const val DARK_THEME = ":root{color-scheme:dark;--paper:#000;--ink:#fff;--dim:#aaa;--line:rgba(255,255,255,.24);--surface:rgba(0,0,0,.88);--forest-opacity:.58}"
+    private const val LIGHT_THEME = ":root{color-scheme:light;--paper:#fff;--ink:#000;--dim:#555;--line:rgba(0,0,0,.25);--surface:rgba(255,255,255,.91);--forest-opacity:.22}"
 
     private const val STYLES = """
-        *{box-sizing:border-box}html{font-family:"Akkurat LL","Helvetica Neue",Arial,sans-serif;color:var(--ink);background:var(--paper)}
-        body{margin:0;font-size:18px;line-height:1.35}main,.primary{width:min(100%,760px);margin:0 auto;padding:24px}
-        .primary{display:flex;gap:32px;padding-top:18px;padding-bottom:18px}
-        a{color:var(--ink);text-decoration:underline;text-underline-offset:3px}header{padding:20px 0 24px}
+        *{box-sizing:border-box}html{font-family:"Akkurat LL","Helvetica Neue",Arial,sans-serif;color:var(--ink);background:#000}
+        body{margin:0;min-height:100vh;font-size:18px;line-height:1.4;background:var(--paper)}body:before{content:"";position:fixed;inset:0;background:url('/assets/forest.webp') center/cover no-repeat;filter:grayscale(1) contrast(1.08);opacity:var(--forest-opacity);pointer-events:none}
+        main,.primary{position:relative;z-index:1;width:min(calc(100% - 32px),820px);margin:0 auto;padding:24px;background:var(--surface)}
+        main{min-height:calc(100vh - 76px);padding-top:34px;padding-bottom:42px}.primary{position:sticky;top:0;z-index:2;display:flex;gap:30px;padding-top:20px;padding-bottom:20px;border-bottom:1px solid var(--line);white-space:nowrap;overflow-x:auto}
+        a{color:var(--ink);text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}header{padding:18px 0 26px}
         h1{font-size:32px;line-height:1.1;margin:8px 0}header p,.quiet,small{color:var(--dim)}.back{display:inline-block;margin-bottom:16px}
-        .list{list-style:none;margin:0;padding:0}.list>li{min-height:92px}
+        .list{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}.list>li{min-height:92px;border-bottom:1px solid var(--line)}
         .row,.entry{display:flex;width:100%;min-height:92px;padding:18px 0;justify-content:space-between;gap:24px;align-items:center}
         .row{text-decoration:none}.row small{display:block;margin-top:5px}.count{font-variant-numeric:tabular-nums}
         .entry{display:block}.entry p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}.entry small{display:block;margin-top:10px}
         .history{margin-top:18px}.history summary{cursor:pointer;color:var(--dim)}.history ol{margin:14px 0 0;padding-left:24px}.history li{padding:10px 0}.history li p{margin-top:5px}
         audio{display:block;width:100%;margin-top:14px}.entry img{display:block;width:100%;height:auto;max-height:520px;object-fit:contain;margin-top:14px}.empty{padding:36px 0}
         .pager{display:grid;grid-template-columns:1fr auto 1fr;gap:20px;padding:28px 0;align-items:center}.pager>*:last-child{text-align:right}
-        .tabs{display:flex;gap:24px;margin-bottom:20px}.tabs [aria-current=page]{font-weight:bold;text-decoration-thickness:2px}
+        .tabs{display:flex;gap:24px;margin-bottom:28px;padding-bottom:4px;overflow-x:auto;white-space:nowrap}.tabs [aria-current=page]{font-weight:bold;text-decoration-thickness:2px}
+        .log-header{display:flex;justify-content:space-between;align-items:baseline;gap:20px;padding:0}.log-header h2{margin:0;font-size:22px}.log-header time{color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}.log-note{margin-top:12px!important}.log-parts{list-style:none;margin:18px 0 0;padding:0}.log-parts>li{padding:10px 0;border-top:1px solid var(--line)}.log-parts small{display:block;margin-top:5px}.log-footer{display:flex;justify-content:space-between;gap:20px;margin-top:18px;color:var(--dim);font-size:14px}.log-footer:empty{display:none}
         h2{font-size:22px;margin:34px 0 10px}.summary{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin:0}.summary div{min-width:0}.summary dt{color:var(--dim);font-size:14px}.summary dd{font-size:24px;margin:3px 0 0;font-variant-numeric:tabular-nums}
         .connection-graph{display:block;width:100%;height:auto;overflow:visible}.connection-graph circle{fill:var(--ink)}.edge-line{stroke:var(--dim);stroke-width:2}.node-label{fill:var(--ink);font-size:18px;font-weight:bold}.node-detail,.edge-source{fill:var(--dim);font-size:14px}.edge-label{fill:var(--ink);font-size:14px}.connection-graph a{text-decoration:underline}.graph-note{margin-top:18px}
         form{border-top:2px solid var(--ink);padding-top:24px}label{display:block;margin-bottom:8px}input,button{font:inherit;border:2px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:0;padding:12px}
-        input{width:100%;letter-spacing:.2em}button{width:100%;margin-top:16px;font-weight:bold}.message{border:2px solid var(--ink);padding:12px}
-        @media(max-width:520px){main,.primary{padding-left:18px;padding-right:18px}body{font-size:17px}.primary{gap:18px;overflow-x:auto}.summary{grid-template-columns:repeat(3,1fr)}}
+        input{width:100%;letter-spacing:.2em}input:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--ink);outline-offset:3px}button{width:100%;margin-top:16px;font-weight:bold}.message{border:2px solid var(--ink);padding:12px}
+        @media(max-width:520px){main,.primary{width:100%;padding-left:18px;padding-right:18px}body{font-size:17px}.primary{gap:20px}.summary{grid-template-columns:repeat(3,1fr)}.log-header{display:block}.log-header time{display:block;margin-top:6px}.log-footer{display:block}.log-footer>*{display:block;margin-top:8px}}
     """
 
     private const val GRAPH_EDGE_HEIGHT = 104
+}
+
+private data class BrowserWebCopy(
+    val days: String,
+    val important: String,
+    val logs: String,
+    val insights: String,
+    val graph: String,
+    val confirmedRecords: String,
+    val meals: String,
+    val recipes: String,
+    val workouts: String,
+    val archived: String,
+    val noLogs: String,
+    val sourceNote: String,
+    val versions: String,
+    val browserView: String,
+    val accessCode: String,
+    val continueLabel: String,
+    val useCode: String,
+) {
+    companion object {
+        fun forLanguage(languageTag: String): BrowserWebCopy = when (languageTag.substringBefore('-').lowercase()) {
+            "lv" -> BrowserWebCopy(
+                "Dienas", "Svarīgais", "Žurnāli", "Ieskati", "Grafiks",
+                "Apstiprināti ieraksti", "Ēdienreizes", "Receptes", "Treniņi", "Arhīvs",
+                "Te vēl nekas nav saglabāts.", "avota piezīme", "versijas",
+                "Pārlūka skats", "Piekļuves kods", "Turpināt", "Ievadi tālrunī redzamo vienreizējo kodu.",
+            )
+            "et" -> BrowserWebCopy(
+                "Päevad", "Oluline", "Logid", "Ülevaade", "Graafik",
+                "Kinnitatud kirjed", "Toidukorrad", "Retseptid", "Treeningud", "Arhiiv",
+                "Siin pole veel midagi salvestatud.", "lähtekirje", "versiooni",
+                "Brauserivaade", "Pääsukood", "Jätka", "Sisesta telefonis kuvatav ühekordne kood.",
+            )
+            "lt" -> BrowserWebCopy(
+                "Dienos", "Svarbu", "Žurnalai", "Įžvalgos", "Grafas",
+                "Patvirtinti įrašai", "Valgiai", "Receptai", "Treniruotės", "Archyvas",
+                "Čia dar nieko neišsaugota.", "šaltinio pastaba", "versijos",
+                "Naršyklės rodinys", "Prieigos kodas", "Tęsti", "Įveskite telefone rodomą vienkartinį kodą.",
+            )
+            "fi" -> BrowserWebCopy(
+                "Päivät", "Tärkeät", "Lokit", "Kooste", "Verkko",
+                "Vahvistetut kirjaukset", "Ateriat", "Reseptit", "Harjoitukset", "Arkisto",
+                "Ei vielä tallennettuja kirjauksia.", "lähdemuistiinpano", "versiota",
+                "Selainnäkymä", "Käyttökoodi", "Jatka", "Syötä puhelimessa näkyvä kertakäyttökoodi.",
+            )
+            "sv" -> BrowserWebCopy(
+                "Dagar", "Viktigt", "Loggar", "Insikter", "Graf",
+                "Bekräftade poster", "Måltider", "Recept", "Träning", "Arkiv",
+                "Inget sparat här ännu.", "källanteckning", "versioner",
+                "Webbläsarvy", "Åtkomstkod", "Fortsätt", "Ange engångskoden som visas på telefonen.",
+            )
+            "de" -> BrowserWebCopy(
+                "Tage", "Wichtig", "Protokolle", "Einblicke", "Graph",
+                "Bestätigte Einträge", "Mahlzeiten", "Rezepte", "Training", "Archiv",
+                "Noch nichts gespeichert.", "Quellnotiz", "Versionen",
+                "Browseransicht", "Zugangscode", "Weiter", "Gib den einmaligen Code vom Telefon ein.",
+            )
+            "sk" -> BrowserWebCopy(
+                "Dni", "Dôležité", "Záznamy", "Prehľad", "Graf",
+                "Potvrdené záznamy", "Jedlá", "Recepty", "Tréningy", "Archív",
+                "Zatiaľ tu nič nie je uložené.", "zdrojová poznámka", "verzie",
+                "Zobrazenie v prehliadači", "Prístupový kód", "Pokračovať", "Zadajte jednorazový kód zobrazený v telefóne.",
+            )
+            else -> BrowserWebCopy(
+                "Days", "Important", "Logs", "Insights", "Graph",
+                "Confirmed records", "Meals", "Recipes", "Workouts", "Archived",
+                "Nothing saved here yet.", "source note", "versions",
+                "Browser view", "Access code", "Continue", "Use the one-time code shown on your phone.",
+            )
+        }
+    }
 }
 
 private data class ExportCopy(

@@ -130,6 +130,7 @@
     <string name="browser_connected">ühendatud</string>
     <string name="browser_waiting">ühenduse ootel</string>
     <string name="browser_security_note">Kirjutuskaitstud. Peatub sellelt ekraanilt lahkudes või pärast 15 minutit tegevusetust.</string>
+    <string name="browser_stable_address_note">Soma kasutab tavaliselt uuesti porti 8787. Telefoni aadress võib ruuteri uuesti ühendamisel siiski muutuda.</string>
     <string name="browser_starting">käivitamine…</string>
     <string name="browser_start_failed">Brauserivaadet ei saanud käivitada.</string>
     <string name="browser_stopped">Brauserivaade peatatud.</string>

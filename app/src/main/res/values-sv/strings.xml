@@ -130,6 +130,7 @@
     <string name="browser_connected">ansluten</string>
     <string name="browser_waiting">väntar på anslutning</string>
     <string name="browser_security_note">Skrivskyddad. Stoppas när du lämnar den här vyn eller efter 15 minuters inaktivitet.</string>
+    <string name="browser_stable_address_note">Soma återanvänder normalt port 8787. Telefonens adress kan ändå ändras när routern ansluter den igen.</string>
     <string name="browser_starting">startar…</string>
     <string name="browser_start_failed">Webbläsarvyn kunde inte startas.</string>
     <string name="browser_stopped">Webbläsarvyn stoppades.</string>

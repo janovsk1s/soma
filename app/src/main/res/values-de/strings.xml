@@ -130,6 +130,7 @@
     <string name="browser_connected">verbunden</string>
     <string name="browser_waiting">wartet auf Verbindung</string>
     <string name="browser_security_note">Schreibgeschützt. Stoppt beim Verlassen dieser Ansicht oder nach 15 Minuten Inaktivität.</string>
+    <string name="browser_stable_address_note">Soma verwendet normalerweise Port 8787 erneut. Die Telefonadresse kann sich trotzdem ändern, wenn der Router es neu verbindet.</string>
     <string name="browser_starting">wird gestartet…</string>
     <string name="browser_start_failed">Browseransicht konnte nicht gestartet werden.</string>
     <string name="browser_stopped">Browseransicht wurde gestoppt.</string>

@@ -2,6 +2,39 @@
 
 Notable changes to Soma are documented here.
 
+## 0.1.0-preview.30 — 2026-07-14
+
+### Added
+
+- Browser view now includes authenticated, read-only meal, recipe, workout, and
+  archived-log pages. Records keep their source-note link, nutrition provenance,
+  workout sets, revision count, and five-per-page navigation.
+- Eight bundled monochrome forest landscapes represent Soma's current localized
+  countries. One background is selected for each Browser-view session and never
+  requires a remote image request.
+- Receipt and purchase tracking is now an explicit Soma 1.0 requirement, with
+  preserved receipt evidence, editable structured proposals, arithmetic checks,
+  revision history, export, and a read-only purchases page.
+
+### Changed
+
+- Browser view has a calmer, responsive monochrome reading surface with restrained
+  typography, flat separators, localized primary/log navigation, and no dashboard
+  decoration or JavaScript framework.
+- Access-code copy, food quantities, nutrition provenance, exercise repetitions,
+  and durations follow the selected Soma language instead of leaking English into
+  Latvian or the other localized Browser-view surfaces.
+- Soma prefers LAN port `8787` on every session so an address can usually be
+  bookmarked. It falls back automatically if that port is already occupied and
+  clearly notes that a router can still change the phone's IP address.
+
+### Security and performance
+
+- The forest is the only pre-authentication asset and is application-bundled with
+  no user data. All logs remain behind the one-time code and read-only session.
+- Log pages query only the five visible encrypted records plus one look-ahead row;
+  the server does not decrypt the full tracking archive.
+
 ## 0.1.0-preview.29 — 2026-07-14
 
 ### Added
