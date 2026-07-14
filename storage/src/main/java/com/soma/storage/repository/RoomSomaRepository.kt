@@ -184,7 +184,7 @@ class RoomSomaRepository(
             require(current.id == previous.id && current.noteDate == previous.noteDate) {
                 "An entry mutation cannot change identity or date"
             }
-            if (previous.kind == EntryKind.VOICE && current.kind == EntryKind.TEXT) {
+            if (previous.audio != null && current.audio == null) {
                 jobDao.deleteByEntryId(entryId)
             }
             check(entryDao.update(mapper.entryToEntity(current, existing.noteId, existing.revision + 1)) == 1) {

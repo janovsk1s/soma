@@ -98,7 +98,7 @@ internal class EntityMapper(
                 channelCount = requireNotNull(entity.audioChannelCount),
             )
         }
-        val transcription = if (kind == EntryKind.VOICE) {
+        val transcription = if (audio != null) {
             val state = EntryTranscriptionState.valueOf(entity.transcriptionState)
             val failure = entity.transcriptionFailureCode?.let { code ->
                 TranscriptionFailure(

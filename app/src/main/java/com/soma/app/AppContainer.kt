@@ -185,7 +185,7 @@ class InMemorySomaRepository private constructor(
             require(current.id == previous.id && current.noteDate == previous.noteDate) {
                 "An entry mutation cannot change identity or date"
             }
-            if (previous.kind == com.soma.core.model.EntryKind.VOICE && current.kind != com.soma.core.model.EntryKind.VOICE) {
+            if (previous.audio != null && current.audio == null) {
                 jobs.value = jobs.value.filterValues { it.entryId != entryId }
             }
             notes.value = notes.value + (

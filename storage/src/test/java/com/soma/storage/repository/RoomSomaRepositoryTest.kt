@@ -282,8 +282,16 @@ class RoomSomaRepositoryTest {
         assertEquals(image, transcribed.activeImage)
         assertEquals(audio, transcribed.activeAudio)
         assertEquals("Milchreis recipe", transcribed.text)
+        assertEquals(EntryTranscriptionState.SUCCEEDED, transcribed.transcription?.state)
+        assertEquals(TranscriptionProvenance.local(), transcribed.transcription?.provenance)
         assertEquals(start, transcribed.createdAt)
         assertNull(transcribed.lastUserEditedAt)
+
+        repository.mutateEntry(photo.id) { current ->
+            current.copy(audio = null, transcription = null)
+        }
+        assertNull(repository.getForEntry(photo.id))
+        assertEquals(image, repository.getEntry(photo.id)?.activeImage)
     }
 
     @Test
