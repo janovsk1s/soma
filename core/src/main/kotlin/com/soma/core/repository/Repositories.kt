@@ -2,6 +2,8 @@ package com.soma.core.repository
 
 import com.soma.core.model.DailyNote
 import com.soma.core.model.EntryRevision
+import com.soma.core.model.EntryMetadata
+import com.soma.core.model.MetadataSource
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.Todo
@@ -71,6 +73,18 @@ interface DailyNoteRepository {
 
     /** Dates within [from]..[to] whose note holds at least one entry, ascending. */
     suspend fun datesWithEntries(from: LocalDate, to: LocalDate): List<LocalDate>
+}
+
+interface EntryMetadataRepository {
+    /** Manual and AI layers for one entry, ordered by source for deterministic export. */
+    suspend fun forEntry(entryId: String): List<EntryMetadata>
+
+    suspend fun listAll(): List<EntryMetadata>
+
+    /** Replaces only [EntryMetadata.source]; manual metadata is never overwritten by AI. */
+    suspend fun upsert(metadata: EntryMetadata): Boolean
+
+    suspend fun delete(entryId: String, source: MetadataSource): Boolean
 }
 
 interface TodoRepository {

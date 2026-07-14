@@ -5,9 +5,11 @@ import com.soma.core.model.DailyNote
 import com.soma.core.model.AudioAttachment
 import com.soma.core.model.DEFAULT_TRANSCRIPTION_MAX_ATTEMPTS
 import com.soma.core.model.EntrySource
+import com.soma.core.model.EntryMetadata
 import com.soma.core.model.EntryRevision
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.ImportantKind
+import com.soma.core.model.MetadataSource
 import com.soma.core.model.ImageAttachment
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
@@ -24,6 +26,7 @@ import com.soma.core.model.TranscriptionInfo
 import com.soma.core.model.TranscriptionResult
 import com.soma.core.repository.DailyNoteRepository
 import com.soma.core.repository.EntryMutationResult
+import com.soma.core.repository.EntryMetadataRepository
 import com.soma.core.repository.StillOpenRepository
 import com.soma.core.repository.TodoRepository
 import com.soma.core.repository.TodoSuggestionRepository
@@ -51,6 +54,7 @@ data class SomaRepositories(
     val suggestions: TodoSuggestionRepository,
     val stillOpen: StillOpenRepository,
     val transcriptionJobs: TranscriptionJobRepository,
+    val metadata: EntryMetadataRepository,
 )
 
 class SomaApplication : Application() {
@@ -72,7 +76,7 @@ class SomaApplication : Application() {
 
     fun repositories(): SomaRepositories {
         val repository = if (SomaPrefs.demoMode(this)) demoRepository else realRepository
-        return SomaRepositories(repository, repository, repository, repository, repository)
+        return SomaRepositories(repository, repository, repository, repository, repository, repository)
     }
 
     fun regenerateDemo() {
@@ -97,6 +101,7 @@ class InMemorySomaRepository private constructor(
 ) : DailyNoteRepository,
     TodoRepository,
     TodoSuggestionRepository,
+    EntryMetadataRepository,
     StillOpenRepository,
     TranscriptionJobRepository {
     private val mutex = Mutex()
@@ -106,6 +111,7 @@ class InMemorySomaRepository private constructor(
     private val dismissals = MutableStateFlow<Map<LocalDate, StillOpenDismissal>>(emptyMap())
     private val jobs = MutableStateFlow<Map<String, TranscriptionJob>>(emptyMap())
     private val revisions = mutableMapOf<String, MutableList<EntryRevision>>()
+    private val metadata = mutableMapOf<Pair<String, MetadataSource>, EntryMetadata>()
 
     override suspend fun getOrCreate(date: LocalDate, createdAt: Instant): DailyNote = mutex.withLock {
         (notes.value[date] ?: DailyNote(date, createdAt).also { created ->
@@ -168,6 +174,26 @@ class InMemorySomaRepository private constructor(
     override suspend fun listEntryRevisions(entryId: String): List<EntryRevision> =
         revisions[entryId].orEmpty().toList()
 
+    override suspend fun forEntry(entryId: String): List<EntryMetadata> = metadata.values
+        .filter { it.entryId == entryId }
+        .sortedBy { it.source.name }
+
+    override suspend fun listAll(): List<EntryMetadata> = metadata.values
+        .sortedWith(compareBy(EntryMetadata::entryId, EntryMetadata::source))
+
+    override suspend fun upsert(metadata: EntryMetadata): Boolean = mutex.withLock {
+        val entryExists = notes.value.values.any { note ->
+            note.entries.any { it.id == metadata.entryId && !it.isDeleted }
+        }
+        if (!entryExists) return@withLock false
+        this.metadata[metadata.entryId to metadata.source] = metadata
+        true
+    }
+
+    override suspend fun delete(entryId: String, source: MetadataSource): Boolean = mutex.withLock {
+        metadata.remove(entryId to source) != null
+    }
+
     override suspend fun mutateEntry(
         entryId: String,
         transform: (NoteEntry) -> NoteEntry?,
@@ -181,6 +207,7 @@ class InMemorySomaRepository private constructor(
             suggestions.value = suggestions.value.filterValues { it.entryId != entryId }
             jobs.value = jobs.value.filterValues { it.entryId != entryId }
             revisions.remove(entryId)
+            metadata.keys.removeAll { it.first == entryId }
         } else {
             require(current.id == previous.id && current.noteDate == previous.noteDate) {
                 "An entry mutation cannot change identity or date"
@@ -201,6 +228,7 @@ class InMemorySomaRepository private constructor(
         notes.value = notes.value + (note.date to note.copy(entries = note.entries.filterNot { it.id == entryId }))
         suggestions.value = suggestions.value.filterValues { it.entryId != entryId }
         revisions.remove(entryId)
+        metadata.keys.removeAll { it.first == entryId }
         true
     }
 

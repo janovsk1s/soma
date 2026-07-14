@@ -97,6 +97,31 @@ data class EntryRevisionEntity(
 )
 
 @Entity(
+    tableName = "entry_metadata",
+    primaryKeys = ["entry_id", "source"],
+    foreignKeys = [
+        ForeignKey(
+            entity = EntryEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["entry_id"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [
+        Index(value = ["entry_id"]),
+        Index(value = ["source", "derived_at_millis"]),
+    ],
+)
+data class EntryMetadataEntity(
+    @ColumnInfo(name = "entry_id") val entryId: String,
+    @ColumnInfo(name = "source") val source: String,
+    @ColumnInfo(name = "tags_ciphertext", typeAffinity = ColumnInfo.BLOB) val tagsCiphertext: ByteArray,
+    @ColumnInfo(name = "links_ciphertext", typeAffinity = ColumnInfo.BLOB) val linksCiphertext: ByteArray,
+    @ColumnInfo(name = "crypto_version") val cryptoVersion: Int,
+    @ColumnInfo(name = "derived_at_millis") val derivedAtMillis: Long,
+)
+
+@Entity(
     tableName = "todos",
     foreignKeys = [
         ForeignKey(

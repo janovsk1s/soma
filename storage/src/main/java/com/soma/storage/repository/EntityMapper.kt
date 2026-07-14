@@ -3,10 +3,14 @@ package com.soma.storage.repository
 import com.soma.core.model.AudioAttachment
 import com.soma.core.model.AudioFormat
 import com.soma.core.model.EntryKind
+import com.soma.core.model.EntryLink
+import com.soma.core.model.EntryLinkKind
+import com.soma.core.model.EntryMetadata
 import com.soma.core.model.EntryRevision
 import com.soma.core.model.EntrySource
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.ImportantKind
+import com.soma.core.model.MetadataSource
 import com.soma.core.model.ImageAttachment
 import com.soma.core.model.ImageFormat
 import com.soma.core.model.NoteEntry
@@ -27,6 +31,7 @@ import com.soma.core.model.TranscriptionProvenance
 import com.soma.storage.crypto.StorageAad
 import com.soma.storage.crypto.TextCipher
 import com.soma.storage.db.EntryEntity
+import com.soma.storage.db.EntryMetadataEntity
 import com.soma.storage.db.EntryRevisionEntity
 import com.soma.storage.db.TodoEntity
 import com.soma.storage.db.TodoSuggestionEntity
@@ -35,6 +40,7 @@ import com.soma.storage.db.TranscriptionStateValue
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import java.util.Base64
 
 internal class EntityMapper(
     private val cipher: TextCipher,
@@ -299,6 +305,52 @@ internal class EntityMapper(
         editedAt = Instant.ofEpochMilli(entity.editedAtMillis),
     )
 
+    fun metadataToEntity(metadata: EntryMetadata): EntryMetadataEntity {
+        val id = metadataId(metadata.entryId, metadata.source)
+        val tags = metadata.tags.joinToString("\n")
+        val links = metadata.links.joinToString("\n") { link ->
+            listOf(
+                link.kind.name,
+                BASE64_ENCODER.encodeToString(link.target.encodeToByteArray()),
+                link.relation?.let { BASE64_ENCODER.encodeToString(it.encodeToByteArray()) }.orEmpty(),
+            ).joinToString("\t")
+        }
+        return EntryMetadataEntity(
+            entryId = metadata.entryId,
+            source = metadata.source.name,
+            tagsCiphertext = encrypt(id, ENTRY_METADATA_TAGS, tags),
+            linksCiphertext = encrypt(id, ENTRY_METADATA_LINKS, links),
+            cryptoVersion = CRYPTO_VERSION,
+            derivedAtMillis = metadata.derivedAt.toEpochMilli(),
+        )
+    }
+
+    fun metadataFromEntity(entity: EntryMetadataEntity): EntryMetadata {
+        val source = MetadataSource.valueOf(entity.source)
+        val id = metadataId(entity.entryId, source)
+        val tags = decrypt(id, ENTRY_METADATA_TAGS, entity.cryptoVersion, entity.tagsCiphertext)
+            .takeIf(String::isNotEmpty)?.split('\n').orEmpty()
+        val links = decrypt(id, ENTRY_METADATA_LINKS, entity.cryptoVersion, entity.linksCiphertext)
+            .takeIf(String::isNotEmpty)?.split('\n').orEmpty().map { encoded ->
+                val parts = encoded.split('\t')
+                require(parts.size == 3) { "Invalid encrypted entry link" }
+                EntryLink(
+                    kind = EntryLinkKind.valueOf(parts[0]),
+                    target = BASE64_DECODER.decode(parts[1]).decodeToString(),
+                    relation = parts[2].takeIf(String::isNotEmpty)
+                        ?.let(BASE64_DECODER::decode)
+                        ?.decodeToString(),
+                )
+            }
+        return EntryMetadata(
+            entryId = entity.entryId,
+            tags = tags,
+            links = links,
+            derivedAt = Instant.ofEpochMilli(entity.derivedAtMillis),
+            source = source,
+        )
+    }
+
     fun encryptEntryFailure(entryId: String, diagnostic: String): ByteArray =
         encrypt(entryId, ENTRY_TRANSCRIPTION_FAILURE, diagnostic)
 
@@ -319,15 +371,21 @@ internal class EntityMapper(
 
     private fun revisionId(entryId: String, revision: Long): String = "$entryId:$revision"
 
+    private fun metadataId(entryId: String, source: MetadataSource): String = "$entryId:${source.name}"
+
     companion object {
         const val CRYPTO_VERSION = 1
         private const val ENTRY_TEXT = "entry.text"
         private const val ENTRY_REVISION_TEXT = "entryRevision.text"
         private const val ENTRY_TRANSCRIPTION_FAILURE = "entry.transcriptionFailure"
+        private const val ENTRY_METADATA_TAGS = "entryMetadata.tags"
+        private const val ENTRY_METADATA_LINKS = "entryMetadata.links"
         private const val TODO_TEXT = "todo.text"
         private const val SUGGESTION_TEXT = "suggestion.text"
         private const val SUGGESTION_MATCHED_RULE = "suggestion.matchedRule"
         private const val JOB_LAST_FAILURE = "transcription.lastFailure"
+        private val BASE64_ENCODER = Base64.getUrlEncoder().withoutPadding()
+        private val BASE64_DECODER = Base64.getUrlDecoder()
     }
 }
 

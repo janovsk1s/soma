@@ -2,6 +2,8 @@ package com.soma.storage.backup
 
 import com.soma.core.model.DailyNote
 import com.soma.core.model.EntryKind
+import com.soma.core.model.EntryLinkKind
+import com.soma.core.model.EntryMetadata
 import com.soma.core.model.EntryRevision
 import com.soma.core.model.ImportantKind
 import com.soma.core.model.NoteEntry
@@ -27,6 +29,8 @@ class MarkdownVaultExporter(
     fun encode(snapshot: BackupSnapshot): ByteArray {
         val visible = snapshot.withoutDeletedContent()
         val revisions = visible.entryRevisions.groupBy(EntryRevision::entryId)
+        val metadata = visible.entryMetadata.groupBy(EntryMetadata::entryId)
+        val entryDates = visible.notes.flatMap(DailyNote::entries).associate { it.id to it.noteDate }
         val historyPaths = revisions.keys.associateWith { entryId ->
             val entry = visible.entry(entryId)
             "history/${entry.noteDate}-${entryToken(entryId)}.md"
@@ -66,7 +70,7 @@ class MarkdownVaultExporter(
             visible.notes.sortedBy(DailyNote::date).forEach { note ->
                 zip.putText(
                     "${note.date}.md",
-                    noteMarkdown(note, revisions, historyPaths, audioPaths, imagePaths),
+                    noteMarkdown(note, revisions, historyPaths, audioPaths, imagePaths, metadata, entryDates),
                 )
                 note.entries.forEach { entry ->
                     val earlier = revisions[entry.id].orEmpty().sortedBy(EntryRevision::revision)
@@ -109,6 +113,7 @@ class MarkdownVaultExporter(
         appendLine("Daily notes are the `YYYY-MM-DD.md` files in this folder.")
         appendLine("`Important.md` is a portable checklist linked back to source entries.")
         appendLine("`history/` preserves earlier wordings after deliberate edits.")
+        appendLine("Entry tags and links remain portable Obsidian tags and wikilinks.")
         appendLine("`media/` contains standard WAV recordings and JPEG originals when media was included.")
         appendLine()
         appendLine("Unzip this folder and open it as an Obsidian vault, a Logseq graph, or plain text.")
@@ -127,7 +132,8 @@ class MarkdownVaultExporter(
         appendLine("  \"importantCount\": ${snapshot.todos.size},")
         appendLine("  \"revisionCount\": ${snapshot.entryRevisions.size},")
         appendLine("  \"audioCount\": ${snapshot.audioContainers.size},")
-        appendLine("  \"imageCount\": ${snapshot.imageContainers.size}")
+        appendLine("  \"imageCount\": ${snapshot.imageContainers.size},")
+        appendLine("  \"metadataLayerCount\": ${snapshot.entryMetadata.size}")
         appendLine("}")
     }
 
@@ -137,13 +143,18 @@ class MarkdownVaultExporter(
         historyPaths: Map<String, String>,
         audioPaths: Map<String, String>,
         imagePaths: Map<String, String>,
+        metadataByEntry: Map<String, List<EntryMetadata>>,
+        entryDates: Map<String, java.time.LocalDate>,
     ): String = buildString {
         val lastEdited = note.entries.mapNotNull(NoteEntry::lastUserEditedAt).maxOrNull()
+        val noteTags = note.entries.flatMap { entry ->
+            metadataByEntry[entry.id].orEmpty().flatMap(EntryMetadata::tags)
+        }.distinct()
         appendLine("---")
         appendLine("date: ${quoted(note.date.toString())}")
         appendLine("created: ${quoted(note.createdAt.toString())}")
         appendLine("last_edited: ${lastEdited?.let { quoted(it.toString()) } ?: "null"}")
-        appendLine("tags: []")
+        appendLine("tags: [${noteTags.joinToString(", ", transform = ::quoted)}]")
         appendLine("soma_timezone: ${quoted(zoneId.id)}")
         appendLine("---")
         appendLine()
@@ -168,6 +179,24 @@ class MarkdownVaultExporter(
             if (entry.returnLater) {
                 appendLine()
                 appendLine("_Return later_")
+            }
+            val layers = metadataByEntry[entry.id].orEmpty()
+            val tags = layers.flatMap(EntryMetadata::tags).distinct()
+            val links = layers.flatMap(EntryMetadata::links).distinct()
+            if (tags.isNotEmpty() || links.isNotEmpty()) {
+                appendLine()
+                appendLine(
+                    (tags.map { "#$it" } + links.map { link ->
+                        when (link.kind) {
+                            EntryLinkKind.DATE -> "[[${link.target}]]"
+                            EntryLinkKind.TAG -> "#${link.target}"
+                            EntryLinkKind.ENTRY -> entryDates[link.target]?.let { targetDate ->
+                                val label = link.relation ?: "related entry"
+                                "[[$targetDate#^soma-${entryToken(link.target)}|$label]]"
+                            } ?: "`entry:${link.target}`"
+                        }
+                    }).distinct().joinToString(" "),
+                )
             }
             entry.transcription?.provenance?.let { provenance ->
                 appendLine()
@@ -286,7 +315,7 @@ class MarkdownVaultExporter(
     }
 
     private companion object {
-        const val FORMAT_VERSION = 2
+        const val FORMAT_VERSION = 3
         const val TOKEN_BYTES = 8
         // 1980-01-01T00:00:00Z stays inside the DOS timestamp range understood by old ZIP tools.
         const val FIXED_ZIP_TIME_MILLIS = 315_532_800_000L

@@ -28,21 +28,23 @@ backup.
 ## Assets
 
 The primary assets are note and transcript text, Important items and their source links,
-Important suggestions, voice recordings, photos, backup contents and passphrases, Android
-Keystore keys, and the temporary browser access code and session token.
+Important suggestions, additive metadata tags and links, voice recordings,
+photos, backup contents and passphrases, Android Keystore keys, and the temporary
+browser access code and session token.
 
 Dates, record counts, ordering, ids, state transitions, languages, timestamps,
-and media sizes are sensitive metadata but are not all encrypted in the Room
-database. Settings such as language and vibration are ordinary private app
+metadata source/derivation time, and media sizes are sensitive metadata but are
+not all encrypted in the Room database. Metadata tags and link values are
+encrypted. Settings such as language and vibration are ordinary private app
 preferences, not secret material.
 
 ## Trust boundaries and data flow
 
 1. Compose UI and background transcription handle plaintext inside the Soma
    process.
-2. The storage repository encrypts user-authored text before it crosses the
-   Room boundary. AES-GCM AAD binds ciphertext to its row, protected field, and
-   crypto version.
+2. The storage repository encrypts user-authored text and additive metadata
+   values before they cross the Room boundary. AES-GCM AAD binds ciphertext to
+   its row, protected field, source layer, and crypto version.
 3. Audio capture flows from `AudioRecord` directly into independently
    authenticated encrypted chunks. Playback and transcription decrypt streams
    in memory.
@@ -59,7 +61,7 @@ preferences, not secret material.
 
 ## At-rest controls and limitations
 
-Room text BLOBs, audio containers, and image containers use AES-256-GCM. The
+Room text and metadata BLOBs, audio containers, and image containers use AES-256-GCM. The
 production aliases are `soma_storage_text_v1`, `soma_audio_wrap_v1`, and
 `soma_image_wrap_v1`; separating them limits accidental
 cross-feature key reuse. Audio wrapping attempts StrongBox when available.
@@ -214,6 +216,12 @@ the recovery path, not a cloud fallback.
 Rule-based Important detection operates on plaintext in process and stores encrypted
 suggestions. A match never creates an item without the user's tap. False positives
 therefore create a dismissible suggestion, not an automatic commitment.
+
+Entry metadata is additive and cannot update `NoteEntry.text`, `createdAt`,
+`updatedAt`, or `lastUserEditedAt`. Manual and AI layers use separate primary
+keys; replacing an AI result therefore cannot overwrite manual organization.
+The metadata layer's source and derivation timestamp remain visible in Room,
+while its tags, targets, and relation labels are encrypted.
 
 ## Data loss and recovery
 

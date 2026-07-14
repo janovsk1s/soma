@@ -75,6 +75,23 @@ class SomaDatabaseTest {
                 reviewPromptedAtMillis = null,
             ),
         )
+        val metadataId = "entry-1:MANUAL"
+        database.entryMetadataDao().upsert(
+            EntryMetadataEntity(
+                entryId = "entry-1",
+                source = "MANUAL",
+                tagsCiphertext = cipher.encrypt(
+                    marker,
+                    StorageAad.forField(metadataId, "entryMetadata.tags", 1),
+                ),
+                linksCiphertext = cipher.encrypt(
+                    marker,
+                    StorageAad.forField(metadataId, "entryMetadata.links", 1),
+                ),
+                cryptoVersion = 1,
+                derivedAtMillis = 1_000,
+            ),
+        )
 
         val sqlite = database.openHelper.writableDatabase
         sqlite.query("SELECT text_ciphertext FROM entries").use { cursor ->
@@ -84,6 +101,11 @@ class SomaDatabaseTest {
         sqlite.query("SELECT text_ciphertext FROM todos").use { cursor ->
             cursor.moveToFirst()
             assertFalse(cursor.getBlob(0).containsSubsequence(marker.encodeToByteArray()))
+        }
+        sqlite.query("SELECT tags_ciphertext, links_ciphertext FROM entry_metadata").use { cursor ->
+            cursor.moveToFirst()
+            assertFalse(cursor.getBlob(0).containsSubsequence(marker.encodeToByteArray()))
+            assertFalse(cursor.getBlob(1).containsSubsequence(marker.encodeToByteArray()))
         }
     }
 
@@ -194,6 +216,46 @@ class SomaDatabaseTest {
                 cursor.moveToFirst()
                 assertTrue(cursor.isNull(0))
                 assertTrue(cursor.isNull(1))
+            }
+        } finally {
+            helper.close()
+            context.deleteDatabase(databaseName)
+        }
+    }
+
+    @Test
+    fun `schema seven migration adds encrypted additive metadata table`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val databaseName = "soma-migration-${System.nanoTime()}.db"
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(databaseName)
+                .callback(
+                    object : SupportSQLiteOpenHelper.Callback(7) {
+                        override fun onCreate(db: SupportSQLiteDatabase) {
+                            db.execSQL("CREATE TABLE entries (id TEXT NOT NULL PRIMARY KEY)")
+                        }
+
+                        override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+                    },
+                )
+                .build(),
+        )
+        try {
+            val sqlite = helper.writableDatabase
+            sqlite.execSQL("INSERT INTO entries (id) VALUES ('existing-entry')")
+
+            SomaDatabase.MIGRATION_7_8.migrate(sqlite)
+
+            sqlite.execSQL(
+                "INSERT INTO entry_metadata " +
+                    "(entry_id, source, tags_ciphertext, links_ciphertext, crypto_version, derived_at_millis) " +
+                    "VALUES ('existing-entry', 'AI', X'01', X'02', 1, 1000)",
+            )
+            sqlite.query("SELECT source, derived_at_millis FROM entry_metadata").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals("AI", cursor.getString(0))
+                assertEquals(1_000L, cursor.getLong(1))
             }
         } finally {
             helper.close()

@@ -6,9 +6,13 @@ import androidx.test.core.app.ApplicationProvider
 import com.soma.core.model.AudioAttachment
 import com.soma.core.model.AudioFormat
 import com.soma.core.model.EntrySource
+import com.soma.core.model.EntryLink
+import com.soma.core.model.EntryLinkKind
+import com.soma.core.model.EntryMetadata
 import com.soma.core.model.ImportantKind
 import com.soma.core.model.ImageAttachment
 import com.soma.core.model.ImageFormat
+import com.soma.core.model.MetadataSource
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
@@ -163,6 +167,44 @@ class RoomSomaRepositoryTest {
         assertEquals(start, visible.createdAt)
         assertEquals("photo-1", repository.observeDeleted().first().single().id)
         assertEquals(setOf("image-1"), repository.referencedImageFileIds())
+    }
+
+    @Test
+    fun `manual and AI metadata stay encrypted separate and timestamp-neutral`() = runBlocking {
+        repository.getOrCreate(date, start)
+        val entry = NoteEntry.text("entry-meta", date, 0, "Milchreis recipe", start)
+        repository.insertEntry(entry)
+        val manual = EntryMetadata(
+            entryId = entry.id,
+            tags = listOf("recipe"),
+            links = emptyList(),
+            derivedAt = start.plusSeconds(1),
+            source = MetadataSource.MANUAL,
+        )
+        val ai = EntryMetadata(
+            entryId = entry.id,
+            tags = listOf("milk-rice", "groceries"),
+            links = listOf(EntryLink(EntryLinkKind.DATE, date.toString(), "captured-on")),
+            derivedAt = start.plusSeconds(2),
+            source = MetadataSource.AI,
+        )
+
+        assertTrue(repository.upsert(manual))
+        assertTrue(repository.upsert(ai))
+        assertEquals(listOf(ai, manual).sortedBy { it.source.name }, repository.forEntry(entry.id))
+        assertEquals(entry, repository.getEntry(entry.id))
+        database.openHelper.writableDatabase
+            .query("SELECT tags_ciphertext, links_ciphertext FROM entry_metadata WHERE source = 'AI'")
+            .use { cursor ->
+                cursor.moveToFirst()
+                assertFalse(cursor.getBlob(0).containsSubsequence("milk-rice".encodeToByteArray()))
+                assertFalse(cursor.getBlob(1).containsSubsequence(date.toString().encodeToByteArray()))
+            }
+
+        assertTrue(repository.delete(entry.id, MetadataSource.AI))
+        assertEquals(listOf(manual), repository.forEntry(entry.id))
+        assertEquals(entry.createdAt, repository.getEntry(entry.id)?.createdAt)
+        assertEquals(entry.updatedAt, repository.getEntry(entry.id)?.updatedAt)
     }
 
     @Test

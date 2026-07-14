@@ -40,6 +40,9 @@ cloud API keys only when explicitly enabled in Developer settings.
 - Makes that provenance visible: edit history lists the original, every prior
   wording, and the current wording. Restoring an older version creates another
   revision, so it never destroys the wording it replaces.
+- Keeps tags and entry/date relationships in a separate additive metadata
+  layer, never inside or on top of authored text. Manual and AI-derived layers
+  remain independent and export as portable JSON, Markdown tags, and wikilinks.
 - Soft-deletes entries, recordings, and photos with one-tap Undo. Deleted items remain
   recoverable from Settings until the user deliberately chooses delete forever;
   normal notes, transcription, LAN browsing, and readable exports ignore them.
@@ -81,9 +84,10 @@ editable. The `browser` and `purist` builds never send audio or text elsewhere.
 - The normal `browser` and `purist` builds have no cloud service, analytics,
   advertising, crash reporting, update checker, Google Play Services dependency,
   outbound HTTP client library, or outbound implementation.
-- Note text, transcripts, Important text, rule suggestions, and protected diagnostics
-  are encrypted at rest with AES-256-GCM and a non-exportable Android Keystore
-  key. Ciphertext is authenticated against its row and field.
+- Note text, transcripts, Important text, rule suggestions, additive metadata,
+  and protected diagnostics are encrypted at rest with AES-256-GCM and a
+  non-exportable Android Keystore key. Ciphertext is authenticated against its
+  row and field.
 - Recordings go directly from `AudioRecord` into crash-recoverable encrypted
   chunks. A separate Keystore key wraps a fresh random key for each recording;
   no plaintext WAV or gallery item is created on disk.
@@ -100,9 +104,10 @@ editable. The `browser` and `purist` builds never send audio or text elsewhere.
 - Developer demo data lives only in memory and never opens the real Room or
   audio or image stores.
 
-The Room database encrypts user-authored content, not every piece of metadata.
-Dates, ordering, states, deletion timestamps, ids, relationships, and media sizes remain
-queryable and can be visible to someone who can read the private database. See
+The Room database encrypts user-authored content and metadata tag/link values,
+not every structural field. Dates, ordering, states, deletion timestamps, ids,
+metadata source/timing, other relationships, and media sizes remain queryable
+and can be visible to someone who can read the private database. See
 the [threat model](docs/THREAT_MODEL.md) for the exact boundary.
 
 Export a backup before uninstalling Soma or moving devices. An invalidated

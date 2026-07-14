@@ -3,6 +3,7 @@ package com.soma.storage.backup
 import com.soma.core.model.DailyNote
 import com.soma.core.model.AudioAttachment
 import com.soma.core.model.EntryKind
+import com.soma.core.model.EntryMetadata
 import com.soma.core.model.EntryRevision
 import com.soma.core.model.ImageAttachment
 import com.soma.core.model.StillOpenDismissal
@@ -24,6 +25,7 @@ data class BackupSnapshot(
     val exportedAt: Instant,
     val notes: List<DailyNote>,
     val entryRevisions: List<EntryRevision> = emptyList(),
+    val entryMetadata: List<EntryMetadata> = emptyList(),
     val todos: List<Todo>,
     val suggestions: List<TodoSuggestion>,
     val stillOpenDismissals: List<StillOpenDismissal> = emptyList(),
@@ -73,6 +75,12 @@ data class BackupSnapshot(
         require(entryRevisions.map { it.entryId to it.revision }.distinct().size == entryRevisions.size) {
             "A backup cannot contain duplicate entry revisions"
         }
+        require(entryMetadata.all { it.entryId in entriesById }) {
+            "Backup metadata references a missing entry"
+        }
+        require(entryMetadata.map { it.entryId to it.source }.distinct().size == entryMetadata.size) {
+            "A backup cannot contain duplicate metadata layers"
+        }
         val attachmentIds = entriesById.values.mapNotNull { it.audio?.fileId }
         require(attachmentIds.distinct().size == attachmentIds.size) {
             "Each audio attachment must own a distinct file"
@@ -113,7 +121,7 @@ data class BackupSnapshot(
     }
 
     companion object {
-        const val CURRENT_PAYLOAD_VERSION: Int = 8
+        const val CURRENT_PAYLOAD_VERSION: Int = 9
         val SUPPORTED_PAYLOAD_VERSIONS: IntRange = 1..CURRENT_PAYLOAD_VERSION
     }
 }

@@ -7,11 +7,11 @@ are rejected rather than guessed.
 
 ## On-device Room database
 
-The Room database is `soma.db`, schema version 7, using write-ahead logging. Its
+The Room database is `soma.db`, schema version 8, using write-ahead logging. Its
 exported schemas are checked in under
 `storage/schemas/com.soma.storage.db.SomaDatabase/`.
 
-The seven tables are:
+The eight tables are:
 
 - `daily_notes`, with one unique `epoch_day` per note;
 - `entries`, ordered by the unique pair `(note_id, position)`;
@@ -19,12 +19,16 @@ The seven tables are:
 - `todo_suggestions`, including suggested kind, rule, language, and decision state;
 - `still_open_dismissals`, keyed by day; and
 - `transcription_jobs`, including retry and lease state; and
-- `entry_revisions`, containing encrypted previous text for deliberate user edits.
+- `entry_revisions`, containing encrypted previous text for deliberate user edits; and
+- `entry_metadata`, containing independently replaceable manual or AI layers
+  whose tags and links are encrypted.
 
-User-authored entry text, todo text, suggestion text and matched rule, and
-transcription failure diagnostics are stored as encrypted BLOBs. Structural
+User-authored entry text, todo text, suggestion text and matched rule,
+transcription failure diagnostics, and entry-metadata tags/link values are
+stored as encrypted BLOBs. Structural
 metadata needed for queries—dates, ordering, states, ids, timestamps, language
-names, Important kinds, media metadata, deletion tombstones, and relationships—is not encrypted. SQLite page layout,
+names, Important kinds, media metadata, deletion tombstones, metadata source,
+and other relationships—is not encrypted. SQLite page layout,
 row counts, and timing therefore remain visible to an attacker who can read the
 app's private files. There is no full-text index in version 1; a later search
 migration can add one without changing the domain model.
@@ -54,8 +58,9 @@ crypto_version
 ```
 
 Version 1 field names are `entry.text`, `entry.transcriptionFailure`,
-`entryRevision.text`, `todo.text`, `suggestion.text`, `suggestion.matchedRule`, and
-`transcription.lastFailure`. Moving a ciphertext to another row or protected
+`entryRevision.text`, `entryMetadata.tags`, `entryMetadata.links`, `todo.text`,
+`suggestion.text`, `suggestion.matchedRule`, and `transcription.lastFailure`.
+Moving a ciphertext to another row or protected
 field fails GCM authentication.
 
 ## Encrypted audio container (`.sma`)
@@ -166,7 +171,7 @@ so identical snapshots produce different files.
 | --- | --- |
 | Magic | 8 ASCII bytes: `SOMABACK` |
 | Container version | 32-bit integer, currently `1` |
-| Payload version | 32-bit integer, currently `8` |
+| Payload version | 32-bit integer, currently `9` |
 | KDF id | 32-bit length + ASCII `PBKDF2-HMAC-SHA256` |
 | PBKDF2 iterations | 32-bit integer, `600000` |
 | Derived key size | 32-bit integer, `256` bits |
@@ -182,7 +187,7 @@ authentication. Trailing bytes and truncated inputs are rejected. A wrong
 passphrase and authenticated-byte corruption intentionally report the same
 authentication error.
 
-### Plaintext payload, versions 1 through 8
+### Plaintext payload, versions 1 through 9
 
 The encrypted payload is a deterministic `DataOutputStream` serialization in
 this order:
@@ -202,7 +207,9 @@ this order:
 12. in payload version 6, the optional Important resurface date; and
 13. in payload version 7, entry and audio soft-delete tombstones; and
 14. in payload version 8, image attachments, image tombstones, and optional
-    portable JPEG byte sequences.
+    portable JPEG byte sequences; and
+15. in payload version 9, additive entry metadata layers with normalized tags
+    and typed entry, date, or tag links.
 
 Each list begins with a 32-bit count. Strings use a 32-bit byte length followed
 by strict UTF-8, not Java modified UTF. Instants use epoch seconds plus
@@ -232,12 +239,13 @@ unencrypted ZIP intended for long-term independence from Soma. It contains:
 - `todos.csv`, including the portable `action`, `list`, or `excerpt` kind;
 - `data/notes.json` with exact ids, order, types, timestamps, text, and media metadata;
 - `data/history.jsonl` with every preserved user edit revision; and
+- `data/metadata.json` with manual and AI metadata layers, tags, and typed links;
 - `settings/transcription-vocabulary.txt` with user-provided speech spellings; and
 - optional standard 16 kHz mono `audio/*.wav` and `images/*.jpg` files.
 
 Structured timestamps are ISO-8601 UTC instants. The archive can be consumed by
 ordinary text, spreadsheet, JSON, image, and audio tools without an app-specific codec.
-Readable archive format 7 excludes soft-deleted entries and media while keeping
+Readable archive format 8 excludes soft-deleted entries and media while keeping
 the editable transcript and its transcription provenance. The encrypted
 portable backup retains tombstones so deleted content can still be restored.
 Because it is not encrypted, exporting it moves plaintext outside Soma's trust
@@ -247,7 +255,7 @@ boundary. It is not accepted by the restore flow; use `.soma` for restoration.
 
 The optional `Soma-vault-YYYY-MM-DD.zip` export is a standard, deliberately
 unencrypted, one-way Markdown vault. It is intended for Obsidian, Logseq, plain
-text editors, and long-term use without Soma. Format version 2 contains:
+text editors, and long-term use without Soma. Format version 3 contains:
 
 - `README.md` with the portability, privacy, and one-way-export contract;
 - `.soma/manifest.json` with format version, export instant, time zone, and
@@ -260,8 +268,9 @@ text editors, and long-term use without Soma. Format version 2 contains:
 Daily-file YAML frontmatter contains `date`, `created`, `last_edited`, `tags`,
 and `soma_timezone`. `created` and `last_edited` are ISO-8601 UTC instants;
 visible entry headings use the device time zone recorded by `soma_timezone`.
-`tags` is an empty list until a later metadata feature has actual user or
-derived tags to export—Soma does not invent them from note text.
+`tags` contains the distinct manual and derived tags attached to visible entries
+for that day. Entry metadata also renders as portable `#tags`, date wikilinks,
+and stable links to related entry blocks.
 
 Every visible entry receives a stable Obsidian block anchor. `Important.md`
 links source-backed items to that exact block, and edited entries link to their
@@ -269,9 +278,10 @@ history file. File paths and anchors use a truncated SHA-256 token rather than
 the raw entry id, so legacy or imported ids cannot inject paths. ZIP members are
 written in deterministic order with fixed member timestamps.
 
-Format version 2 excludes entry and media tombstones. It retains current text,
+Format version 3 excludes entry and media tombstones. It retains current text,
 editable voice transcripts, all earlier wordings, Important state/kind/source,
-show-again dates, and optional playable audio and viewable photos. No API keys or encrypted
+show-again dates, entry metadata, and optional playable audio and viewable
+photos. No API keys or encrypted
 credential stores are part of a backup snapshot, so they cannot enter the
 vault. The vault is not accepted by the restore flow; use `.soma` for a
 restorable backup.

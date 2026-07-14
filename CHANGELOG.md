@@ -2,6 +2,31 @@
 
 Notable changes to Soma are documented here.
 
+## 0.1.0-preview.20 — 2026-07-14
+
+### Added
+
+- A new encrypted, additive metadata layer can retain normalized tags and links
+  to entries, dates, or other tags without changing the authored note. Manual
+  and AI layers are independent, so later automation cannot overwrite a user's
+  own organization.
+- Portable encrypted backups, readable archives, and Markdown vaults now carry
+  metadata. The readable ZIP includes structured `data/metadata.json`; vault
+  exports use ordinary tags and wikilinks that remain useful without Soma.
+
+### Changed
+
+- Database schema 8, encrypted backup payload 9, readable archive format 8,
+  and Markdown-vault format 3 add versioned entry metadata. Existing preview
+  databases and backups migrate forward without rewriting entries or their
+  creation/edit timestamps.
+
+### Security
+
+- Metadata tags, link targets, and link relations are encrypted at rest with
+  AES-256-GCM and authenticated against the owning entry and metadata source.
+  Only the layer's source and derivation time remain queryable in Room.
+
 ## 0.1.0-preview.19 — 2026-07-14
 
 ### Added

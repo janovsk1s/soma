@@ -19,6 +19,7 @@ internal fun BackupSnapshot.withoutDeletedContent(): BackupSnapshot {
     return copy(
         notes = visibleNotes,
         entryRevisions = entryRevisions.filter { it.entryId in entryIds },
+        entryMetadata = entryMetadata.filter { it.entryId in entryIds },
         todos = todos.map { todo ->
             if (todo.source?.entryId in entryIds) todo else todo.copy(source = null)
         },

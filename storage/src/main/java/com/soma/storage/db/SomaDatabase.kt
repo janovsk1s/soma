@@ -12,18 +12,20 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         DailyNoteEntity::class,
         EntryEntity::class,
         EntryRevisionEntity::class,
+        EntryMetadataEntity::class,
         TodoEntity::class,
         TodoSuggestionEntity::class,
         StillOpenDismissalEntity::class,
         TranscriptionJobEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 abstract class SomaDatabase : RoomDatabase() {
     abstract fun dailyNoteDao(): DailyNoteDao
     abstract fun entryDao(): EntryDao
     abstract fun entryRevisionDao(): EntryRevisionDao
+    abstract fun entryMetadataDao(): EntryMetadataDao
     abstract fun todoDao(): TodoDao
     abstract fun todoSuggestionDao(): TodoSuggestionDao
     abstract fun stillOpenDismissalDao(): StillOpenDismissalDao
@@ -41,6 +43,7 @@ abstract class SomaDatabase : RoomDatabase() {
                     MIGRATION_4_5,
                     MIGRATION_5_6,
                     MIGRATION_6_7,
+                    MIGRATION_7_8,
                 )
                 .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
                 .build()
@@ -108,6 +111,32 @@ abstract class SomaDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE entries ADD COLUMN image_deleted_at_millis INTEGER")
                 db.execSQL(
                     "CREATE UNIQUE INDEX IF NOT EXISTS index_entries_image_file_id ON entries(image_file_id)",
+                )
+            }
+        }
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS entry_metadata (
+                        entry_id TEXT NOT NULL,
+                        source TEXT NOT NULL,
+                        tags_ciphertext BLOB NOT NULL,
+                        links_ciphertext BLOB NOT NULL,
+                        crypto_version INTEGER NOT NULL,
+                        derived_at_millis INTEGER NOT NULL,
+                        PRIMARY KEY(entry_id, source),
+                        FOREIGN KEY(entry_id) REFERENCES entries(id) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_entry_metadata_entry_id ON entry_metadata(entry_id)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_entry_metadata_source_derived_at_millis " +
+                        "ON entry_metadata(source, derived_at_millis)",
                 )
             }
         }

@@ -51,6 +51,9 @@ and 20 candidates, and emits at most one bounded list block.
   and transcription never run synchronously inside a Compose draw callback.
 - Important detection runs only after Save or after a transcript lands, never
   for every typed character.
+- Metadata writes are bounded, additive Room operations. They never block
+  capture or rewrite the entry row; any future cloud derivation must begin only
+  after the authored entry has been durably saved.
 - The readable archive remains streaming ZIP output. Optional media is handled
   one recording at a time rather than cached permanently as plaintext.
 

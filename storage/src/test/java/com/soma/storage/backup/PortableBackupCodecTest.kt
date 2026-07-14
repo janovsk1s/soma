@@ -4,9 +4,13 @@ import com.soma.core.model.AudioAttachment
 import com.soma.core.model.AudioFormat
 import com.soma.core.model.DailyNote
 import com.soma.core.model.EntrySource
+import com.soma.core.model.EntryLink
+import com.soma.core.model.EntryLinkKind
+import com.soma.core.model.EntryMetadata
 import com.soma.core.model.ImportantKind
 import com.soma.core.model.ImageAttachment
 import com.soma.core.model.ImageFormat
+import com.soma.core.model.MetadataSource
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.SupportedLanguage
@@ -218,6 +222,15 @@ class PortableBackupCodecTest {
         private val SNAPSHOT = BackupSnapshot(
             exportedAt = START.plusSeconds(600),
             notes = listOf(DailyNote(DATE, START, listOf(TEXT_ENTRY, VOICE_ENTRY, IMAGE_ENTRY))),
+            entryMetadata = listOf(
+                EntryMetadata(
+                    entryId = IMAGE_ENTRY.id,
+                    tags = listOf("train", "recipe"),
+                    links = listOf(EntryLink(EntryLinkKind.DATE, DATE.toString(), "captured-on")),
+                    derivedAt = START.plusSeconds(10),
+                    source = MetadataSource.AI,
+                ),
+            ),
             todos = listOf(
                 Todo(
                     id = "todo-open",

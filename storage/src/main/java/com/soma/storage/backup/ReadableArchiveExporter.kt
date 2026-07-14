@@ -2,6 +2,7 @@ package com.soma.storage.backup
 
 import com.soma.core.model.DailyNote
 import com.soma.core.model.EntryKind
+import com.soma.core.model.EntryMetadata
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.TranscriptionEngine
 import com.soma.core.model.TranscriptionFallbackReason
@@ -22,6 +23,7 @@ import java.util.zip.ZipOutputStream
 class ReadableArchiveExporter {
     fun encode(snapshot: BackupSnapshot): ByteArray {
         val readable = snapshot.withoutDeletedContent()
+        val metadata = readable.entryMetadata.groupBy(EntryMetadata::entryId)
         val includedImages = readable.imageContainers.mapTo(hashSetOf(), BackupImageContainer::fileId)
         val imagePaths = readable.notes.asSequence().flatMap { it.entries.asSequence() }
             .mapNotNull { entry ->
@@ -33,11 +35,12 @@ class ReadableArchiveExporter {
             zip.putText("README.txt", readme(readable))
             zip.putText("manifest.json", manifest(readable))
             readable.notes.sortedBy { it.date }.forEach { note ->
-                zip.putText("notes/${note.date}.md", noteMarkdown(note, imagePaths))
+                zip.putText("notes/${note.date}.md", noteMarkdown(note, imagePaths, metadata))
             }
             zip.putText("todos.csv", todosCsv(readable))
             zip.putText("data/notes.json", notesJson(readable))
             zip.putText("data/history.jsonl", historyJsonl(readable))
+            zip.putText("data/metadata.json", metadataJson(readable))
             zip.putText(
                 "settings/transcription-vocabulary.txt",
                 readable.transcriptionVocabulary.joinToString(separator = "\n", postfix = "\n"),
@@ -84,6 +87,7 @@ class ReadableArchiveExporter {
         appendLine("todos.csv contains every Important item and opens in spreadsheet applications.")
         appendLine("data/notes.json preserves complete structured note data.")
         appendLine("data/history.jsonl preserves previous text after user edits.")
+        appendLine("data/metadata.json preserves additive manual and AI tags and links.")
         appendLine("settings/transcription-vocabulary.txt preserves user-provided speech spellings.")
         appendLine("audio/ contains standard 16 kHz mono WAV files when included.")
         appendLine("images/ contains standard JPEG originals when included.")
@@ -112,12 +116,18 @@ class ReadableArchiveExporter {
         append(',')
         jsonNumberField("imageCount", snapshot.imageContainers.size)
         append(',')
+        jsonNumberField("metadataLayerCount", snapshot.entryMetadata.size)
+        append(',')
         jsonNumberField("transcriptionVocabularyCount", snapshot.transcriptionVocabulary.size)
         append('}')
         appendLine()
     }
 
-    private fun noteMarkdown(note: DailyNote, imagePaths: Map<String, String>): String = buildString {
+    private fun noteMarkdown(
+        note: DailyNote,
+        imagePaths: Map<String, String>,
+        metadataByEntry: Map<String, List<EntryMetadata>>,
+    ): String = buildString {
         appendLine("# ${note.date}")
         appendLine()
         if (note.entries.isEmpty()) appendLine("_No entries._")
@@ -134,6 +144,18 @@ class ReadableArchiveExporter {
                 })}",
             )
             entry.lastUserEditedAt?.let { appendLine("  _edited ${TIME.format(it)}_") }
+            val layers = metadataByEntry[entry.id].orEmpty()
+            val tags = layers.flatMap(EntryMetadata::tags).distinct()
+            if (tags.isNotEmpty()) appendLine("  _tags: ${tags.joinToString(" ") { "#$it" }}_")
+            val links = layers.flatMap(EntryMetadata::links).distinct()
+            if (links.isNotEmpty()) {
+                appendLine(
+                    "  _links: ${links.joinToString(", ") { link ->
+                        "${link.kind.name.lowercase()}:${link.target}" +
+                            link.relation?.let { " ($it)" }.orEmpty()
+                    }}_",
+                )
+            }
             entry.transcription?.provenance?.let {
                 appendLine("  _transcription: ${transcriptionLabel(it)}_")
             }
@@ -311,6 +333,38 @@ class ReadableArchiveExporter {
         }
     }
 
+    private fun metadataJson(snapshot: BackupSnapshot): String = buildString {
+        append("{\"format\":\"soma-entry-metadata\",\"version\":1,\"layers\":[")
+        snapshot.entryMetadata.sortedWith(compareBy(EntryMetadata::entryId, EntryMetadata::source))
+            .forEachIndexed { index, metadata ->
+                if (index > 0) append(',')
+                append('{')
+                jsonField("entryId", metadata.entryId)
+                append(',')
+                jsonField("source", metadata.source.name.lowercase())
+                append(',')
+                jsonField("derivedAt", metadata.derivedAt.toString())
+                append(",\"tags\":[")
+                metadata.tags.forEachIndexed { tagIndex, tag ->
+                    if (tagIndex > 0) append(',')
+                    appendJson(tag)
+                }
+                append("],\"links\":[")
+                metadata.links.forEachIndexed { linkIndex, link ->
+                    if (linkIndex > 0) append(',')
+                    append('{')
+                    jsonField("kind", link.kind.name.lowercase())
+                    append(',')
+                    jsonField("target", link.target)
+                    append(",\"relation\":")
+                    appendNullableJson(link.relation)
+                    append('}')
+                }
+                append("]}")
+            }
+        append("]}\n")
+    }
+
     private fun markdownText(value: String): String = value.replace("\n", "\n  ")
 
     private fun csv(value: String): String = "\"${value.replace("\"", "\"\"")}\""
@@ -355,7 +409,7 @@ class ReadableArchiveExporter {
     }
 
     private companion object {
-        const val READABLE_FORMAT_VERSION = 7
+        const val READABLE_FORMAT_VERSION = 8
         val TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss 'UTC'").withZone(ZoneOffset.UTC)
     }
 }

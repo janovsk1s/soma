@@ -4,10 +4,14 @@ import com.soma.core.model.AudioAttachment
 import com.soma.core.model.AudioFormat
 import com.soma.core.model.DailyNote
 import com.soma.core.model.EntryKind
+import com.soma.core.model.EntryLink
+import com.soma.core.model.EntryLinkKind
+import com.soma.core.model.EntryMetadata
 import com.soma.core.model.EntryRevision
 import com.soma.core.model.EntrySource
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.ImportantKind
+import com.soma.core.model.MetadataSource
 import com.soma.core.model.ImageAttachment
 import com.soma.core.model.ImageFormat
 import com.soma.core.model.NoteEntry
@@ -59,6 +63,7 @@ internal object BackupPayloadCodec {
                 output.writeList(snapshot.entryRevisions, ::writeEntryRevision)
                 output.writeList(snapshot.transcriptionVocabulary) { target, term -> target.writeString(term) }
                 output.writeList(snapshot.imageContainers, ::writeImageContainer)
+                output.writeList(snapshot.entryMetadata, ::writeMetadata)
             }
             buffer.copyBytes()
         } finally {
@@ -83,6 +88,7 @@ internal object BackupPayloadCodec {
         val revisions = if (payloadVersion >= 2) input.readList(::readEntryRevision) else emptyList()
         val transcriptionVocabulary = if (payloadVersion >= 4) input.readList { it.readString() } else emptyList()
         val images = if (payloadVersion >= 8) input.readList(::readImageContainer) else emptyList()
+        val metadata = if (payloadVersion >= 9) input.readList(::readMetadata) else emptyList()
         val lastEdits = revisions.groupBy(EntryRevision::entryId)
             .mapValues { (_, values) -> values.maxBy(EntryRevision::editedAt).editedAt }
         val notes = rawNotes.map { note ->
@@ -95,6 +101,7 @@ internal object BackupPayloadCodec {
             exportedAt = exportedAt,
             notes = notes,
             entryRevisions = revisions,
+            entryMetadata = metadata,
             todos = todos,
             suggestions = suggestions,
             stillOpenDismissals = dismissals,
@@ -196,6 +203,34 @@ internal object BackupPayloadCodec {
         revision = input.readLong(),
         text = input.readString(),
         editedAt = input.readInstant(),
+    )
+
+    private fun writeMetadata(output: DataOutput, metadata: EntryMetadata) {
+        output.writeString(metadata.entryId)
+        output.writeEnum(metadata.source)
+        output.writeInstant(metadata.derivedAt)
+        output.writeList(metadata.tags) { target, tag -> target.writeString(tag) }
+        output.writeList(metadata.links, ::writeEntryLink)
+    }
+
+    private fun readMetadata(input: DataInput) = EntryMetadata(
+        entryId = input.readString(),
+        source = input.readEnum<MetadataSource>(),
+        derivedAt = input.readInstant(),
+        tags = input.readList { it.readString() },
+        links = input.readList(::readEntryLink),
+    )
+
+    private fun writeEntryLink(output: DataOutput, link: EntryLink) {
+        output.writeEnum(link.kind)
+        output.writeString(link.target)
+        output.writeNullable(link.relation) { target, relation -> target.writeString(relation) }
+    }
+
+    private fun readEntryLink(input: DataInput) = EntryLink(
+        kind = input.readEnum<EntryLinkKind>(),
+        target = input.readString(),
+        relation = input.readNullable { it.readString() },
     )
 
     private fun writeAudioAttachment(output: DataOutput, audio: AudioAttachment) {

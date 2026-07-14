@@ -6,6 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class DomainModelTest {
@@ -97,6 +98,26 @@ class DomainModelTest {
         assertEquals(image, spokenComment.activeImage)
         assertEquals(audio(), spokenComment.activeAudio)
         assertTrue(spokenComment.hasTranscript)
+    }
+
+    @Test
+    fun `metadata normalizes portable tags and validates links`() {
+        assertEquals("milk-rice", normalizeMetadataTag(" #Milk Rice "))
+        assertNull(normalizeMetadataTag("!!!"))
+        val metadata = EntryMetadata(
+            entryId = "entry-1",
+            tags = listOf("recipe", "milk-rice"),
+            links = listOf(
+                EntryLink(EntryLinkKind.DATE, "2026-07-14", "mentioned-on"),
+                EntryLink(EntryLinkKind.TAG, "groceries"),
+            ),
+            derivedAt = now,
+            source = MetadataSource.AI,
+        )
+        assertEquals(2, metadata.tags.size)
+        assertThrows(IllegalArgumentException::class.java) {
+            EntryLink(EntryLinkKind.DATE, "14.07.2026")
+        }
     }
 
     @Test

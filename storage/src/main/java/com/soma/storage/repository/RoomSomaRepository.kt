@@ -5,9 +5,11 @@ import androidx.room.withTransaction
 import com.soma.core.model.DailyNote
 import com.soma.core.model.DEFAULT_TRANSCRIPTION_MAX_ATTEMPTS
 import com.soma.core.model.EntryKind
+import com.soma.core.model.EntryMetadata
 import com.soma.core.model.EntryRevision
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.StillOpenDismissal
+import com.soma.core.model.MetadataSource
 import com.soma.core.model.Todo
 import com.soma.core.model.TodoState
 import com.soma.core.model.TodoSuggestion
@@ -19,6 +21,7 @@ import com.soma.core.model.TranscriptionJobState
 import com.soma.core.model.TranscriptionResult
 import com.soma.core.repository.DailyNoteRepository
 import com.soma.core.repository.EntryMutationResult
+import com.soma.core.repository.EntryMetadataRepository
 import com.soma.core.repository.StillOpenRepository
 import com.soma.core.repository.TodoRepository
 import com.soma.core.repository.TodoSuggestionRepository
@@ -52,12 +55,14 @@ class RoomSomaRepository(
 ) : DailyNoteRepository,
     TodoRepository,
     TodoSuggestionRepository,
+    EntryMetadataRepository,
     StillOpenRepository,
     TranscriptionJobRepository {
     private val mapper = EntityMapper(textCipher)
     private val noteDao = database.dailyNoteDao()
     private val entryDao = database.entryDao()
     private val revisionDao = database.entryRevisionDao()
+    private val metadataDao = database.entryMetadataDao()
     private val todoDao = database.todoDao()
     private val suggestionDao = database.todoSuggestionDao()
     private val dismissalDao = database.stillOpenDismissalDao()
@@ -168,6 +173,22 @@ class RoomSomaRepository(
 
     override suspend fun listEntryRevisions(entryId: String): List<EntryRevision> =
         revisionDao.listForEntry(entryId).map(mapper::revisionFromEntity)
+
+    override suspend fun forEntry(entryId: String): List<EntryMetadata> =
+        metadataDao.listForEntry(entryId).map(mapper::metadataFromEntity)
+
+    override suspend fun listAll(): List<EntryMetadata> =
+        metadataDao.listAll().map(mapper::metadataFromEntity)
+
+    override suspend fun upsert(metadata: EntryMetadata): Boolean = database.withTransaction {
+        val entry = entryDao.getById(metadata.entryId) ?: return@withTransaction false
+        if (entry.deletedAtMillis != null) return@withTransaction false
+        metadataDao.upsert(mapper.metadataToEntity(metadata))
+        true
+    }
+
+    override suspend fun delete(entryId: String, source: MetadataSource): Boolean =
+        metadataDao.delete(entryId, source.name) == 1
 
     override suspend fun mutateEntry(
         entryId: String,
@@ -565,6 +586,7 @@ class RoomSomaRepository(
         }
         val jobs = jobDao.listAll().take(maximumRows).map(mapper::jobFromEntity)
         val revisions = revisionDao.listAll().take(maximumRows).map(mapper::revisionFromEntity)
+        val metadata = metadataDao.listAll().take(maximumRows).map(mapper::metadataFromEntity)
         check(noteEntities.size < maximumRows || noteDao.listBeforeOrOn(LocalDate.MAX.toEpochDay(), 1, maximumRows).isEmpty()) {
             "Backup row limit exceeded"
         }
@@ -577,10 +599,12 @@ class RoomSomaRepository(
         check(dismissalDao.listAll().size <= maximumRows) { "Backup row limit exceeded" }
         check(jobDao.listAll().size <= maximumRows) { "Backup row limit exceeded" }
         check(revisionDao.listAll().size <= maximumRows) { "Backup row limit exceeded" }
+        check(metadataDao.listAll().size <= maximumRows) { "Backup row limit exceeded" }
         BackupSnapshot(
             exportedAt = exportedAt,
             notes = notes,
             entryRevisions = revisions,
+            entryMetadata = metadata,
             todos = todos,
             suggestions = suggestions,
             stillOpenDismissals = dismissals,
@@ -592,6 +616,7 @@ class RoomSomaRepository(
     suspend fun replaceAll(snapshot: BackupSnapshot) = database.withTransaction {
         // Child-first order keeps foreign-key enforcement explicit.
         jobDao.clear()
+        metadataDao.clear()
         suggestionDao.clear()
         todoDao.clear()
         entryDao.clear()
@@ -625,6 +650,8 @@ class RoomSomaRepository(
         }
         snapshot.entryRevisions.sortedWith(compareBy(EntryRevision::entryId, EntryRevision::revision))
             .forEach { revisionDao.insert(mapper.revisionToEntity(it)) }
+        snapshot.entryMetadata.sortedWith(compareBy(EntryMetadata::entryId, EntryMetadata::source))
+            .forEach { metadataDao.upsert(mapper.metadataToEntity(it)) }
         snapshot.todos.forEach { todo ->
             check(todoDao.insert(mapper.todoToEntity(todo)) != INSERT_CONFLICT) { "Duplicate todo in backup" }
         }

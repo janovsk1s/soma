@@ -5,7 +5,11 @@ import com.soma.core.model.AudioFormat
 import com.soma.core.model.DailyNote
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.EntryRevision
+import com.soma.core.model.EntryLink
+import com.soma.core.model.EntryLinkKind
+import com.soma.core.model.EntryMetadata
 import com.soma.core.model.ImportantKind
+import com.soma.core.model.MetadataSource
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.SupportedLanguage
 import com.soma.core.model.Todo
@@ -66,6 +70,22 @@ class ReadableArchiveExporterTest {
                 EntryRevision(entry.id, 1, "buy milk", edited),
                 EntryRevision(deleted.id, 1, "deleted original", edited),
             ),
+            entryMetadata = listOf(
+                EntryMetadata(
+                    entryId = entry.id,
+                    tags = listOf("groceries"),
+                    links = listOf(EntryLink(EntryLinkKind.DATE, date.toString(), "captured-on")),
+                    derivedAt = edited,
+                    source = MetadataSource.MANUAL,
+                ),
+                EntryMetadata(
+                    entryId = deleted.id,
+                    tags = listOf("deleted-tag"),
+                    links = emptyList(),
+                    derivedAt = edited,
+                    source = MetadataSource.AI,
+                ),
+            ),
             todos = listOf(
                 Todo("todo-1", "call Ada", created, created, kind = ImportantKind.EXCERPT),
             ),
@@ -83,11 +103,15 @@ class ReadableArchiveExporterTest {
                 "todos.csv",
                 "data/notes.json",
                 "data/history.jsonl",
+                "data/metadata.json",
                 "settings/transcription-vocabulary.txt",
             ),
             files.keys,
         )
         assertTrue(files.getValue("notes/2026-07-13.md").contains("buy oat milk"))
+        assertTrue(files.getValue("notes/2026-07-13.md").contains("#groceries"))
+        assertTrue(files.getValue("data/metadata.json").contains("captured-on"))
+        assertTrue(!files.getValue("data/metadata.json").contains("deleted-tag"))
         assertTrue(files.getValue("todos.csv").contains("call Ada"))
         assertTrue(files.getValue("todos.csv").contains("excerpt"))
         assertTrue(files.getValue("data/history.jsonl").contains("buy milk"))

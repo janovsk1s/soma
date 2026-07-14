@@ -152,6 +152,24 @@ interface EntryRevisionDao {
 }
 
 @Dao
+interface EntryMetadataDao {
+    @Query("DELETE FROM entry_metadata")
+    suspend fun clear(): Int
+
+    @Query("SELECT * FROM entry_metadata WHERE entry_id = :entryId ORDER BY source ASC")
+    suspend fun listForEntry(entryId: String): List<EntryMetadataEntity>
+
+    @Query("SELECT * FROM entry_metadata ORDER BY entry_id ASC, source ASC")
+    suspend fun listAll(): List<EntryMetadataEntity>
+
+    @Upsert
+    suspend fun upsert(metadata: EntryMetadataEntity)
+
+    @Query("DELETE FROM entry_metadata WHERE entry_id = :entryId AND source = :source")
+    suspend fun delete(entryId: String, source: String): Int
+}
+
+@Dao
 interface TodoDao {
     @Query("DELETE FROM todos")
     suspend fun clear(): Int

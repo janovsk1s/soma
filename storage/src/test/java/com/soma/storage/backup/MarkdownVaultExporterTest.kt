@@ -4,10 +4,14 @@ import com.soma.core.model.AudioAttachment
 import com.soma.core.model.AudioFormat
 import com.soma.core.model.DailyNote
 import com.soma.core.model.EntryRevision
+import com.soma.core.model.EntryLink
+import com.soma.core.model.EntryLinkKind
+import com.soma.core.model.EntryMetadata
 import com.soma.core.model.EntrySource
 import com.soma.core.model.ImportantKind
 import com.soma.core.model.ImageAttachment
 import com.soma.core.model.ImageFormat
+import com.soma.core.model.MetadataSource
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.Todo
 import java.io.ByteArrayInputStream
@@ -74,6 +78,18 @@ class MarkdownVaultExporterTest {
                 EntryRevision(entry.id, 1, "buy milk", edited),
                 EntryRevision(deleted.id, 1, "deleted original", edited),
             ),
+            entryMetadata = listOf(
+                EntryMetadata(
+                    entryId = entry.id,
+                    tags = listOf("groceries", "milk-rice"),
+                    links = listOf(
+                        EntryLink(EntryLinkKind.DATE, date.minusDays(1).toString()),
+                        EntryLink(EntryLinkKind.ENTRY, voice.id, "related-voice"),
+                    ),
+                    derivedAt = edited,
+                    source = MetadataSource.AI,
+                ),
+            ),
             todos = listOf(open, done, archived),
             suggestions = emptyList(),
             audioContainers = listOf(BackupAudioContainer("audio-voice-1", audioBytes)),
@@ -106,7 +122,7 @@ class MarkdownVaultExporterTest {
         assertTrue(day.contains("date: \"2026-07-14\""))
         assertTrue(day.contains("created: \"2026-07-14T08:12:00Z\""))
         assertTrue(day.contains("last_edited: \"2026-07-14T10:45:00Z\""))
-        assertTrue(day.contains("tags: []"))
+        assertTrue(day.contains("tags: [\"groceries\", \"milk-rice\"]"))
         assertTrue(day.contains("soma_timezone: \"Europe/Vienna\""))
         assertTrue(day.contains("## 10:12"))
         assertTrue(day.contains("buy oat milk"))
@@ -115,7 +131,14 @@ class MarkdownVaultExporterTest {
         assertTrue(day.contains("![[media/2026-07-14-audio-voice-1.wav]]"))
         assertTrue(day.contains("![[media/2026-07-14-image-1.jpg]]"))
         assertTrue(day.contains("train window"))
+        assertTrue(day.contains("#groceries #milk-rice"))
+        assertTrue(day.contains("[[2026-07-13]]"))
+        assertTrue(day.contains("|related-voice]]"))
         assertFalse(day.contains("SHOULD-NOT-EXPORT"))
+
+        val manifest = files.getValue(".soma/manifest.json").toString(Charsets.UTF_8)
+        assertTrue(manifest.contains("\"version\": 3"))
+        assertTrue(manifest.contains("\"metadataLayerCount\": 1"))
 
         val important = files.getValue("Important.md").toString(Charsets.UTF_8)
         assertTrue(important.contains("- [ ] buy oats · _list_"))
