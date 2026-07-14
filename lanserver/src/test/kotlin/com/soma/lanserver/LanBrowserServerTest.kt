@@ -265,6 +265,39 @@ class LanBrowserServerTest {
     }
 
     @Test
+    fun `receipt logs expose escaped purchased items and exact totals`() {
+        val receipt = BrowserLog(
+            id = "receipt-1",
+            kind = BrowserLogKind.RECEIPT,
+            title = "Rimi",
+            note = "weekly groceries",
+            occurredAt = Instant.parse("2026-07-14T10:15:30Z"),
+            occurredLabel = "2026-07-14 12:15",
+            receipt = BrowserReceipt(
+                merchant = "Rimi",
+                tax = "EUR 0.75",
+                total = "EUR 4.29",
+                items = listOf(
+                    BrowserReceiptItem("<milk>", "1", "EUR 1.29", "groceries"),
+                ),
+            ),
+        )
+        val endpoint = server(FakeDataSource(logs = listOf(receipt)), languageTag = "lv").start()
+        val cookie = authenticate(endpoint).cookie
+
+        val page = request(endpoint, "GET", "/logs?kind=receipt", cookie = cookie)
+
+        assertEquals(200, page.status)
+        assertTrue(page.text.contains("Čeki"))
+        assertTrue(page.text.contains("&lt;milk&gt;"))
+        assertFalse(page.text.contains("<milk>"))
+        assertTrue(page.text.contains("EUR 4.29"))
+        assertTrue(page.text.contains("Nodoklis"))
+        assertTrue(page.text.contains("Kopā"))
+        assertFalse(page.text.contains("weekly groceries"))
+    }
+
+    @Test
     fun `insights are local escaped read only and page five connections`() {
         val items = (1..6).map { index ->
             BrowserInsight(

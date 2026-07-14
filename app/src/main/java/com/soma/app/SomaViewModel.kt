@@ -727,6 +727,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                         source = sourceEntry?.let { EntrySource(it.noteDate, it.id) },
                         foods = draft.foods,
                         exercises = draft.exercises,
+                        receipt = draft.receipt,
                     ),
                 )
             }.getOrDefault(false)
@@ -753,7 +754,13 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                             file = file,
                             expectedImageId = image.fileId,
                             keyProvider = app.imageKeyProvider,
-                        ).second
+                        ).second.let { original ->
+                            try {
+                                CloudVisionImage.prepare(original, image.rotationDegrees)
+                            } finally {
+                                original.fill(0)
+                            }
+                        }
                     }
                 }
                 cloudFeatures(app).suggestTrackingText(kind, sourceEntry.text, jpeg)
@@ -784,6 +791,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                         note = draft.note,
                         foods = draft.foods,
                         exercises = draft.exercises,
+                        receipt = draft.receipt,
                         at = maxOf(clock.instant(), current.updatedAt),
                     ),
                 )

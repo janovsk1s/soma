@@ -182,6 +182,7 @@ enum class BrowserLogFilter {
     MEALS,
     RECIPES,
     WORKOUTS,
+    RECEIPTS,
     ARCHIVED,
 }
 
@@ -189,6 +190,7 @@ enum class BrowserLogKind {
     MEAL,
     RECIPE,
     WORKOUT,
+    RECEIPT,
 }
 
 data class BrowserFoodItem(
@@ -204,6 +206,21 @@ data class BrowserWorkoutExercise(
     val sets: List<String> = emptyList(),
 )
 
+data class BrowserReceiptItem(
+    val name: String,
+    val quantity: String? = null,
+    val total: String? = null,
+    val category: String? = null,
+)
+
+data class BrowserReceipt(
+    val merchant: String? = null,
+    val subtotal: String? = null,
+    val tax: String? = null,
+    val total: String? = null,
+    val items: List<BrowserReceiptItem> = emptyList(),
+)
+
 data class BrowserLog(
     val id: String,
     val kind: BrowserLogKind,
@@ -214,6 +231,7 @@ data class BrowserLog(
     val sourceDate: LocalDate? = null,
     val foods: List<BrowserFoodItem> = emptyList(),
     val exercises: List<BrowserWorkoutExercise> = emptyList(),
+    val receipt: BrowserReceipt? = null,
     val revisionCount: Long = 0,
     val archived: Boolean = false,
 )

@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.drawBehind
 import com.soma.core.model.EntryTranscriptionState
+import com.soma.core.model.LogKind
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.Todo
 import com.soma.core.model.TranscriptionEngine
@@ -58,6 +59,7 @@ import com.soma.core.model.TranscriptionFallbackReason
 import com.soma.core.model.TranscriptionProvenance
 import com.soma.core.policy.StillOpenPolicy
 import com.soma.core.policy.StillOpenTarget
+import com.soma.core.tracking.InlineTrackingSuggestionDetector
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -79,6 +81,7 @@ fun HomeScreen(
     onPhotoCommentRecord: (NoteEntry) -> Unit,
     onReadEntry: (NoteEntry) -> Unit,
     onEntryOptions: (NoteEntry) -> Unit,
+    onTrackingSuggestion: (NoteEntry, LogKind) -> Unit,
     onRecordRequested: () -> Unit,
 ) {
     val date by viewModel.selectedDate.collectAsState()
@@ -86,6 +89,7 @@ fun HomeScreen(
     val openTodos by viewModel.openTodos.collectAsState()
     val returnLater by viewModel.returnLater.collectAsState()
     val suggestions by viewModel.suggestions.collectAsState()
+    val trackingLogs by viewModel.trackingLogs.collectAsState()
     val recordingEntryId by viewModel.recordingEntryId.collectAsState()
     val recordingUiState by viewModel.recordingUiState.collectAsState()
     val photoCommentEntryId by viewModel.photoCommentEntryId.collectAsState()
@@ -164,6 +168,19 @@ fun HomeScreen(
                 )
             }
             val entries = note?.entries.orEmpty()
+            val trackingSuggestions = remember(entries, trackingLogs) {
+                val linked = trackingLogs.mapNotNull { log ->
+                    log.source?.entryId?.let { entryId -> entryId to log.kind }
+                }.toSet()
+                buildMap {
+                    entries.forEach { entry ->
+                        val kind = InlineTrackingSuggestionDetector.suggest(entry.text)
+                        kind?.let {
+                            if ((entry.id to it) !in linked) put(entry.id, it)
+                        }
+                    }
+                }
+            }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 if (entries.isEmpty()) {
                     EmptyHint(stringResource(R.string.entries_empty))
@@ -171,11 +188,13 @@ fun HomeScreen(
                     DayFlowPager(
                         entries = entries,
                         suggestions = suggestions,
+                        trackingSuggestions = trackingSuggestions,
                         recordingEntryId = recordingEntryId,
                         resetKey = date,
                         onRead = onReadEntry,
                         onOptions = onEntryOptions,
                         onSuggestion = viewModel::acceptSuggestion,
+                        onTrackingSuggestion = onTrackingSuggestion,
                     )
                 }
             }
@@ -674,7 +693,7 @@ fun EntryOptionsScreen(
                         EntryAction.EDIT -> stringResource(R.string.edit)
                         EntryAction.HISTORY -> stringResource(R.string.entry_history)
                         EntryAction.IMPORTANT -> stringResource(R.string.mark_important)
-                        EntryAction.LOG -> stringResource(R.string.log_from_entry)
+                        EntryAction.LOG -> stringResource(R.string.register)
                         EntryAction.RETURN -> stringResource(if (entry.returnLater) R.string.returned else R.string.return_later)
                         EntryAction.RECORD_ABOUT_PHOTO -> stringResource(R.string.record_about_photo)
                         EntryAction.PLAY -> stringResource(R.string.play_original)

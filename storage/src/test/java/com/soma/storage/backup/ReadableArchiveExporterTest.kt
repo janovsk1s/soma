@@ -5,6 +5,7 @@ import com.soma.core.model.AudioFormat
 import com.soma.core.model.DailyNote
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.EntryRevision
+import com.soma.core.model.EntrySource
 import com.soma.core.model.EntryLink
 import com.soma.core.model.EntryLinkKind
 import com.soma.core.model.EntryMetadata
@@ -18,6 +19,9 @@ import com.soma.core.model.MetadataSource
 import com.soma.core.model.NutritionBasis
 import com.soma.core.model.NutritionEstimate
 import com.soma.core.model.NutritionSource
+import com.soma.core.model.ReceiptDetails
+import com.soma.core.model.ReceiptItem
+import com.soma.core.model.ReceiptMoney
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.SupportedLanguage
 import com.soma.core.model.Todo
@@ -97,6 +101,20 @@ class ReadableArchiveExporterTest {
             ),
             at = edited,
         )
+        val receiptLog = LogRecord(
+            id = "receipt-1",
+            kind = LogKind.RECEIPT,
+            title = "Rimi",
+            occurredAt = edited,
+            createdAt = edited,
+            updatedAt = edited,
+            source = EntrySource(date, entry.id),
+            receipt = ReceiptDetails(
+                merchant = "Rimi",
+                total = ReceiptMoney(429, "EUR"),
+                items = listOf(ReceiptItem("Milk", lineTotal = ReceiptMoney(129, "EUR"))),
+            ),
+        )
         val snapshot = BackupSnapshot(
             exportedAt = Instant.parse("2026-07-13T11:00:00Z"),
             notes = listOf(DailyNote(date, created, listOf(entry, voice, deleted))),
@@ -120,7 +138,7 @@ class ReadableArchiveExporterTest {
                     source = MetadataSource.AI,
                 ),
             ),
-            trackingLogs = listOf(currentLog),
+            trackingLogs = listOf(currentLog, receiptLog),
             trackingLogRevisions = listOf(LogRevision(originalLog.id, 0, originalLog, edited)),
             todos = listOf(
                 Todo("todo-1", "call Ada", created, created, kind = ImportantKind.EXCERPT),
@@ -156,6 +174,9 @@ class ReadableArchiveExporterTest {
         assertTrue(files.getValue("logs.csv").contains("Milchreis"))
         assertTrue(files.getValue("data/logs.json").contains("official_average"))
         assertTrue(files.getValue("data/logs.json").contains("Fineli / THL"))
+        assertTrue(files.getValue("logs.csv").contains("EUR 4.29"))
+        assertTrue(files.getValue("data/logs.json").contains("\"totalMinorUnits\":429"))
+        assertTrue(files.getValue("data/logs.json").contains("\"type\":\"receipt\""))
         assertTrue(files.getValue("data/log-history.jsonl").contains("\"revision\":0"))
         assertTrue(files.getValue("data/history.jsonl").contains("buy milk"))
         assertTrue(files.getValue("data/notes.json").contains("2026-07-13T10:45:00Z"))

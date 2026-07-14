@@ -197,7 +197,7 @@
     <string name="developer_key_storage">Raktas šifruojamas su Android Keystore ir niekada neeksportuojamas. Tuščia reikšmė jį pašalina.</string>
     <string name="developer_key_saved">išsaugotas</string>
     <string name="developer_key_missing">trūksta</string>
-    <string name="developer_cloud_privacy">Naudok savo paslaugos raktą; Soma neturi paskyros ar serverio, o paslaugos teikėjas apmokestina tavo paskyrą. Pagal nutylėjimą išjungta. Transkripcija siunčia garsą ir žodyną pasirinktai paslaugai. Svarbaus pasiūlymai ir žymos siunčia įrašo tekstą Groq. Valgio ir treniruotės pasiūlymai siunčia pasirinktą tekstą ir tik jei yra – nuotrauką Groq. Groq apdorojimas ir saugomi kliento duomenys yra JAV; Groq įjunk Zero Data Retention. ElevenLabs nuliniam saugojimui reikia Enterprise. Užklausos gali naudoti mobilųjį ryšį, jei neįjungtas tik Wi-Fi.</string>
+    <string name="developer_cloud_privacy">Naudok savo paslaugos raktą; Soma neturi paskyros ar serverio, o paslaugos teikėjas apmokestina tavo paskyrą. Pagal nutylėjimą išjungta. Transkripcija siunčia garsą ir žodyną pasirinktai paslaugai. Svarbaus pasiūlymai ir žymos siunčia įrašo tekstą Groq. Valgio, treniruotės ir kvito pasiūlymai siunčia pasirinktą tekstą ir tik jei yra – nuotrauką Groq. Groq apdorojimas ir saugomi kliento duomenys yra JAV; Groq įjunk Zero Data Retention. ElevenLabs nuliniam saugojimui reikia Enterprise. Užklausos gali naudoti mobilųjį ryšį, jei neįjungtas tik Wi-Fi.</string>
     <string name="developer_cloud_data">debesų duomenys ir privatumas</string>
     <string name="developer_enabled">Kūrėjo parinktys įjungtos</string>
     <string name="language_name_english">English</string>

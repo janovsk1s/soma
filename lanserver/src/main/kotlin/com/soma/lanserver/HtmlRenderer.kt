@@ -202,6 +202,7 @@ internal object HtmlRenderer {
             BrowserLogFilter.MEALS -> copy.meals
             BrowserLogFilter.RECIPES -> copy.recipes
             BrowserLogFilter.WORKOUTS -> copy.workouts
+            BrowserLogFilter.RECEIPTS -> copy.receipts
             BrowserLogFilter.ARCHIVED -> copy.archived
         }
         return page(
@@ -216,6 +217,7 @@ internal object HtmlRenderer {
                 tab(copy.meals, "/logs?kind=meal", filter == BrowserLogFilter.MEALS)
                 tab(copy.recipes, "/logs?kind=recipe", filter == BrowserLogFilter.RECIPES)
                 tab(copy.workouts, "/logs?kind=workout", filter == BrowserLogFilter.WORKOUTS)
+                tab(copy.receipts, "/logs?kind=receipt", filter == BrowserLogFilter.RECEIPTS)
                 tab(copy.archived, "/logs?kind=archived", filter == BrowserLogFilter.ARCHIVED)
                 append("</nav>")
                 val logs = result.items.take(PAGE_SIZE)
@@ -228,7 +230,10 @@ internal object HtmlRenderer {
                             .append(Html.escape(log.title)).append("</h2><time datetime=\"")
                             .append(Html.escape(log.occurredAt.toString())).append("\">")
                             .append(Html.escape(log.occurredLabel)).append("</time></header>")
-                        if (log.note.isNotBlank()) {
+                        // Receipt notes use Soma's stable editable interchange syntax. The
+                        // structured fields below are the calm human view; do not duplicate the
+                        // internal merchant/item/total lines as a paragraph.
+                        if (log.kind != BrowserLogKind.RECEIPT && log.note.isNotBlank()) {
                             append("<p class=\"log-note\">").append(Html.escape(log.note)).append("</p>")
                         }
                         if (log.foods.isNotEmpty()) {
@@ -263,6 +268,29 @@ internal object HtmlRenderer {
                             }
                             append("</ul>")
                         }
+                        log.receipt?.let { receipt ->
+                            if (!receipt.merchant.isNullOrBlank() && receipt.merchant != log.title) {
+                                append("<p class=\"quiet\">").append(Html.escape(receipt.merchant)).append("</p>")
+                            }
+                            if (receipt.items.isNotEmpty()) {
+                                append("<ul class=\"log-parts\">")
+                                receipt.items.forEach { item ->
+                                    append("<li><span><strong>").append(Html.escape(item.name)).append("</strong>")
+                                    item.quantity?.let { append(" <span class=\"quiet\">× ").append(Html.escape(it)).append("</span>") }
+                                    append("</span>")
+                                    listOfNotNull(item.total, item.category).takeIf(List<String>::isNotEmpty)?.let { details ->
+                                        append("<small>").append(Html.escape(details.joinToString(" · "))).append("</small>")
+                                    }
+                                    append("</li>")
+                                }
+                                append("</ul>")
+                            }
+                            append("<dl class=\"receipt-totals\">")
+                            receipt.subtotal?.let { append("<dt>").append(Html.escape(copy.receiptSubtotal)).append("</dt><dd>").append(Html.escape(it)).append("</dd>") }
+                            receipt.tax?.let { append("<dt>").append(Html.escape(copy.receiptTax)).append("</dt><dd>").append(Html.escape(it)).append("</dd>") }
+                            receipt.total?.let { append("<dt>").append(Html.escape(copy.receiptTotal)).append("</dt><dd><strong>").append(Html.escape(it)).append("</strong></dd>") }
+                            append("</dl>")
+                        }
                         append("<footer class=\"log-footer\">")
                         log.sourceDate?.let { sourceDate ->
                             append("<a href=\"/day/").append(Html.pathSegment(sourceDate.toString())).append("\">")
@@ -280,6 +308,7 @@ internal object HtmlRenderer {
                     BrowserLogFilter.MEALS -> "/logs?kind=meal"
                     BrowserLogFilter.RECIPES -> "/logs?kind=recipe"
                     BrowserLogFilter.WORKOUTS -> "/logs?kind=workout"
+                    BrowserLogFilter.RECEIPTS -> "/logs?kind=receipt"
                     BrowserLogFilter.ARCHIVED -> "/logs?kind=archived"
                 }
                 append(pager(base, pageNumber, result.totalCount, hasQuery = true))
@@ -574,7 +603,7 @@ internal object HtmlRenderer {
         audio{display:block;width:100%;margin-top:14px}.entry img{display:block;width:100%;height:auto;max-height:520px;object-fit:contain;margin-top:14px}.empty{padding:36px 0}
         .pager{display:grid;grid-template-columns:1fr auto 1fr;gap:20px;padding:28px 0;align-items:center}.pager>*:last-child{text-align:right}
         .tabs{display:flex;gap:24px;margin-bottom:28px;padding-bottom:4px;overflow-x:auto;white-space:nowrap}.tabs [aria-current=page]{font-weight:bold;text-decoration-thickness:2px}
-        .log-header{display:flex;justify-content:space-between;align-items:baseline;gap:20px;padding:0}.log-header h2{margin:0;font-size:22px}.log-header time{color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}.log-note{margin-top:12px!important}.log-parts{list-style:none;margin:18px 0 0;padding:0}.log-parts>li{padding:10px 0;border-top:1px solid var(--line)}.log-parts small{display:block;margin-top:5px}.log-footer{display:flex;justify-content:space-between;gap:20px;margin-top:18px;color:var(--dim);font-size:14px}.log-footer:empty{display:none}
+        .log-header{display:flex;justify-content:space-between;align-items:baseline;gap:20px;padding:0}.log-header h2{margin:0;font-size:22px}.log-header time{color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}.log-note{margin-top:12px!important}.log-parts{list-style:none;margin:18px 0 0;padding:0}.log-parts>li{padding:10px 0;border-top:1px solid var(--line)}.log-parts small{display:block;margin-top:5px}.receipt-totals{display:grid;grid-template-columns:1fr auto;gap:5px 20px;margin:18px 0 0;padding-top:12px;border-top:1px solid var(--line)}.receipt-totals dt{color:var(--dim)}.receipt-totals dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}.log-footer{display:flex;justify-content:space-between;gap:20px;margin-top:18px;color:var(--dim);font-size:14px}.log-footer:empty{display:none}
         h2{font-size:22px;margin:34px 0 10px}.summary{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin:0}.summary div{min-width:0}.summary dt{color:var(--dim);font-size:14px}.summary dd{font-size:24px;margin:3px 0 0;font-variant-numeric:tabular-nums}
         .connection-graph{display:block;width:100%;height:auto;overflow:visible}.connection-graph circle{fill:var(--ink)}.edge-line{stroke:var(--dim);stroke-width:2}.node-label{fill:var(--ink);font-size:18px;font-weight:bold}.node-detail,.edge-source{fill:var(--dim);font-size:14px}.edge-label{fill:var(--ink);font-size:14px}.connection-graph a{text-decoration:underline}.graph-note{margin-top:18px}
         form{border-top:2px solid var(--ink);padding-top:24px}label{display:block;margin-bottom:8px}input,button{font:inherit;border:2px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:0;padding:12px}
@@ -595,6 +624,10 @@ private data class BrowserWebCopy(
     val meals: String,
     val recipes: String,
     val workouts: String,
+    val receipts: String,
+    val receiptSubtotal: String,
+    val receiptTax: String,
+    val receiptTotal: String,
     val archived: String,
     val noLogs: String,
     val sourceNote: String,
@@ -608,49 +641,49 @@ private data class BrowserWebCopy(
         fun forLanguage(languageTag: String): BrowserWebCopy = when (languageTag.substringBefore('-').lowercase()) {
             "lv" -> BrowserWebCopy(
                 "Dienas", "Svarīgais", "Žurnāli", "Ieskati", "Grafiks",
-                "Apstiprināti ieraksti", "Ēdienreizes", "Receptes", "Treniņi", "Arhīvs",
+                "Apstiprināti ieraksti", "Ēdienreizes", "Receptes", "Treniņi", "Čeki", "Starpsumma", "Nodoklis", "Kopā", "Arhīvs",
                 "Te vēl nekas nav saglabāts.", "avota piezīme", "versijas",
                 "Pārlūka skats", "Piekļuves kods", "Turpināt", "Ievadi tālrunī redzamo vienreizējo kodu.",
             )
             "et" -> BrowserWebCopy(
                 "Päevad", "Oluline", "Logid", "Ülevaade", "Graafik",
-                "Kinnitatud kirjed", "Toidukorrad", "Retseptid", "Treeningud", "Arhiiv",
+                "Kinnitatud kirjed", "Toidukorrad", "Retseptid", "Treeningud", "Kviitungid", "Vahesumma", "Maks", "Kokku", "Arhiiv",
                 "Siin pole veel midagi salvestatud.", "lähtekirje", "versiooni",
                 "Brauserivaade", "Pääsukood", "Jätka", "Sisesta telefonis kuvatav ühekordne kood.",
             )
             "lt" -> BrowserWebCopy(
                 "Dienos", "Svarbu", "Žurnalai", "Įžvalgos", "Grafas",
-                "Patvirtinti įrašai", "Valgiai", "Receptai", "Treniruotės", "Archyvas",
+                "Patvirtinti įrašai", "Valgiai", "Receptai", "Treniruotės", "Kvitai", "Tarpinė suma", "Mokestis", "Iš viso", "Archyvas",
                 "Čia dar nieko neišsaugota.", "šaltinio pastaba", "versijos",
                 "Naršyklės rodinys", "Prieigos kodas", "Tęsti", "Įveskite telefone rodomą vienkartinį kodą.",
             )
             "fi" -> BrowserWebCopy(
                 "Päivät", "Tärkeät", "Lokit", "Kooste", "Verkko",
-                "Vahvistetut kirjaukset", "Ateriat", "Reseptit", "Harjoitukset", "Arkisto",
+                "Vahvistetut kirjaukset", "Ateriat", "Reseptit", "Harjoitukset", "Kuitit", "Välisumma", "Vero", "Yhteensä", "Arkisto",
                 "Ei vielä tallennettuja kirjauksia.", "lähdemuistiinpano", "versiota",
                 "Selainnäkymä", "Käyttökoodi", "Jatka", "Syötä puhelimessa näkyvä kertakäyttökoodi.",
             )
             "sv" -> BrowserWebCopy(
                 "Dagar", "Viktigt", "Loggar", "Insikter", "Graf",
-                "Bekräftade poster", "Måltider", "Recept", "Träning", "Arkiv",
+                "Bekräftade poster", "Måltider", "Recept", "Träning", "Kvitton", "Delsumma", "Skatt", "Totalt", "Arkiv",
                 "Inget sparat här ännu.", "källanteckning", "versioner",
                 "Webbläsarvy", "Åtkomstkod", "Fortsätt", "Ange engångskoden som visas på telefonen.",
             )
             "de" -> BrowserWebCopy(
                 "Tage", "Wichtig", "Protokolle", "Einblicke", "Graph",
-                "Bestätigte Einträge", "Mahlzeiten", "Rezepte", "Training", "Archiv",
+                "Bestätigte Einträge", "Mahlzeiten", "Rezepte", "Training", "Kassenbons", "Zwischensumme", "Steuer", "Gesamt", "Archiv",
                 "Noch nichts gespeichert.", "Quellnotiz", "Versionen",
                 "Browseransicht", "Zugangscode", "Weiter", "Gib den einmaligen Code vom Telefon ein.",
             )
             "sk" -> BrowserWebCopy(
                 "Dni", "Dôležité", "Záznamy", "Prehľad", "Graf",
-                "Potvrdené záznamy", "Jedlá", "Recepty", "Tréningy", "Archív",
+                "Potvrdené záznamy", "Jedlá", "Recepty", "Tréningy", "Účtenky", "Medzisúčet", "Daň", "Spolu", "Archív",
                 "Zatiaľ tu nič nie je uložené.", "zdrojová poznámka", "verzie",
                 "Zobrazenie v prehliadači", "Prístupový kód", "Pokračovať", "Zadajte jednorazový kód zobrazený v telefóne.",
             )
             else -> BrowserWebCopy(
                 "Days", "Important", "Logs", "Insights", "Graph",
-                "Confirmed records", "Meals", "Recipes", "Workouts", "Archived",
+                "Confirmed records", "Meals", "Recipes", "Workouts", "Receipts", "Subtotal", "Tax", "Total", "Archived",
                 "Nothing saved here yet.", "source note", "versions",
                 "Browser view", "Access code", "Continue", "Use the one-time code shown on your phone.",
             )
@@ -677,56 +710,56 @@ private data class ExportCopy(
         private val COPIES = mapOf(
             "en" to ExportCopy(
                 "Export for analysis", "Your data, your AI", "Export for analysis →",
-                "The ZIP contains daily notes, Important items, meal and workout logs, tags, dates, links, and the complete edit history, including every earlier wording. Audio and photos are not included.",
+                "The ZIP contains daily notes, Important items, meal, workout and receipt logs, purchased items, exact totals, tags, dates, links, and the complete edit history, including every earlier wording. Audio and photos are not included.",
                 "Plaintext export.",
                 "It is not encrypted and travels over plain HTTP on this local network. Anyone able to observe the network can read or replace it. Save it only to a device you trust and delete it when finished.",
                 "I understand — download vault (.zip)", "← Insights",
             ),
             "lv" to ExportCopy(
                 "Eksports analīzei", "Tavi dati, tavs MI", "Eksportēt analīzei →",
-                "ZIP failā ir dienas piezīmes, svarīgie ieraksti, ēdienreižu un treniņu žurnāli, atzīmes, datumi, saites un pilna labojumu vēsture, ieskaitot visus iepriekšējos teksta variantus. Audio un fotoattēli nav iekļauti.",
+                "ZIP failā ir dienas piezīmes, svarīgie ieraksti, ēdienreižu un treniņu žurnāli, čeki, nopirktās preces, precīzās kopsummas, atzīmes, datumi, saites un pilna labojumu vēsture, ieskaitot visus iepriekšējos teksta variantus. Audio un fotoattēli nav iekļauti.",
                 "Nešifrēts eksports.",
                 "Tas nav šifrēts un tiek pārsūtīts pa parastu HTTP šajā lokālajā tīklā. Ikviens, kas var novērot tīklu, var to izlasīt vai aizstāt. Saglabā tikai uzticamā ierīcē un pēc lietošanas izdzēs.",
                 "Es saprotu — lejupielādēt arhīvu (.zip)", "← Ieskati",
             ),
             "et" to ExportCopy(
                 "Eksport analüüsiks", "Sinu andmed, sinu tehisaru", "Ekspordi analüüsiks →",
-                "ZIP sisaldab päevamärkmeid, olulisi üksusi, söögi- ja treeningulogisid, silte, kuupäevi, linke ning täielikku muutmisajalugu koos kõigi varasemate sõnastustega. Heli ja fotosid ei lisata.",
+                "ZIP sisaldab päevamärkmeid, olulisi üksusi, söögi- ja treeningulogisid, kviitungeid, ostetud tooteid, täpseid summasid, silte, kuupäevi, linke ning täielikku muutmisajalugu koos kõigi varasemate sõnastustega. Heli ja fotosid ei lisata.",
                 "Krüpteerimata eksport.",
                 "See liigub selles kohalikus võrgus tavalise HTTP kaudu. Igaüks, kes võrku jälgib, võib seda lugeda või muuta. Salvesta ainult usaldusväärsesse seadmesse ja kustuta pärast kasutamist.",
                 "Saan aru — laadi varamu alla (.zip)", "← Ülevaade",
             ),
             "lt" to ExportCopy(
                 "Eksportas analizei", "Jūsų duomenys, jūsų DI", "Eksportuoti analizei →",
-                "ZIP faile yra dienos užrašai, svarbūs įrašai, maisto ir treniruočių žurnalai, žymos, datos, nuorodos ir visa taisymų istorija, įskaitant ankstesnes formuluotes. Garso įrašai ir nuotraukos neįtraukiami.",
+                "ZIP faile yra dienos užrašai, svarbūs įrašai, maisto, treniruočių ir kvitų žurnalai, pirktos prekės, tikslios sumos, žymos, datos, nuorodos ir visa taisymų istorija, įskaitant ankstesnes formuluotes. Garso įrašai ir nuotraukos neįtraukiami.",
                 "Nešifruotas eksportas.",
                 "Jis perduodamas paprastu HTTP šiame vietiniame tinkle. Tinklą stebintys asmenys gali jį perskaityti arba pakeisti. Saugokite tik patikimame įrenginyje ir panaudoję ištrinkite.",
                 "Suprantu — atsisiųsti saugyklą (.zip)", "← Įžvalgos",
             ),
             "fi" to ExportCopy(
                 "Vienti analyysiin", "Sinun tietosi, sinun tekoälysi", "Vie analyysiin →",
-                "ZIP sisältää päivämuistiinpanot, tärkeät kohteet, ruoka- ja harjoituslokit, tunnisteet, päivämäärät, linkit sekä koko muokkaushistorian kaikkine aiempine sanamuotoineen. Ääntä ja kuvia ei sisällytetä.",
+                "ZIP sisältää päivämuistiinpanot, tärkeät kohteet, ruoka-, harjoitus- ja kuittilokit, ostetut tuotteet, tarkat summat, tunnisteet, päivämäärät, linkit sekä koko muokkaushistorian kaikkine aiempine sanamuotoineen. Ääntä ja kuvia ei sisällytetä.",
                 "Salaamaton vienti.",
                 "Se siirtyy tavallisella HTTP-yhteydellä tässä lähiverkossa. Verkon liikennettä seuraava voi lukea tai muuttaa sitä. Tallenna vain luotettuun laitteeseen ja poista käytön jälkeen.",
                 "Ymmärrän — lataa holvi (.zip)", "← Kooste",
             ),
             "sv" to ExportCopy(
                 "Export för analys", "Dina data, din AI", "Exportera för analys →",
-                "ZIP-filen innehåller dagliga anteckningar, viktiga poster, mat- och träningsloggar, taggar, datum, länkar och fullständig redigeringshistorik med alla tidigare formuleringar. Ljud och foton ingår inte.",
+                "ZIP-filen innehåller dagliga anteckningar, viktiga poster, mat-, tränings- och kvittologgar, köpta varor, exakta summor, taggar, datum, länkar och fullständig redigeringshistorik med alla tidigare formuleringar. Ljud och foton ingår inte.",
                 "Okrypterad export.",
                 "Den skickas via vanlig HTTP i det lokala nätverket. Den som kan övervaka nätverket kan läsa eller ersätta den. Spara endast på en betrodd enhet och radera efter användning.",
                 "Jag förstår — hämta valv (.zip)", "← Insikter",
             ),
             "de" to ExportCopy(
                 "Export zur Analyse", "Deine Daten, deine KI", "Zur Analyse exportieren →",
-                "Die ZIP-Datei enthält Tagesnotizen, wichtige Einträge, Essens- und Trainingsprotokolle, Tags, Daten, Verknüpfungen und den vollständigen Bearbeitungsverlauf mit allen früheren Formulierungen. Audio und Fotos sind nicht enthalten.",
+                "Die ZIP-Datei enthält Tagesnotizen, wichtige Einträge, Essens-, Trainings- und Kassenbonprotokolle, gekaufte Artikel, exakte Summen, Tags, Daten, Verknüpfungen und den vollständigen Bearbeitungsverlauf mit allen früheren Formulierungen. Audio und Fotos sind nicht enthalten.",
                 "Unverschlüsselter Export.",
                 "Die Übertragung erfolgt über einfaches HTTP in diesem lokalen Netzwerk. Wer den Netzwerkverkehr beobachten kann, kann die Datei lesen oder ersetzen. Nur auf einem vertrauenswürdigen Gerät speichern und danach löschen.",
                 "Verstanden — Vault herunterladen (.zip)", "← Einblicke",
             ),
             "sk" to ExportCopy(
                 "Export na analýzu", "Vaše údaje, vaša AI", "Exportovať na analýzu →",
-                "ZIP obsahuje denné poznámky, dôležité položky, záznamy jedál a tréningov, značky, dátumy, odkazy a úplnú históriu úprav vrátane všetkých predchádzajúcich znení. Zvuk a fotografie nie sú zahrnuté.",
+                "ZIP obsahuje denné poznámky, dôležité položky, záznamy jedál, tréningov a účteniek, kúpené položky, presné sumy, značky, dátumy, odkazy a úplnú históriu úprav vrátane všetkých predchádzajúcich znení. Zvuk a fotografie nie sú zahrnuté.",
                 "Nešifrovaný export.",
                 "Prenáša sa cez obyčajné HTTP v tejto lokálnej sieti. Kto môže sledovať sieť, môže ho čítať alebo nahradiť. Uložte ho iba do dôveryhodného zariadenia a po použití odstráňte.",
                 "Rozumiem — stiahnuť archív (.zip)", "← Prehľad",

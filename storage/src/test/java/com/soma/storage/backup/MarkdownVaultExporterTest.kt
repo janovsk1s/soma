@@ -163,7 +163,7 @@ class MarkdownVaultExporterTest {
         assertFalse(day.contains("SHOULD-NOT-EXPORT"))
 
         val manifest = files.getValue(".soma/manifest.json").toString(Charsets.UTF_8)
-        assertTrue(manifest.contains("\"version\": 4"))
+        assertTrue(manifest.contains("\"version\": 5"))
         assertTrue(manifest.contains("\"metadataLayerCount\": 1"))
 
         val important = files.getValue("Important.md").toString(Charsets.UTF_8)

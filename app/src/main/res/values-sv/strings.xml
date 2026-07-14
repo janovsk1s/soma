@@ -197,7 +197,7 @@
     <string name="developer_key_storage">Nyckeln krypteras med Android Keystore och exporteras aldrig. Spara ett tomt värde för att ta bort den.</string>
     <string name="developer_key_saved">sparad</string>
     <string name="developer_key_missing">saknas</string>
-    <string name="developer_cloud_privacy">Använd din egen leverantörsnyckel; Soma har inget konto eller server och leverantören debiterar ditt konto. Av som standard. Transkribering skickar ljud och ordlista till vald leverantör. Viktigt-förslag och taggar skickar postens text till Groq. Förslag för mat och träning skickar vald text och, bara när den finns, bilden till Groq. Groqs behandling och lagrade kunddata finns i USA; aktivera Zero Data Retention hos Groq. ElevenLabs kräver Enterprise för nollagring. Förfrågningar kan använda mobildata om endast Wi-Fi inte är aktiverat.</string>
+    <string name="developer_cloud_privacy">Använd din egen leverantörsnyckel; Soma har inget konto eller server och leverantören debiterar ditt konto. Av som standard. Transkribering skickar ljud och ordlista till vald leverantör. Viktigt-förslag och taggar skickar postens text till Groq. Förslag för mat, träning och kvitton skickar vald text och, bara när den finns, bilden till Groq. Groqs behandling och lagrade kunddata finns i USA; aktivera Zero Data Retention hos Groq. ElevenLabs kräver Enterprise för nollagring. Förfrågningar kan använda mobildata om endast Wi-Fi inte är aktiverat.</string>
     <string name="developer_cloud_data">molndata och integritet</string>
     <string name="developer_enabled">Utvecklaralternativ aktiverade</string>
     <string name="language_name_english">English</string>

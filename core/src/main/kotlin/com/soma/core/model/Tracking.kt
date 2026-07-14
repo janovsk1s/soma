@@ -7,6 +7,7 @@ enum class LogKind {
     MEAL,
     RECIPE,
     WORKOUT,
+    RECEIPT,
 }
 
 /**
@@ -162,6 +163,77 @@ data class WorkoutExercise(
     }
 }
 
+/** Exact user- or receipt-derived money. Two minor digits cover Soma's current EU/EEA markets. */
+data class ReceiptMoney(
+    val minorUnits: Long,
+    val currencyCode: String,
+) {
+    init {
+        require(minorUnits in 0..MAX_MINOR_UNITS) { "Receipt amount is outside the supported range" }
+        require(CURRENCY_CODE.matches(currencyCode)) { "Receipt currency must be a three-letter code" }
+    }
+
+    companion object {
+        const val MAX_MINOR_UNITS = 100_000_000_000L
+        private val CURRENCY_CODE = Regex("[A-Z]{3}")
+    }
+}
+
+/** A purchased line as printed or confirmed by the user; category is optional metadata, never fact. */
+data class ReceiptItem(
+    val name: String,
+    val quantity: Double? = null,
+    val unitPrice: ReceiptMoney? = null,
+    val lineTotal: ReceiptMoney? = null,
+    val category: String? = null,
+) {
+    init {
+        require(name.isNotBlank() && name.length <= MAX_NAME_LENGTH) { "Receipt item name is invalid" }
+        require(quantity == null || quantity.isFinite() && quantity > 0.0) {
+            "Receipt item quantity must be finite and positive"
+        }
+        require(category == null || category.isNotBlank() && category.length <= MAX_CATEGORY_LENGTH) {
+            "Receipt item category is invalid"
+        }
+    }
+
+    companion object {
+        const val MAX_NAME_LENGTH = 500
+        const val MAX_CATEGORY_LENGTH = 100
+    }
+}
+
+/** Structured spending data linked to the original encrypted receipt photo and authored description. */
+data class ReceiptDetails(
+    val merchant: String? = null,
+    val currencyCode: String = "EUR",
+    val subtotal: ReceiptMoney? = null,
+    val tax: ReceiptMoney? = null,
+    val total: ReceiptMoney? = null,
+    val items: List<ReceiptItem> = emptyList(),
+) {
+    init {
+        require(merchant == null || merchant.isNotBlank() && merchant.length <= MAX_MERCHANT_LENGTH) {
+            "Receipt merchant is invalid"
+        }
+        require(Regex("[A-Z]{3}").matches(currencyCode)) { "Receipt currency must be a three-letter code" }
+        require(items.size <= MAX_ITEMS) { "Receipt has too many purchased items" }
+        listOfNotNull(subtotal, tax, total).forEach { amount ->
+            require(amount.currencyCode == currencyCode) { "Receipt amounts must use one currency" }
+        }
+        items.forEach { item ->
+            listOfNotNull(item.unitPrice, item.lineTotal).forEach { amount ->
+                require(amount.currencyCode == currencyCode) { "Receipt items must use the receipt currency" }
+            }
+        }
+    }
+
+    companion object {
+        const val MAX_MERCHANT_LENGTH = 500
+        const val MAX_ITEMS = 500
+    }
+}
+
 /**
  * Structured data is additive. [source] points back to the untouched entry; editing this record
  * creates a [LogRevision] and never rewrites the note, photo, recording, or transcript.
@@ -177,6 +249,7 @@ data class LogRecord(
     val source: EntrySource? = null,
     val foods: List<FoodItem> = emptyList(),
     val exercises: List<WorkoutExercise> = emptyList(),
+    val receipt: ReceiptDetails? = null,
     val revision: Long = 0,
     val archivedAt: Instant? = null,
 ) {
@@ -194,10 +267,15 @@ data class LogRecord(
         require(foods.size <= MAX_FOOD_ITEMS) { "Log contains too many food items" }
         require(exercises.size <= MAX_EXERCISES) { "Log contains too many exercises" }
         when (kind) {
-            LogKind.MEAL, LogKind.RECIPE -> require(exercises.isEmpty()) {
-                "Food logs cannot contain exercises"
+            LogKind.MEAL, LogKind.RECIPE -> require(exercises.isEmpty() && receipt == null) {
+                "Food logs cannot contain workout or receipt data"
             }
-            LogKind.WORKOUT -> require(foods.isEmpty()) { "Workout logs cannot contain foods" }
+            LogKind.WORKOUT -> require(foods.isEmpty() && receipt == null) {
+                "Workout logs cannot contain food or receipt data"
+            }
+            LogKind.RECEIPT -> require(foods.isEmpty() && exercises.isEmpty() && receipt != null) {
+                "Receipt logs require receipt data and cannot contain food or workout data"
+            }
         }
     }
 
@@ -206,12 +284,14 @@ data class LogRecord(
         note: String = this.note,
         foods: List<FoodItem> = this.foods,
         exercises: List<WorkoutExercise> = this.exercises,
+        receipt: ReceiptDetails? = this.receipt,
         at: Instant,
     ): LogRecord = copy(
         title = title.trim(),
         note = note.trim(),
         foods = foods,
         exercises = exercises,
+        receipt = receipt,
         updatedAt = at,
         revision = revision + 1,
     )

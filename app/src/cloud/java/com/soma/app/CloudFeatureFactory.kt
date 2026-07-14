@@ -602,6 +602,14 @@ private object CloudHttp {
                     "one exercise per line in the compact form 'Exercise 3x10 80 kg' when those exact " +
                     "values are stated. A photo may suggest the machine or exercise, but spoken or typed " +
                     "sets, repetitions, and kilograms are authoritative. Never invent missing values."
+            LogKind.RECEIPT ->
+                "Extract an editable receipt proposal from the entry and receipt photo. Return JSON with " +
+                    "a lines array using only these forms: 'merchant: name', 'currency: EUR', " +
+                    "'item: name | quantity | exact line total | optional broad category', 'subtotal: 0.00', " +
+                    "'tax: 0.00', and 'total: 0.00'. Use the printed ISO currency code when visible and " +
+                    "preserve every printed purchase line, including duplicates. Copy values exactly. " +
+                    "Omit unreadable fields, never infer missing prices or products, and keep uncertain " +
+                    "item names visibly qualified. Do not calculate or replace the printed total."
         }
         val userText = JSONObject()
             .put("record_type", kind.name.lowercase())

@@ -82,4 +82,27 @@ class TrackingTest {
             )
         }
     }
+
+    @Test
+    fun `receipt keeps exact spending and cannot masquerade as a meal`() {
+        val receipt = ReceiptDetails(
+            merchant = "Rimi",
+            total = ReceiptMoney(429, "EUR"),
+            items = listOf(ReceiptItem("Milk", lineTotal = ReceiptMoney(129, "EUR"))),
+        )
+        val log = LogRecord(
+            id = "receipt-1",
+            kind = LogKind.RECEIPT,
+            title = "Rimi",
+            occurredAt = createdAt,
+            createdAt = createdAt,
+            updatedAt = createdAt,
+            receipt = receipt,
+        )
+
+        assertEquals(429L, log.receipt?.total?.minorUnits)
+        assertThrows(IllegalArgumentException::class.java) {
+            log.copy(kind = LogKind.MEAL)
+        }
+    }
 }

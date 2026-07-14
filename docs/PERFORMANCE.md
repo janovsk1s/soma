@@ -38,9 +38,13 @@ and 20 candidates, and emits at most one bounded list block.
 - LAN metadata insights and the static SVG graph are assembled only for an
   authenticated `/insights` or `/graph` request. They do no background indexing,
   JavaScript, or cloud work and render at most five connection rows/edges per page.
-- Confirmed meal, recipe, workout, and archived log pages query at most six Room
+- Confirmed meal, recipe, workout, receipt, and archived log pages query at most six Room
   rows per request: five visible records plus one look-ahead row for paging. They
   do not decrypt the full archive or run nutrition analysis in the browser server.
+- Optional cloud photo analysis uses a correctly oriented temporary JPEG bounded
+  to 2,048 pixels and 4 MiB. The encrypted original is never recompressed or
+  replaced; bounding only the disposable request reduces cellular transfer,
+  provider latency, and peak memory.
 - Browser-view forest backgrounds are eight bundled WebP files totaling under
   1 MiB. One is selected per session and served directly from memory; there is no
   remote image fetch, image decoding on the phone, or session-to-session cache file.

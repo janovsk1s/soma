@@ -1,13 +1,30 @@
 <resources>
     <string name="transcription_engine_groq_turbo">Groq · Whisper Large v3 Turbo</string>
-    <string name="logs">Logid</string><string name="logs_all">kõik</string><string name="logs_empty">Toidukordi, retsepte ega treeninguid veel pole.</string>
+    <string name="logs">Logid</string><string name="logs_all">kõik</string><string name="logs_empty">Toidukordi, retsepte, treeninguid ega kviitungeid veel pole.</string>
     <string name="meal">toidukord</string><string name="meals">toidukorrad</string><string name="recipe">retsept</string><string name="recipes">retseptid</string>
-    <string name="workout">treening</string><string name="workouts">treeningud</string><string name="add_log">lisa logi</string>
+    <string name="workout">treening</string><string name="workouts">treeningud</string><string name="add_log">lisa logi</string><string name="register">registreeri</string>
+    <string name="meal_suggestion">→ toidukord?</string><string name="recipe_suggestion">→ retsept?</string><string name="workout_suggestion">→ treening?</string>
+    <string name="receipt_suggestion">→ kviitung?</string><string name="receipt">kviitung</string><string name="receipts">kviitungid</string>
     <string name="add_meal">lisa toidukord…</string><string name="add_recipe">lisa retsept…</string><string name="add_workout">lisa treening…</string>
+    <string name="add_receipt">lisa kviitung…</string>
     <string name="log_meal_help">Üks toit rea kohta. Lisa teadaolev kogus, näiteks „riisipuder 300 g“. Soma ei mõtle kaloreid välja.</string>
     <string name="log_recipe_help">Üks koostisosa rea kohta, näiteks „riis 100 g“. Koguseid ja toiteväärtust saab muuta.</string>
     <string name="log_workout_help">Kiirvorm: „jalapress 3×10 80 kg“. Järgmine harjutus kirjuta uuele reale.</string>
-    <string name="log_from_entry">logi toidukord, retsept või treening</string><string name="archive_log">arhiveeri logi</string>
+    <string name="log_receipt_help">Iga ostetud toode eraldi real. Kui Groq on lubatud, saab see kviitungi fotot lugeda; kontrolli enne salvestamist poodi, tooteid ja täpset summat.</string>
+    <string name="receipt_subtotal">vahesumma · %1$s</string><string name="receipt_tax">maks · %1$s</string><string name="receipt_total">kokku · %1$s</string>
+    <string name="register_receipt">registreeri kviitung</string><string name="registering">registreerin…</string>
+    <string name="receipt_review_help">Kontrolli enne registreerimist kviitungi andmeid.</string>
+    <string name="receipt_photo_linked">Algne foto jääb muutmata ja selle kirjega seotuks.</string>
+    <string name="receipt_merchant_hint">müüja…</string><string name="receipt_currency_hint">valuuta…</string><string name="receipt_total_hint">kokku…</string>
+    <string name="receipt_items">ostetud tooted</string><string name="receipt_add_item">lisa toode</string><string name="receipt_remove_item">eemalda</string>
+    <string name="receipt_item_name_hint">toode…</string><string name="receipt_item_quantity_hint">kogus…</string><string name="receipt_item_amount_hint">rea summa…</string>
+    <string name="receipt_item_category_hint">kategooria (valikuline)…</string><string name="receipt_optional_amounts">valikulised trükitud summad</string>
+    <string name="receipt_subtotal_hint">vahesumma…</string><string name="receipt_tax_hint">maks…</string>
+    <string name="receipt_items_sum">hinnaga tooted · %1$s</string><string name="receipt_total_matches">toodete summa võrdub kviitungi kogusummaga</string>
+    <string name="receipt_total_difference">kontrolli erinevust · %1$s</string><string name="receipt_subtotal_difference">vahesumma + maks erineb %1$s võrra</string>
+    <string name="receipt_invalid_field">Kontrolli summat, kogust või kolmetähelist valuutakoodi.</string>
+    <string name="receipt_nothing_to_register">Lisa enne registreerimist kviitungi andmed.</string><string name="read_receipt_with_groq">loe kviitungit Groqiga</string>
+    <string name="log_from_entry">logi toidukord, retsept, treening või kviitung</string><string name="archive_log">arhiveeri logi</string>
     <string name="log_earlier_versions">%1$d varasemat versiooni</string><string name="source_entry">lähtekirje</string>
     <string name="nutrition_package_label">pakendi märgistus</string><string name="nutrition_official_average">ametlik Euroopa keskmine</string>
     <string name="nutrition_estimated">hinnang</string><string name="nutrition_unquantified">kogus määramata</string>
@@ -24,6 +41,6 @@
     <string name="exercise_search_hint">Otsi harjutust või masinat…</string><string name="exercise_search_empty">Kohalikku vastet pole. Sisesta oma nimi.</string>
     <string name="developer_light_gear">Lighti hammasratas</string><string name="developer_groq_model">Groqi kõnemudel</string>
     <string name="developer_groq_turbo">Turbo · odavam</string><string name="developer_groq_accuracy">Large v3 · täpsus</string>
-    <string name="developer_ai_tracking">AI toidu- ja treeningusoovitused</string><string name="suggest_with_groq">paku kirje põhjal Groqiga</string>
+    <string name="developer_ai_tracking">AI toidu-, treeningu- ja kviitungisoovitused</string><string name="suggest_with_groq">paku kirje põhjal Groqiga</string>
     <string name="suggesting_with_groq">küsib Groqilt…</string><string name="tracking_suggestion_failed">Ettepanekut ei saadud. Algne kirje ei muutunud.</string>
 </resources>

@@ -1,13 +1,30 @@
 <resources>
     <string name="transcription_engine_groq_turbo">Groq · Whisper Large v3 Turbo</string>
-    <string name="logs">Lokit</string><string name="logs_all">kaikki</string><string name="logs_empty">Ei vielä aterioita, reseptejä tai harjoituksia.</string>
+    <string name="logs">Lokit</string><string name="logs_all">kaikki</string><string name="logs_empty">Ei vielä aterioita, reseptejä, harjoituksia tai kuitteja.</string>
     <string name="meal">ateria</string><string name="meals">ateriat</string><string name="recipe">resepti</string><string name="recipes">reseptit</string>
-    <string name="workout">harjoitus</string><string name="workouts">harjoitukset</string><string name="add_log">lisää loki</string>
+    <string name="workout">harjoitus</string><string name="workouts">harjoitukset</string><string name="add_log">lisää loki</string><string name="register">rekisteröi</string>
+    <string name="meal_suggestion">→ ateria?</string><string name="recipe_suggestion">→ resepti?</string><string name="workout_suggestion">→ harjoitus?</string>
+    <string name="receipt_suggestion">→ kuitti?</string><string name="receipt">kuitti</string><string name="receipts">kuitit</string>
     <string name="add_meal">lisää ateria…</string><string name="add_recipe">lisää resepti…</string><string name="add_workout">lisää harjoitus…</string>
+    <string name="add_receipt">lisää kuitti…</string>
     <string name="log_meal_help">Yksi ruoka riville. Lisää määrä, kun tiedät sen, esimerkiksi ”riisipuuro 300 g”. Soma ei keksi kaloreita.</string>
     <string name="log_recipe_help">Yksi ainesosa riville, esimerkiksi ”riisi 100 g”. Määriä ja ravintoarvoja voi muokata.</string>
     <string name="log_workout_help">Pikamuoto: ”jalkaprässi 3×10 80 kg”. Kirjoita toinen liike uudelle riville.</string>
-    <string name="log_from_entry">kirjaa ateria, resepti tai harjoitus</string><string name="archive_log">arkistoi loki</string>
+    <string name="log_receipt_help">Yksi ostos riviä kohden. Kun Groq on käytössä, se voi lukea kuittikuvan; tarkista kauppa, tuotteet ja tarkka summa ennen tallennusta.</string>
+    <string name="receipt_subtotal">välisumma · %1$s</string><string name="receipt_tax">vero · %1$s</string><string name="receipt_total">yhteensä · %1$s</string>
+    <string name="register_receipt">rekisteröi kuitti</string><string name="registering">rekisteröidään…</string>
+    <string name="receipt_review_help">Tarkista kuitin tiedot ennen rekisteröintiä.</string>
+    <string name="receipt_photo_linked">Alkuperäinen kuva säilyy muuttumattomana ja linkitettynä tähän tietueeseen.</string>
+    <string name="receipt_merchant_hint">myyjä…</string><string name="receipt_currency_hint">valuutta…</string><string name="receipt_total_hint">yhteensä…</string>
+    <string name="receipt_items">ostetut tuotteet</string><string name="receipt_add_item">lisää tuote</string><string name="receipt_remove_item">poista</string>
+    <string name="receipt_item_name_hint">tuote…</string><string name="receipt_item_quantity_hint">määrä…</string><string name="receipt_item_amount_hint">rivisumma…</string>
+    <string name="receipt_item_category_hint">luokka (valinnainen)…</string><string name="receipt_optional_amounts">valinnaiset painetut summat</string>
+    <string name="receipt_subtotal_hint">välisumma…</string><string name="receipt_tax_hint">vero…</string>
+    <string name="receipt_items_sum">hinnoitellut tuotteet · %1$s</string><string name="receipt_total_matches">tuotteiden summa vastaa kuitin loppusummaa</string>
+    <string name="receipt_total_difference">tarkista erotus · %1$s</string><string name="receipt_subtotal_difference">välisumma + vero poikkeaa %1$s</string>
+    <string name="receipt_invalid_field">Tarkista summa, määrä tai kolmikirjaiminen valuuttakoodi.</string>
+    <string name="receipt_nothing_to_register">Lisää kuitin tiedot ennen rekisteröintiä.</string><string name="read_receipt_with_groq">lue kuitti Groqilla</string>
+    <string name="log_from_entry">kirjaa ateria, resepti, harjoitus tai kuitti</string><string name="archive_log">arkistoi loki</string>
     <string name="log_earlier_versions">%1$d aiempaa versiota</string><string name="source_entry">lähdemerkintä</string>
     <string name="nutrition_package_label">pakkausmerkintä</string><string name="nutrition_official_average">virallinen eurooppalainen keskiarvo</string>
     <string name="nutrition_estimated">arvio</string><string name="nutrition_unquantified">määrää ei laskettu</string>
@@ -24,6 +41,6 @@
     <string name="exercise_search_hint">Etsi liikettä tai laitetta…</string><string name="exercise_search_empty">Paikallista osumaa ei löytynyt. Kirjoita oma nimi.</string>
     <string name="developer_light_gear">Light-ratas</string><string name="developer_groq_model">Groq-puhemalli</string>
     <string name="developer_groq_turbo">Turbo · edullisempi</string><string name="developer_groq_accuracy">Large v3 · tarkkuus</string>
-    <string name="developer_ai_tracking">tekoälyn ateria- ja harjoitusehdotukset</string><string name="suggest_with_groq">ehdota merkinnästä Groqilla</string>
+    <string name="developer_ai_tracking">tekoälyn ateria-, harjoitus- ja kuittiehdotukset</string><string name="suggest_with_groq">ehdota merkinnästä Groqilla</string>
     <string name="suggesting_with_groq">kysytään Groqilta…</string><string name="tracking_suggestion_failed">Ehdotusta ei saatu. Alkuperäinen merkintä ei muuttunut.</string>
 </resources>

@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.EntryKind
+import com.soma.core.model.LogKind
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.TodoSuggestion
 import java.time.ZoneId
@@ -42,11 +43,13 @@ import java.time.format.FormatStyle
 fun DayFlowPager(
     entries: List<NoteEntry>,
     suggestions: Map<String, TodoSuggestion>,
+    trackingSuggestions: Map<String, LogKind>,
     recordingEntryId: String?,
     resetKey: Any?,
     onRead: (NoteEntry) -> Unit,
     onOptions: (NoteEntry) -> Unit,
     onSuggestion: (NoteEntry) -> Unit,
+    onTrackingSuggestion: (NoteEntry, LogKind) -> Unit,
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val density = LocalDensity.current
@@ -76,7 +79,15 @@ fun DayFlowPager(
         val textWidthPx = with(density) {
             (constraints.maxWidth - FLOW_END_PADDING.roundToPx()).coerceAtLeast(1)
         }
-        val blocks = remember(entries, displayed, suggestions, pageContentHeightPx, textWidthPx, baseStyle) {
+        val blocks = remember(
+            entries,
+            displayed,
+            suggestions,
+            trackingSuggestions,
+            pageContentHeightPx,
+            textWidthPx,
+            baseStyle,
+        ) {
             val bodyStyle = baseStyle.copy(
                 fontSize = FLOW_FONT_SIZE,
                 lineHeight = FLOW_LINE_HEIGHT,
@@ -98,7 +109,7 @@ fun DayFlowPager(
             val charCap = lineCap * MAX_MEASURED_CHARS_PER_LINE
             entries.mapIndexed { index, entry ->
                 val chipPx = when {
-                    suggestions.containsKey(entry.id) -> touchTargetPx
+                    suggestions.containsKey(entry.id) || trackingSuggestions.containsKey(entry.id) -> touchTargetPx
                     entry.returnLater -> passiveChipPx
                     else -> 0
                 }
@@ -154,9 +165,11 @@ fun DayFlowPager(
                     EntryFlowBlock(
                         block = block,
                         suggestion = suggestions[block.entry.id],
+                        trackingSuggestion = trackingSuggestions[block.entry.id],
                         onRead = { onRead(block.entry) },
                         onOptions = { onOptions(block.entry) },
                         onSuggestion = { onSuggestion(block.entry) },
+                        onTrackingSuggestion = { kind -> onTrackingSuggestion(block.entry, kind) },
                     )
                 }
             }
@@ -208,9 +221,11 @@ internal fun packBlocks(blocks: List<FlowBlock>, pageHeightPx: Int): List<List<F
 private fun EntryFlowBlock(
     block: FlowBlock,
     suggestion: TodoSuggestion?,
+    trackingSuggestion: LogKind?,
     onRead: () -> Unit,
     onOptions: () -> Unit,
     onSuggestion: () -> Unit,
+    onTrackingSuggestion: (LogKind) -> Unit,
 ) {
     val entry = block.entry
     val density = LocalDensity.current
@@ -252,9 +267,11 @@ private fun EntryFlowBlock(
                 modifier = Modifier.padding(top = if (block.imageHeightPx > 0) IMAGE_CAPTION_SPACING else 0.dp),
             )
         }
-        if (suggestion != null || entry.returnLater) {
+        if (suggestion != null || trackingSuggestion != null || entry.returnLater) {
             Row(
-                modifier = Modifier.height(if (suggestion != null) MIN_TOUCH_TARGET else CHIP_ROW_HEIGHT),
+                modifier = Modifier.height(
+                    if (suggestion != null || trackingSuggestion != null) MIN_TOUCH_TARGET else CHIP_ROW_HEIGHT,
+                ),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -273,6 +290,27 @@ private fun EntryFlowBlock(
                         fontSize = 12.sp,
                         modifier = Modifier.then(
                             tapModifier(onSuggestion, stringResource(R.string.todo_suggestion)),
+                        ),
+                    )
+                }
+                if (trackingSuggestion != null) {
+                    val label = stringResource(
+                        when (trackingSuggestion) {
+                            LogKind.MEAL -> R.string.meal_suggestion
+                            LogKind.RECIPE -> R.string.recipe_suggestion
+                            LogKind.WORKOUT -> R.string.workout_suggestion
+                            LogKind.RECEIPT -> R.string.receipt_suggestion
+                        },
+                    )
+                    Text(
+                        label,
+                        color = DimInk,
+                        fontSize = 12.sp,
+                        modifier = Modifier.then(
+                            tapModifier(
+                                onClick = { onTrackingSuggestion(trackingSuggestion) },
+                                label = label,
+                            ),
                         ),
                     )
                 }

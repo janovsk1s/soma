@@ -1,13 +1,30 @@
 <resources>
     <string name="transcription_engine_groq_turbo">Groq · Whisper Large v3 Turbo</string>
-    <string name="logs">Žurnalai</string><string name="logs_all">visi</string><string name="logs_empty">Dar nėra valgių, receptų ar treniruočių.</string>
+    <string name="logs">Žurnalai</string><string name="logs_all">visi</string><string name="logs_empty">Dar nėra valgių, receptų, treniruočių ar kvitų.</string>
     <string name="meal">valgis</string><string name="meals">valgiai</string><string name="recipe">receptas</string><string name="recipes">receptai</string>
-    <string name="workout">treniruotė</string><string name="workouts">treniruotės</string><string name="add_log">pridėti žurnalą</string>
+    <string name="workout">treniruotė</string><string name="workouts">treniruotės</string><string name="add_log">pridėti žurnalą</string><string name="register">registruoti</string>
+    <string name="meal_suggestion">→ valgis?</string><string name="recipe_suggestion">→ receptas?</string><string name="workout_suggestion">→ treniruotė?</string>
+    <string name="receipt_suggestion">→ kvitas?</string><string name="receipt">kvitas</string><string name="receipts">kvitai</string>
     <string name="add_meal">pridėti valgį…</string><string name="add_recipe">pridėti receptą…</string><string name="add_workout">pridėti treniruotę…</string>
+    <string name="add_receipt">pridėti kvitą…</string>
     <string name="log_meal_help">Vienas maisto produktas eilutėje. Jei žinomas, pridėk kiekį, pvz., „ryžių košė 300 g“. Soma neišgalvoja kalorijų.</string>
     <string name="log_recipe_help">Vienas ingredientas eilutėje, pvz., „ryžiai 100 g“. Kiekius ir maistinę vertę galima taisyti.</string>
     <string name="log_workout_help">Greita forma: „kojų spaudimas 3×10 80 kg“. Kitą pratimą rašyk naujoje eilutėje.</string>
-    <string name="log_from_entry">registruoti valgį, receptą ar treniruotę</string><string name="archive_log">archyvuoti žurnalą</string>
+    <string name="log_receipt_help">Kiekviena pirkta prekė atskiroje eilutėje. Įjungus Groq, jis gali perskaityti kvito nuotrauką; prieš išsaugant patikrink parduotuvę, prekes ir tikslią sumą.</string>
+    <string name="receipt_subtotal">tarpinė suma · %1$s</string><string name="receipt_tax">mokestis · %1$s</string><string name="receipt_total">iš viso · %1$s</string>
+    <string name="register_receipt">registruoti kvitą</string><string name="registering">registruojama…</string>
+    <string name="receipt_review_help">Prieš registruodami patikrinkite kvito duomenis.</string>
+    <string name="receipt_photo_linked">Pradinė nuotrauka lieka nepakeista ir susieta su šiuo įrašu.</string>
+    <string name="receipt_merchant_hint">pardavėjas…</string><string name="receipt_currency_hint">valiuta…</string><string name="receipt_total_hint">iš viso…</string>
+    <string name="receipt_items">pirktos prekės</string><string name="receipt_add_item">pridėti prekę</string><string name="receipt_remove_item">pašalinti</string>
+    <string name="receipt_item_name_hint">prekė…</string><string name="receipt_item_quantity_hint">kiekis…</string><string name="receipt_item_amount_hint">eilutės suma…</string>
+    <string name="receipt_item_category_hint">kategorija (nebūtina)…</string><string name="receipt_optional_amounts">neprivalomos spausdintos sumos</string>
+    <string name="receipt_subtotal_hint">tarpinė suma…</string><string name="receipt_tax_hint">mokestis…</string>
+    <string name="receipt_items_sum">prekės su kainomis · %1$s</string><string name="receipt_total_matches">prekių suma sutampa su kvito suma</string>
+    <string name="receipt_total_difference">patikrinkite skirtumą · %1$s</string><string name="receipt_subtotal_difference">tarpinė suma + mokestis skiriasi %1$s</string>
+    <string name="receipt_invalid_field">Patikrinkite sumą, kiekį arba trijų raidžių valiutos kodą.</string>
+    <string name="receipt_nothing_to_register">Prieš registruodami pridėkite kvito duomenis.</string><string name="read_receipt_with_groq">nuskaityti kvitą su Groq</string>
+    <string name="log_from_entry">registruoti valgį, receptą, treniruotę ar kvitą</string><string name="archive_log">archyvuoti žurnalą</string>
     <string name="log_earlier_versions">%1$d ankstesnės versijos</string><string name="source_entry">šaltinio įrašas</string>
     <string name="nutrition_package_label">pakuotės etiketė</string><string name="nutrition_official_average">oficialus Europos vidurkis</string>
     <string name="nutrition_estimated">apytikslis įvertis</string><string name="nutrition_unquantified">kiekis nenustatytas</string>
@@ -24,6 +41,6 @@
     <string name="exercise_search_hint">Ieškoti pratimo ar treniruoklio…</string><string name="exercise_search_empty">Vietinio atitikmens nėra. Įrašyk savo pavadinimą.</string>
     <string name="developer_light_gear">Light krumpliaratis</string><string name="developer_groq_model">Groq kalbos modelis</string>
     <string name="developer_groq_turbo">Turbo · pigiau</string><string name="developer_groq_accuracy">Large v3 · tikslumas</string>
-    <string name="developer_ai_tracking">DI valgių ir treniruočių pasiūlymai</string><string name="suggest_with_groq">pasiūlyti iš įrašo su Groq</string>
+    <string name="developer_ai_tracking">DI valgių, treniruočių ir kvitų pasiūlymai</string><string name="suggest_with_groq">pasiūlyti iš įrašo su Groq</string>
     <string name="suggesting_with_groq">klausiama Groq…</string><string name="tracking_suggestion_failed">Pasiūlymas negautas. Pradinis įrašas nepakeistas.</string>
 </resources>

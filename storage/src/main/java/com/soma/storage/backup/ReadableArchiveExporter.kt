@@ -7,6 +7,8 @@ import com.soma.core.model.FoodItem
 import com.soma.core.model.LogRecord
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.NutritionEstimate
+import com.soma.core.model.ReceiptDetails
+import com.soma.core.model.ReceiptMoney
 import com.soma.core.model.TranscriptionEngine
 import com.soma.core.model.TranscriptionFallbackReason
 import com.soma.core.model.TranscriptionProvenance
@@ -201,7 +203,7 @@ class ReadableArchiveExporter {
     }
 
     private fun trackingLogsCsv(snapshot: BackupSnapshot): String = buildString {
-        appendLine("id,type,title,note,occurred_at,created_at,updated_at,revision,archived_at,source_date,source_entry_id,foods,exercises")
+        appendLine("id,type,title,note,occurred_at,created_at,updated_at,revision,archived_at,source_date,source_entry_id,foods,exercises,receipt_merchant,receipt_currency,receipt_total,receipt_items")
         snapshot.trackingLogs.sortedWith(compareBy(LogRecord::occurredAt, LogRecord::id)).forEach { log ->
             val foods = log.foods.joinToString(" | ") { food ->
                 buildString {
@@ -227,6 +229,14 @@ class ReadableArchiveExporter {
                 }
                 "${exercise.name}${exercise.machine?.let { " ($it)" }.orEmpty()}${sets.takeIf(String::isNotBlank)?.let { ": $it" }.orEmpty()}"
             }
+            val receiptItems = log.receipt?.items.orEmpty().joinToString(" | ") { item ->
+                buildString {
+                    append(item.name)
+                    item.quantity?.let { append(" × ${plainNumber(it)}") }
+                    item.lineTotal?.let { append(" · ${plainMoney(it)}") }
+                    item.category?.let { append(" [$it]") }
+                }
+            }
             appendLine(
                 listOf(
                     log.id,
@@ -242,13 +252,17 @@ class ReadableArchiveExporter {
                     log.source?.entryId.orEmpty(),
                     foods,
                     exercises,
+                    log.receipt?.merchant.orEmpty(),
+                    log.receipt?.currencyCode.orEmpty(),
+                    log.receipt?.total?.let(::plainMoney).orEmpty(),
+                    receiptItems,
                 ).joinToString(",", transform = ::csv),
             )
         }
     }
 
     private fun trackingLogsJson(snapshot: BackupSnapshot): String = buildString {
-        append("{\"format\":\"soma-structured-logs\",\"version\":1,\"exportedAt\":")
+        append("{\"format\":\"soma-structured-logs\",\"version\":2,\"exportedAt\":")
         appendJson(snapshot.exportedAt.toString())
         append(",\"logs\":[")
         snapshot.trackingLogs.sortedWith(compareBy(LogRecord::occurredAt, LogRecord::id))
@@ -306,6 +320,28 @@ class ReadableArchiveExporter {
                 append('}')
             }
             append("]}")
+        }
+        append("],\"receipt\":")
+        log.receipt?.let { appendReceiptJson(it) } ?: append("null")
+        append('}')
+    }
+
+    private fun StringBuilder.appendReceiptJson(receipt: ReceiptDetails) {
+        append('{')
+        append("\"merchant\":"); appendNullableJson(receipt.merchant)
+        append(','); jsonField("currency", receipt.currencyCode)
+        append(",\"subtotalMinorUnits\":"); appendNullableNumber(receipt.subtotal?.minorUnits)
+        append(",\"taxMinorUnits\":"); appendNullableNumber(receipt.tax?.minorUnits)
+        append(",\"totalMinorUnits\":"); appendNullableNumber(receipt.total?.minorUnits)
+        append(",\"items\":[")
+        receipt.items.forEachIndexed { index, item ->
+            if (index > 0) append(',')
+            append('{'); jsonField("name", item.name)
+            append(",\"quantity\":"); appendNullableNumber(item.quantity)
+            append(",\"unitPriceMinorUnits\":"); appendNullableNumber(item.unitPrice?.minorUnits)
+            append(",\"lineTotalMinorUnits\":"); appendNullableNumber(item.lineTotal?.minorUnits)
+            append(",\"category\":"); appendNullableJson(item.category)
+            append('}')
         }
         append("]}")
     }
@@ -466,6 +502,9 @@ class ReadableArchiveExporter {
         TranscriptionEngine.GROQ_WHISPER_LARGE_V3 -> "Groq Whisper Large v3"
     }
 
+    private fun plainMoney(money: ReceiptMoney): String =
+        "${money.currencyCode} ${money.minorUnits / 100}.${(money.minorUnits % 100).toString().padStart(2, '0')}"
+
     private fun historyJsonl(snapshot: BackupSnapshot): String = buildString {
         snapshot.entryRevisions.sortedWith(compareBy({ it.entryId }, { it.revision })).forEach { revision ->
             append('{')
@@ -566,7 +605,7 @@ class ReadableArchiveExporter {
     }
 
     private companion object {
-        const val READABLE_FORMAT_VERSION = 9
+        const val READABLE_FORMAT_VERSION = 10
         val TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss 'UTC'").withZone(ZoneOffset.UTC)
     }
 }

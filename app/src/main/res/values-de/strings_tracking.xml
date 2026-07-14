@@ -1,13 +1,30 @@
 <resources>
     <string name="transcription_engine_groq_turbo">Groq · Whisper Large v3 Turbo</string>
-    <string name="logs">Protokolle</string><string name="logs_all">alle</string><string name="logs_empty">Noch keine Mahlzeiten, Rezepte oder Trainings.</string>
+    <string name="logs">Protokolle</string><string name="logs_all">alle</string><string name="logs_empty">Noch keine Mahlzeiten, Rezepte, Trainings oder Kassenbons.</string>
     <string name="meal">Mahlzeit</string><string name="meals">Mahlzeiten</string><string name="recipe">Rezept</string><string name="recipes">Rezepte</string>
-    <string name="workout">Training</string><string name="workouts">Trainings</string><string name="add_log">Protokoll hinzufügen</string>
+    <string name="workout">Training</string><string name="workouts">Trainings</string><string name="add_log">Protokoll hinzufügen</string><string name="register">registrieren</string>
+    <string name="meal_suggestion">→ Mahlzeit?</string><string name="recipe_suggestion">→ Rezept?</string><string name="workout_suggestion">→ Training?</string>
+    <string name="receipt_suggestion">→ Kassenbon?</string><string name="receipt">Kassenbon</string><string name="receipts">Kassenbons</string>
     <string name="add_meal">Mahlzeit hinzufügen…</string><string name="add_recipe">Rezept hinzufügen…</string><string name="add_workout">Training hinzufügen…</string>
+    <string name="add_receipt">Kassenbon hinzufügen…</string>
     <string name="log_meal_help">Ein Lebensmittel pro Zeile. Menge ergänzen, wenn bekannt, etwa „Milchreis 300 g“. Soma erfindet keine Kalorien.</string>
     <string name="log_recipe_help">Eine Zutat pro Zeile, etwa „Reis 100 g“. Mengen und Nährwerte bleiben bearbeitbar.</string>
     <string name="log_workout_help">Schnellform: „Beinpresse 3×10 80 kg“. Für eine weitere Übung eine neue Zeile verwenden.</string>
-    <string name="log_from_entry">Mahlzeit, Rezept oder Training protokollieren</string><string name="archive_log">Protokoll archivieren</string>
+    <string name="log_receipt_help">Ein gekaufter Artikel pro Zeile. Wenn Groq aktiviert ist, kann es das Bonfoto lesen; prüfe Geschäft, Artikel und exakten Gesamtbetrag vor dem Speichern.</string>
+    <string name="receipt_subtotal">Zwischensumme · %1$s</string><string name="receipt_tax">Steuer · %1$s</string><string name="receipt_total">Gesamt · %1$s</string>
+    <string name="register_receipt">Kassenbon registrieren</string><string name="registering">wird registriert…</string>
+    <string name="receipt_review_help">Prüfe die Belegdaten vor dem Registrieren.</string>
+    <string name="receipt_photo_linked">Das Originalfoto bleibt unverändert und mit diesem Eintrag verknüpft.</string>
+    <string name="receipt_merchant_hint">Händler…</string><string name="receipt_currency_hint">Währung…</string><string name="receipt_total_hint">Gesamtbetrag…</string>
+    <string name="receipt_items">gekaufte Artikel</string><string name="receipt_add_item">Artikel hinzufügen</string><string name="receipt_remove_item">entfernen</string>
+    <string name="receipt_item_name_hint">Artikel…</string><string name="receipt_item_quantity_hint">Menge…</string><string name="receipt_item_amount_hint">Zeilensumme…</string>
+    <string name="receipt_item_category_hint">Kategorie (optional)…</string><string name="receipt_optional_amounts">optionale gedruckte Beträge</string>
+    <string name="receipt_subtotal_hint">Zwischensumme…</string><string name="receipt_tax_hint">Steuer…</string>
+    <string name="receipt_items_sum">bepreiste Artikel · %1$s</string><string name="receipt_total_matches">Artikelsumme stimmt mit dem Beleg überein</string>
+    <string name="receipt_total_difference">Differenz prüfen · %1$s</string><string name="receipt_subtotal_difference">Zwischensumme + Steuer weicht um %1$s ab</string>
+    <string name="receipt_invalid_field">Betrag, Menge oder dreistelligen Währungscode prüfen.</string>
+    <string name="receipt_nothing_to_register">Vor dem Registrieren Belegdaten hinzufügen.</string><string name="read_receipt_with_groq">Kassenbon mit Groq lesen</string>
+    <string name="log_from_entry">Mahlzeit, Rezept, Training oder Kassenbon protokollieren</string><string name="archive_log">Protokoll archivieren</string>
     <string name="log_earlier_versions">%1$d frühere Versionen</string><string name="source_entry">Quelleintrag</string>
     <string name="nutrition_package_label">Packungsangabe</string><string name="nutrition_official_average">offizieller europäischer Mittelwert</string>
     <string name="nutrition_estimated">Schätzung</string><string name="nutrition_unquantified">nicht quantifiziert</string>
@@ -24,6 +41,6 @@
     <string name="exercise_search_hint">Übung oder Gerät suchen…</string><string name="exercise_search_empty">Kein lokaler Treffer. Eigenen Namen eingeben.</string>
     <string name="developer_light_gear">Light-Zahnrad</string><string name="developer_groq_model">Groq-Sprachmodell</string>
     <string name="developer_groq_turbo">Turbo · günstiger</string><string name="developer_groq_accuracy">Large v3 · Genauigkeit</string>
-    <string name="developer_ai_tracking">KI-Vorschläge für Essen und Training</string><string name="suggest_with_groq">mit Groq aus Eintrag vorschlagen</string>
+    <string name="developer_ai_tracking">KI-Vorschläge für Essen, Training und Kassenbons</string><string name="suggest_with_groq">mit Groq aus Eintrag vorschlagen</string>
     <string name="suggesting_with_groq">Groq wird gefragt…</string><string name="tracking_suggestion_failed">Kein Vorschlag erhalten. Der ursprüngliche Eintrag ist unverändert.</string>
 </resources>

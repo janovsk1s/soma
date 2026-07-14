@@ -1,13 +1,30 @@
 <resources>
     <string name="transcription_engine_groq_turbo">Groq · Whisper Large v3 Turbo</string>
-    <string name="logs">Záznamy</string><string name="logs_all">všetky</string><string name="logs_empty">Zatiaľ žiadne jedlá, recepty ani tréningy.</string>
+    <string name="logs">Záznamy</string><string name="logs_all">všetky</string><string name="logs_empty">Zatiaľ žiadne jedlá, recepty, tréningy ani účtenky.</string>
     <string name="meal">jedlo</string><string name="meals">jedlá</string><string name="recipe">recept</string><string name="recipes">recepty</string>
-    <string name="workout">tréning</string><string name="workouts">tréningy</string><string name="add_log">pridať záznam</string>
+    <string name="workout">tréning</string><string name="workouts">tréningy</string><string name="add_log">pridať záznam</string><string name="register">zaregistrovať</string>
+    <string name="meal_suggestion">→ jedlo?</string><string name="recipe_suggestion">→ recept?</string><string name="workout_suggestion">→ tréning?</string>
+    <string name="receipt_suggestion">→ účtenka?</string><string name="receipt">účtenka</string><string name="receipts">účtenky</string>
     <string name="add_meal">pridať jedlo…</string><string name="add_recipe">pridať recept…</string><string name="add_workout">pridať tréning…</string>
+    <string name="add_receipt">pridať účtenku…</string>
     <string name="log_meal_help">Jedna potravina na riadok. Ak poznáš množstvo, pridaj ho, napríklad „mliečna ryža 300 g“. Soma si kalórie nevymýšľa.</string>
     <string name="log_recipe_help">Jedna prísada na riadok, napríklad „ryža 100 g“. Množstvá aj výživové údaje možno upraviť.</string>
     <string name="log_workout_help">Rýchly tvar: „leg press 3×10 80 kg“. Ďalší cvik napíš na nový riadok.</string>
-    <string name="log_from_entry">zaznamenať jedlo, recept alebo tréning</string><string name="archive_log">archivovať záznam</string>
+    <string name="log_receipt_help">Každá kúpená položka na samostatnom riadku. Ak je Groq zapnutý, môže prečítať fotografiu účtenky; pred uložením skontroluj obchod, položky a presnú sumu.</string>
+    <string name="receipt_subtotal">medzisúčet · %1$s</string><string name="receipt_tax">daň · %1$s</string><string name="receipt_total">spolu · %1$s</string>
+    <string name="register_receipt">zaregistrovať účtenku</string><string name="registering">registruje sa…</string>
+    <string name="receipt_review_help">Pred registráciou skontrolujte údaje účtenky.</string>
+    <string name="receipt_photo_linked">Pôvodná fotografia zostane nezmenená a prepojená s týmto záznamom.</string>
+    <string name="receipt_merchant_hint">predajca…</string><string name="receipt_currency_hint">mena…</string><string name="receipt_total_hint">spolu…</string>
+    <string name="receipt_items">kúpené položky</string><string name="receipt_add_item">pridať položku</string><string name="receipt_remove_item">odstrániť</string>
+    <string name="receipt_item_name_hint">položka…</string><string name="receipt_item_quantity_hint">množstvo…</string><string name="receipt_item_amount_hint">suma riadku…</string>
+    <string name="receipt_item_category_hint">kategória (voliteľné)…</string><string name="receipt_optional_amounts">voliteľné vytlačené sumy</string>
+    <string name="receipt_subtotal_hint">medzisúčet…</string><string name="receipt_tax_hint">daň…</string>
+    <string name="receipt_items_sum">ocenené položky · %1$s</string><string name="receipt_total_matches">suma položiek sa zhoduje s účtenkou</string>
+    <string name="receipt_total_difference">skontrolujte rozdiel · %1$s</string><string name="receipt_subtotal_difference">medzisúčet + daň sa líši o %1$s</string>
+    <string name="receipt_invalid_field">Skontrolujte sumu, množstvo alebo trojpísmenový kód meny.</string>
+    <string name="receipt_nothing_to_register">Pred registráciou pridajte údaje účtenky.</string><string name="read_receipt_with_groq">prečítať účtenku cez Groq</string>
+    <string name="log_from_entry">zaznamenať jedlo, recept, tréning alebo účtenku</string><string name="archive_log">archivovať záznam</string>
     <string name="log_earlier_versions">%1$d starších verzií</string><string name="source_entry">zdrojový záznam</string>
     <string name="nutrition_package_label">údaj na obale</string><string name="nutrition_official_average">oficiálny európsky priemer</string>
     <string name="nutrition_estimated">odhad</string><string name="nutrition_unquantified">bez určeného množstva</string>
@@ -24,6 +41,6 @@
     <string name="exercise_search_hint">Nájsť cvik alebo stroj…</string><string name="exercise_search_empty">Žiadna miestna zhoda. Napíš vlastný názov.</string>
     <string name="developer_light_gear">ozubené koleso Light</string><string name="developer_groq_model">model reči Groq</string>
     <string name="developer_groq_turbo">Turbo · lacnejší</string><string name="developer_groq_accuracy">Large v3 · presnosť</string>
-    <string name="developer_ai_tracking">návrhy jedál a tréningov pomocou AI</string><string name="suggest_with_groq">navrhnúť zo záznamu cez Groq</string>
+    <string name="developer_ai_tracking">návrhy jedál, tréningov a účteniek pomocou AI</string><string name="suggest_with_groq">navrhnúť zo záznamu cez Groq</string>
     <string name="suggesting_with_groq">pýta sa Groq…</string><string name="tracking_suggestion_failed">Návrh nebol prijatý. Pôvodný záznam sa nezmenil.</string>
 </resources>

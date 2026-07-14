@@ -197,7 +197,7 @@
     <string name="developer_key_storage">Võti krüptitakse Android Keystore’iga ja seda ei ekspordita. Tühja väärtuse salvestamine eemaldab võtme.</string>
     <string name="developer_key_saved">salvestatud</string>
     <string name="developer_key_missing">puudub</string>
-    <string name="developer_cloud_privacy">Kasuta oma teenusevõtit; Somal pole kontot ega serverit ja teenusepakkuja arveldab sinu kontot. Vaikimisi väljas. Transkriptsioon saadab heli ja sõnavara valitud teenusele. Olulise soovitused ja sildid saadavad kirje teksti Groqi. Toidu- ja treeninguettepanekud saadavad valitud teksti ning ainult olemasolul foto Groqi. Groqi töötlus ja säilitatavad kliendiandmed asuvad USAs; lülita Groqis sisse Zero Data Retention. ElevenLabsi nullsäilitus nõuab Enterprise’i. Päringud võivad kasutada mobiilivõrku, kui ainult Wi-Fi pole sisse lülitatud.</string>
+    <string name="developer_cloud_privacy">Kasuta oma teenusevõtit; Somal pole kontot ega serverit ja teenusepakkuja arveldab sinu kontot. Vaikimisi väljas. Transkriptsioon saadab heli ja sõnavara valitud teenusele. Olulise soovitused ja sildid saadavad kirje teksti Groqi. Toidu-, treeningu- ja kviitungiettepanekud saadavad valitud teksti ning ainult olemasolul foto Groqi. Groqi töötlus ja säilitatavad kliendiandmed asuvad USAs; lülita Groqis sisse Zero Data Retention. ElevenLabsi nullsäilitus nõuab Enterprise’i. Päringud võivad kasutada mobiilivõrku, kui ainult Wi-Fi pole sisse lülitatud.</string>
     <string name="developer_cloud_data">pilveandmed ja privaatsus</string>
     <string name="developer_enabled">Arendaja valikud on lubatud</string>
     <string name="language_name_english">English</string>

@@ -65,13 +65,17 @@ cloud API keys only when explicitly enabled in Developer settings.
   headings or bullet points stay grouped as one list. Any Important item can be
   asked to return tomorrow, in one week, or in one month. After 30 untouched days, one
   quiet “keep / let go” choice appears when the item is viewed.
-- Keeps a separate flat Logs section for meals, recipes, and workouts. Quick
+- Keeps a separate flat Logs section for meals, recipes, workouts, and receipts. Quick
   workout capture uses exercise/machine, sets, repetitions, and kilograms, with
   an offline equipment catalogue and no AI requirement.
 - Bundles searchable Fineli and Ciqual food data for local European-average
   calculations. Explicit barcode lookup can use Open Food Facts in the cloud
   build and is labelled as community-supplied package data.
-- Optionally asks Groq for an editable meal/workout proposal from a selected
+- Offers local inline meal, recipe, workout, and receipt proposals after a clear
+  text or transcription signal. Any entry or photo can instead be deliberately
+  registered from its details menu, so a fresh photo is never silently treated
+  as financial data.
+- Optionally asks Groq for an editable meal/workout/receipt proposal from a selected
   text, voice transcript, or photo. The proposal requires Save, never changes
   the source entry, and never promotes guessed nutrition to an official value.
 - Starts each day with an optional, dismissible summary of current Important items and notes
@@ -100,7 +104,7 @@ editable. The `browser` and `purist` builds never send audio or text elsewhere.
   advertising, crash reporting, update checker, Google Play Services dependency,
   outbound HTTP client library, or outbound implementation.
 - Note text, transcripts, Important text, rule suggestions, additive metadata,
-  revisioned meal/workout payloads, and protected diagnostics are encrypted at rest with AES-256-GCM and a
+  revisioned meal/workout/receipt payloads, and protected diagnostics are encrypted at rest with AES-256-GCM and a
   non-exportable Android Keystore key. Ciphertext is authenticated against its
   row and field.
 - Recordings go directly from `AudioRecord` into crash-recoverable encrypted
@@ -187,7 +191,7 @@ between them. Export a portable encrypted backup before uninstalling a preview.
 ## Browser view and build flavors
 
 The standard `browser` flavor can serve notes, Important items, confirmed meal,
-recipe and workout logs, authenticated audio, photos, local metadata Insights, a
+recipe, workout and receipt logs, authenticated audio, photos, local metadata Insights, a
 connection graph, and an optional text-only Markdown-vault export to a browser on
 the same trusted Wi-Fi network. Logs and connections are shown five per page. The
 graph is a server-rendered monochrome SVG—no cloud summary, JavaScript, or graph
@@ -207,7 +211,8 @@ a random 256-bit session cookie. Five wrong codes stop the server.
 The HTTP surface cannot edit or delete app data. A plaintext export route exists
 only when the user enables Data export before starting that Browser-view session;
 the authority resets on stop or screen exit. The authenticated confirmation names
-the archive's daily notes, Important items, food/workout logs, metadata, and complete
+the archive's daily notes, Important items, food/workout/receipt logs, purchased
+items and exact receipt totals, metadata, and complete
 edit history. Audio and photos are excluded. Downloads require GET, are serialized
 one at a time, and wipe the in-memory ZIP after the response closes; HEAD never
 builds an archive. Normal pages show five records per page, decrypt data per request,
@@ -242,7 +247,7 @@ keys are AES-GCM encrypted under a dedicated Android Keystore key and are never
 exported. Transcription vocabulary uses a different Keystore key and is included
 in portable and readable exports. Local Whisper remains the failure fallback.
 Groq `openai/gpt-oss-20b` performs optional structured Important, metadata, and
-text-based tracking extraction. Optional photo proposals use the replaceable
+text-based tracking extraction. Optional meal, workout, and receipt photo proposals use the replaceable
 preview vision model `qwen/qwen3.6-27b`; each feature has its own off-by-default
 Developer toggle, and all cloud calls use the user's own key.
 

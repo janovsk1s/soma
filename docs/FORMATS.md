@@ -23,7 +23,7 @@ The ten tables are:
 - `entry_metadata`, containing independently replaceable manual, LOCAL, or AI layers
   whose tags and links are encrypted;
 - `tracking_logs`, containing queryable type/time/source fields and one encrypted
-  structured payload for each meal, recipe, or workout; and
+  structured payload for each meal, recipe, workout, or receipt; and
 - `tracking_log_revisions`, containing encrypted full snapshots of every prior
   structured-log version.
 
@@ -216,7 +216,9 @@ this order:
 15. in payload version 9, additive entry metadata layers with normalized tags
     and typed entry, date, or tag links; and
 16. in payload version 10, current meal, recipe, and workout logs plus every
-    prior log snapshot.
+    prior log snapshot; and
+17. in payload version 11, receipt logs with merchant, currency, exact minor-unit
+    totals, tax, purchased items, quantities, prices, and optional categories.
 
 Each list begins with a 32-bit count. Strings use a 32-bit byte length followed
 by strict UTF-8, not Java modified UTF. Instants use epoch seconds plus
@@ -244,18 +246,19 @@ unencrypted ZIP intended for long-term independence from Soma. It contains:
 - `README.txt` and `manifest.json`;
 - one `notes/YYYY-MM-DD.md` file per daily note;
 - `todos.csv`, including the portable `action`, `list`, or `excerpt` kind;
-- `logs.csv`, with spreadsheet-friendly meal, recipe, and workout rows;
+- `logs.csv`, with spreadsheet-friendly meal, recipe, workout, and receipt rows;
 - `data/notes.json` with exact ids, order, types, timestamps, text, and media metadata;
 - `data/history.jsonl` with every preserved user edit revision; and
 - `data/metadata.json` with manual, LOCAL, and AI metadata layers, tags, and typed links;
-- `data/logs.json` with complete food quantities, nutrition provenance, and workout sets;
+- `data/logs.json` with complete food quantities, nutrition provenance, workout
+  sets, receipt merchants, exact totals, and purchased items;
 - `data/log-history.jsonl` with every earlier structured-log snapshot;
 - `settings/transcription-vocabulary.txt` with user-provided speech spellings; and
 - optional standard 16 kHz mono `audio/*.wav` and `images/*.jpg` files.
 
 Structured timestamps are ISO-8601 UTC instants. The archive can be consumed by
 ordinary text, spreadsheet, JSON, image, and audio tools without an app-specific codec.
-Readable archive format 9 excludes soft-deleted entries and media while keeping
+Readable archive format 10 excludes soft-deleted entries and media while keeping
 the editable transcript and its transcription provenance. The encrypted
 portable backup retains tombstones so deleted content can still be restored.
 Because it is not encrypted, exporting it moves plaintext outside Soma's trust
@@ -265,14 +268,15 @@ boundary. It is not accepted by the restore flow; use `.soma` for restoration.
 
 The optional `Soma-vault-YYYY-MM-DD.zip` export is a standard, deliberately
 unencrypted, one-way Markdown vault. It is intended for Obsidian, Logseq, plain
-text editors, and long-term use without Soma. Format version 4 contains:
+text editors, and long-term use without Soma. Format version 5 contains:
 
 - `README.md` with the portability, privacy, and one-way-export contract;
 - `.soma/manifest.json` with format version, export instant, time zone, and
   record counts;
 - one root-level `YYYY-MM-DD.md` file per daily note;
 - `Important.md`, with open, done, and let-go items as Markdown checklists;
-- `Logs.md`, with meals, recipes, workouts, quantities, nutrition sources, and sets;
+- `Logs.md`, with meals, recipes, workouts, receipts, purchased items, exact
+  totals, quantities, nutrition sources, and sets;
 - one `history/YYYY-MM-DD-<token>.md` file for each edited entry; and
 - one `history/log-<token>.md` file for each edited structured log; and
 - optional standard WAV and JPEG files under `media/`, embedded from the owning day.

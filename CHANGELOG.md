@@ -2,6 +2,71 @@
 
 Notable changes to Soma are documented here.
 
+## 0.1.0-preview.33 — 2026-07-14
+
+### Added
+
+- `Register → receipt` now opens a dedicated review screen with the unchanged
+  source photo, merchant, currency, printed totals, removable purchased-item
+  rows, quantities, exact line totals, and optional categories.
+- Calm reconciliation shows priced-item sums and any difference from the
+  printed total. Differences never overwrite the receipt or block confirmation.
+
+### Changed
+
+- Photo-only receipts can be registered without inventing a merchant. Receipt
+  details and later edits use the same structured form in all eight languages.
+- EU amount parsing now respects declared three-letter currencies, comma or dot
+  decimals, grouped thousands, and repeated identical purchase lines.
+- Groq receives a correctly rotated, bounded analysis copy of a receipt photo,
+  reducing transfer time and memory while the encrypted original remains intact.
+- App and Browser receipt details no longer expose Soma's internal editable
+  interchange lines as duplicated body text.
+
+### Verification
+
+- Added coverage for European currencies and number formats, duplicate receipt
+  lines, photo-only records, partial-price reconciliation, and Browser rendering.
+
+## 0.1.0-preview.32 — 2026-07-14
+
+### Changed
+
+- Entry details now has one clear, localized `register` action. It opens the
+  meal, recipe, workout, or receipt chooser while preserving the source entry.
+- A blank photo is no longer assumed to be a receipt. Inline receipt proposals
+  require a receipt signal in the entry text or transcript; any photo can still
+  be registered deliberately from its details menu.
+
+## 0.1.0-preview.31 — 2026-07-14
+
+### Added
+
+- Today now offers subtle, local `→ meal?`, `→ recipe?`, `→ workout?`, and
+  `→ receipt?` actions after high-confidence text or transcription signals in
+  all eight supported languages. A new, uncommented photo offers the receipt
+  action immediately; nothing is logged until the user confirms it.
+- Receipt logs preserve the source photo/note and store encrypted, revisioned
+  merchant, currency, exact total/tax, purchased-item, quantity, price, and
+  optional category data. Manual entry works offline; optional Groq vision fills
+  an editable proposal and never replaces the original evidence.
+- The Browser view has an authenticated, read-only Receipts page with five
+  records per page, purchased items, exact totals, source links, and localized
+  navigation.
+
+### Changed
+
+- Tapping an inline tracking proposal bypasses the long-press category chooser.
+  When the separate Groq tracking toggle is enabled, enrichment begins
+  automatically but cannot overwrite text after the user starts editing.
+- Portable backup payload 11, readable archive format 10, Markdown vault format
+  5, CSV, and JSON now carry receipt purchase data for use without Soma.
+
+### Verification
+
+- Added multilingual false-positive coverage, exact receipt parsing, encrypted
+  payload compatibility, export, and escaped Browser-view receipt tests.
+
 ## 0.1.0-preview.30 — 2026-07-14
 
 ### Added

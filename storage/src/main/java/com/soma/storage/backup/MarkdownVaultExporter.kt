@@ -11,6 +11,7 @@ import com.soma.core.model.LogRecord
 import com.soma.core.model.LogRevision
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.NutritionEstimate
+import com.soma.core.model.ReceiptMoney
 import com.soma.core.model.Todo
 import com.soma.core.model.TodoState
 import java.io.ByteArrayOutputStream
@@ -357,6 +358,19 @@ class MarkdownVaultExporter(
                         appendLine("  - set ${index + 1}: $values")
                     }
                 }
+                log.receipt?.let { receipt ->
+                    receipt.merchant?.let { appendLine("- Merchant · $it") }
+                    receipt.items.forEach { item ->
+                        append("- ${item.name}")
+                        item.quantity?.let { append(" · × ${plainNumber(it)}") }
+                        item.lineTotal?.let { append(" · ${moneyMarkdown(it)}") }
+                        item.category?.let { append(" · $it") }
+                        appendLine()
+                    }
+                    receipt.subtotal?.let { appendLine("- Subtotal · ${moneyMarkdown(it)}") }
+                    receipt.tax?.let { appendLine("- Tax · ${moneyMarkdown(it)}") }
+                    receipt.total?.let { appendLine("- Total · ${moneyMarkdown(it)}") }
+                }
                 if (revisions[log.id].orEmpty().isNotEmpty()) {
                     appendLine()
                     appendLine("[[${historyPaths.getValue(log.id).removeSuffix(".md")}|Earlier versions]]")
@@ -409,6 +423,17 @@ class MarkdownVaultExporter(
                 )
             }
         }
+        log.receipt?.let { receipt ->
+            receipt.merchant?.let { appendLine("Merchant: $it") }
+            receipt.items.forEach { item ->
+                append("- ${item.name}")
+                item.quantity?.let { append(" · × ${plainNumber(it)}") }
+                item.lineTotal?.let { append(" · ${moneyMarkdown(it)}") }
+                item.category?.let { append(" · $it") }
+                appendLine()
+            }
+            receipt.total?.let { appendLine("Total: ${moneyMarkdown(it)}") }
+        }
         appendLine()
     }
 
@@ -429,6 +454,9 @@ class MarkdownVaultExporter(
     } else {
         value.toString()
     }
+
+    private fun moneyMarkdown(money: ReceiptMoney): String =
+        "${money.currencyCode} ${money.minorUnits / 100}.${(money.minorUnits % 100).toString().padStart(2, '0')}"
 
     private fun BackupSnapshot.entry(id: String): NoteEntry = notes.asSequence()
         .flatMap { it.entries.asSequence() }
@@ -464,7 +492,7 @@ class MarkdownVaultExporter(
     }
 
     private companion object {
-        const val FORMAT_VERSION = 4
+        const val FORMAT_VERSION = 5
         const val TOKEN_BYTES = 8
         // 1980-01-01T00:00:00Z stays inside the DOS timestamp range understood by old ZIP tools.
         const val FIXED_ZIP_TIME_MILLIS = 315_532_800_000L

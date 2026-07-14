@@ -1,16 +1,33 @@
 <resources>
     <string name="transcription_engine_groq_turbo">Groq · Whisper Large v3 Turbo</string>
     <string name="logs">Žurnāli</string><string name="logs_all">visi</string>
-    <string name="logs_empty">Vēl nav maltīšu, recepšu vai treniņu.</string>
+    <string name="logs_empty">Vēl nav maltīšu, recepšu, treniņu vai čeku.</string>
     <string name="meal">maltīte</string><string name="meals">maltītes</string>
     <string name="recipe">recepte</string><string name="recipes">receptes</string>
     <string name="workout">treniņš</string><string name="workouts">treniņi</string>
-    <string name="add_log">pievienot žurnālam</string><string name="add_meal">pievienot maltīti…</string>
+    <string name="meal_suggestion">→ maltīte?</string><string name="recipe_suggestion">→ recepte?</string><string name="workout_suggestion">→ treniņš?</string>
+    <string name="receipt_suggestion">→ čeks?</string><string name="receipt">čeks</string><string name="receipts">čeki</string>
+    <string name="add_log">pievienot žurnālam</string><string name="register">reģistrēt</string><string name="add_meal">pievienot maltīti…</string>
     <string name="add_recipe">pievienot recepti…</string><string name="add_workout">pievienot treniņu…</string>
+    <string name="add_receipt">pievienot čeku…</string>
     <string name="log_meal_help">Viens ēdiens katrā rindā. Ja zini, pievieno daudzumu, piemēram, “piena rīsi 300 g”. Soma neizdomā kalorijas.</string>
     <string name="log_recipe_help">Viena sastāvdaļa katrā rindā, piemēram, “rīsi 100 g”. Daudzumus un uzturvērtību var labot.</string>
     <string name="log_workout_help">Ātrā forma: “kāju prese 3×10 80 kg”. Citam vingrinājumam izmanto jaunu rindu.</string>
-    <string name="log_from_entry">reģistrēt maltīti, recepti vai treniņu</string><string name="archive_log">arhivēt ierakstu</string>
+    <string name="log_receipt_help">Katra nopirktā prece savā rindā. Ja Groq ir ieslēgts, tas var nolasīt čeka foto; pirms saglabāšanas pārbaudi veikalu, preces un precīzo kopsummu.</string>
+    <string name="receipt_subtotal">starpsumma · %1$s</string><string name="receipt_tax">nodoklis · %1$s</string><string name="receipt_total">kopā · %1$s</string>
+    <string name="register_receipt">reģistrēt čeku</string><string name="registering">reģistrē…</string>
+    <string name="receipt_review_help">Pirms reģistrēšanas pārbaudi čeka datus.</string>
+    <string name="receipt_photo_linked">Sākotnējais foto paliek nemainīts un piesaistīts šim ierakstam.</string>
+    <string name="receipt_merchant_hint">tirgotājs…</string><string name="receipt_currency_hint">valūta…</string><string name="receipt_total_hint">kopā…</string>
+    <string name="receipt_items">nopirktās preces</string><string name="receipt_add_item">pievienot preci</string><string name="receipt_remove_item">noņemt</string>
+    <string name="receipt_item_name_hint">prece…</string><string name="receipt_item_quantity_hint">daudzums…</string><string name="receipt_item_amount_hint">rindas summa…</string>
+    <string name="receipt_item_category_hint">kategorija (neobligāti)…</string><string name="receipt_optional_amounts">papildu drukātās summas</string>
+    <string name="receipt_subtotal_hint">starpsumma…</string><string name="receipt_tax_hint">nodoklis…</string>
+    <string name="receipt_items_sum">preču summa · %1$s</string><string name="receipt_total_matches">preču summa sakrīt ar čeka kopējo summu</string>
+    <string name="receipt_total_difference">pārbaudi starpību · %1$s</string><string name="receipt_subtotal_difference">starpsumma + nodoklis atšķiras par %1$s</string>
+    <string name="receipt_invalid_field">Pārbaudi summu, daudzumu vai trīs burtu valūtas kodu.</string>
+    <string name="receipt_nothing_to_register">Pirms reģistrēšanas pievieno čeka datus.</string><string name="read_receipt_with_groq">nolasīt čeku ar Groq</string>
+    <string name="log_from_entry">reģistrēt maltīti, recepti, treniņu vai čeku</string><string name="archive_log">arhivēt ierakstu</string>
     <string name="log_earlier_versions">iepriekšējās versijas: %1$d</string><string name="source_entry">avota ieraksts</string>
     <string name="nutrition_package_label">iepakojuma etiķete</string><string name="nutrition_official_average">oficiāls Eiropas vidējais</string>
     <string name="nutrition_estimated">aptuvens vērtējums</string><string name="nutrition_unquantified">nav aprēķināts</string>
@@ -28,7 +45,7 @@
     <string name="exercise_search_hint">Meklēt vingrinājumu vai trenažieri…</string><string name="exercise_search_empty">Vietējas atbilstības nav. Ieraksti savu nosaukumu.</string>
     <string name="developer_light_gear">Light zobrats</string><string name="developer_groq_model">Groq runas modelis</string>
     <string name="developer_groq_turbo">Turbo · lētāks</string><string name="developer_groq_accuracy">Large v3 · precizitāte</string>
-    <string name="developer_ai_tracking">MI maltīšu un treniņu priekšlikumi</string>
+    <string name="developer_ai_tracking">MI maltīšu, treniņu un čeku priekšlikumi</string>
     <string name="suggest_with_groq">izveidot priekšlikumu ar Groq</string><string name="suggesting_with_groq">jautā Groq…</string>
     <string name="tracking_suggestion_failed">Priekšlikums netika saņemts. Sākotnējais ieraksts nav mainīts.</string>
 </resources>

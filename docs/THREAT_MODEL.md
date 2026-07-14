@@ -29,7 +29,7 @@ backup.
 
 The primary assets are note and transcript text, Important items and their source links,
 Important suggestions, additive metadata tags and links, voice recordings,
-revisioned meal/recipe/workout logs, photos, backup contents and passphrases, Android Keystore keys, and the temporary
+revisioned meal/recipe/workout/receipt logs, photos, backup contents and passphrases, Android Keystore keys, and the temporary
 browser access code and session token.
 
 Dates, record counts, ordering, ids, state transitions, languages, timestamps,
@@ -180,7 +180,7 @@ plain HTTP. Comparisons use constant-time digest comparison. Five wrong codes
 stop the server; starting again creates a new code and token.
 
 Authenticated routes support days, entries, Important items, confirmed meal,
-recipe and workout logs, local metadata insights and their static connection
+recipe, workout and receipt logs, local metadata insights and their static connection
 graph, ranged audio, and image playback. Metadata owned by a tombstoned entry
 and entry links to a tombstoned target are omitted. Mutation routes do not exist.
 An export route exists only when the user enables the ephemeral Data export control

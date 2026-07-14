@@ -30,6 +30,8 @@ import com.soma.lanserver.BrowserFoodItem
 import com.soma.lanserver.BrowserLog
 import com.soma.lanserver.BrowserLogFilter
 import com.soma.lanserver.BrowserLogKind
+import com.soma.lanserver.BrowserReceipt
+import com.soma.lanserver.BrowserReceiptItem
 import com.soma.lanserver.BrowserMetadataSource
 import com.soma.lanserver.BrowserTodo
 import com.soma.lanserver.BrowserTodoFilter
@@ -136,6 +138,7 @@ enum class BrowserViewLogFilter {
     MEALS,
     RECIPES,
     WORKOUTS,
+    RECEIPTS,
     ARCHIVED,
 }
 
@@ -143,6 +146,7 @@ enum class BrowserViewLogKind {
     MEAL,
     RECIPE,
     WORKOUT,
+    RECEIPT,
 }
 
 data class BrowserViewFoodItem(
@@ -158,6 +162,21 @@ data class BrowserViewWorkoutExercise(
     val sets: List<String>,
 )
 
+data class BrowserViewReceiptItem(
+    val name: String,
+    val quantity: String?,
+    val total: String?,
+    val category: String?,
+)
+
+data class BrowserViewReceipt(
+    val merchant: String?,
+    val subtotal: String?,
+    val tax: String?,
+    val total: String?,
+    val items: List<BrowserViewReceiptItem>,
+)
+
 data class BrowserViewLog(
     val id: String,
     val kind: BrowserViewLogKind,
@@ -168,6 +187,7 @@ data class BrowserViewLog(
     val sourceDate: LocalDate?,
     val foods: List<BrowserViewFoodItem>,
     val exercises: List<BrowserViewWorkoutExercise>,
+    val receipt: BrowserViewReceipt?,
     val revisionCount: Long,
     val archived: Boolean,
 )
@@ -513,6 +533,7 @@ class RepositoryBrowserViewDataSource(
             BrowserViewLogFilter.MEALS -> LogKind.MEAL
             BrowserViewLogFilter.RECIPES -> LogKind.RECIPE
             BrowserViewLogFilter.WORKOUTS -> LogKind.WORKOUT
+            BrowserViewLogFilter.RECEIPTS -> LogKind.RECEIPT
             BrowserViewLogFilter.ARCHIVED -> null
         }
         val records = repository.listLogs(
@@ -715,6 +736,7 @@ class RepositoryBrowserViewDataSource(
             LogKind.MEAL -> BrowserViewLogKind.MEAL
             LogKind.RECIPE -> BrowserViewLogKind.RECIPE
             LogKind.WORKOUT -> BrowserViewLogKind.WORKOUT
+            LogKind.RECEIPT -> BrowserViewLogKind.RECEIPT
         },
         title = title,
         note = note,
@@ -756,11 +778,30 @@ class RepositoryBrowserViewDataSource(
                 },
             )
         },
+        receipt = receipt?.let { receipt ->
+            BrowserViewReceipt(
+                merchant = receipt.merchant,
+                subtotal = receipt.subtotal?.displayMoney(),
+                tax = receipt.tax?.displayMoney(),
+                total = receipt.total?.displayMoney(),
+                items = receipt.items.map { item ->
+                    BrowserViewReceiptItem(
+                        name = item.name,
+                        quantity = item.quantity?.compact(),
+                        total = item.lineTotal?.displayMoney(),
+                        category = item.category,
+                    )
+                },
+            )
+        },
         revisionCount = revision + 1,
         archived = archivedAt != null,
     )
 
     private fun Double.compact(): String = BigDecimal.valueOf(this).stripTrailingZeros().toPlainString()
+
+    private fun com.soma.core.model.ReceiptMoney.displayMoney(): String =
+        "$currencyCode ${minorUnits / 100}.${(minorUnits % 100).toString().padStart(2, '0')}"
 
     private fun FoodQuantityUnit.shortName(): String = when (this) {
         FoodQuantityUnit.GRAM -> "g"
@@ -1128,6 +1169,7 @@ private class LanDataSourceAdapter(
             BrowserLogFilter.MEALS -> BrowserViewLogFilter.MEALS
             BrowserLogFilter.RECIPES -> BrowserViewLogFilter.RECIPES
             BrowserLogFilter.WORKOUTS -> BrowserViewLogFilter.WORKOUTS
+            BrowserLogFilter.RECEIPTS -> BrowserViewLogFilter.RECEIPTS
             BrowserLogFilter.ARCHIVED -> BrowserViewLogFilter.ARCHIVED
         }
         val page = await { delegate.listLogs(browserFilter, request.toBrowserRequest()) }
@@ -1138,6 +1180,7 @@ private class LanDataSourceAdapter(
                     BrowserViewLogKind.MEAL -> BrowserLogKind.MEAL
                     BrowserViewLogKind.RECIPE -> BrowserLogKind.RECIPE
                     BrowserViewLogKind.WORKOUT -> BrowserLogKind.WORKOUT
+                    BrowserViewLogKind.RECEIPT -> BrowserLogKind.RECEIPT
                 },
                 title = log.title,
                 note = log.note,
@@ -1149,6 +1192,17 @@ private class LanDataSourceAdapter(
                 },
                 exercises = log.exercises.map { exercise ->
                     BrowserWorkoutExercise(exercise.name, exercise.machine, exercise.sets)
+                },
+                receipt = log.receipt?.let { receipt ->
+                    BrowserReceipt(
+                        merchant = receipt.merchant,
+                        subtotal = receipt.subtotal,
+                        tax = receipt.tax,
+                        total = receipt.total,
+                        items = receipt.items.map { item ->
+                            BrowserReceiptItem(item.name, item.quantity, item.total, item.category)
+                        },
+                    )
                 },
                 revisionCount = log.revisionCount,
                 archived = log.archived,

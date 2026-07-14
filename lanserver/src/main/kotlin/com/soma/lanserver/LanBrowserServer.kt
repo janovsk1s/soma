@@ -359,6 +359,7 @@ class LanBrowserServer(
             null, "meal" -> BrowserLogFilter.MEALS
             "recipe" -> BrowserLogFilter.RECIPES
             "workout" -> BrowserLogFilter.WORKOUTS
+            "receipt" -> BrowserLogFilter.RECEIPTS
             "archived" -> BrowserLogFilter.ARCHIVED
             else -> throw HttpParseException(400, "Unknown log kind")
         }

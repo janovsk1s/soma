@@ -42,6 +42,8 @@ import com.soma.core.model.LogRecord
 import com.soma.core.model.LogRevision
 import com.soma.core.model.NutritionBasis
 import com.soma.core.model.NutritionEstimate
+import com.soma.core.model.ReceiptDetails
+import com.soma.core.model.ReceiptMoney
 import com.soma.core.model.WorkoutExercise
 import com.soma.core.model.WorkoutSet
 import com.soma.core.tracking.EuropeanFoodReference
@@ -88,6 +90,7 @@ fun TrackingLogsScreen(
                         LogKind.MEAL -> R.string.add_meal
                         LogKind.RECIPE -> R.string.add_recipe
                         LogKind.WORKOUT -> R.string.add_workout
+                        LogKind.RECEIPT -> R.string.add_receipt
                         null -> R.string.add_log
                     },
                 ),
@@ -128,6 +131,7 @@ private fun trackingFilterLabel(kind: LogKind?): String = stringResource(
         LogKind.MEAL -> R.string.meals
         LogKind.RECIPE -> R.string.recipes
         LogKind.WORKOUT -> R.string.workouts
+        LogKind.RECEIPT -> R.string.receipts
     },
 )
 
@@ -135,7 +139,8 @@ private fun nextFilter(current: LogKind?): LogKind? = when (current) {
     null -> LogKind.MEAL
     LogKind.MEAL -> LogKind.RECIPE
     LogKind.RECIPE -> LogKind.WORKOUT
-    LogKind.WORKOUT -> null
+    LogKind.WORKOUT -> LogKind.RECEIPT
+    LogKind.RECEIPT -> null
 }
 
 @Composable
@@ -145,7 +150,7 @@ private fun TrackingLogRow(log: LogRecord, onDetail: () -> Unit, onOptions: () -
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
-            text = log.title,
+            text = displayLogTitle(log),
             color = Ink,
             fontSize = 24.sp,
             fontWeight = FontWeight.Normal,
@@ -161,10 +166,14 @@ private fun TrackingLogRow(log: LogRecord, onDetail: () -> Unit, onOptions: () -
 }
 
 @Composable
-fun LogKindScreen(onSelect: (LogKind) -> Unit, onBack: () -> Unit) {
+fun LogKindScreen(
+    fromEntry: Boolean = false,
+    onSelect: (LogKind) -> Unit,
+    onBack: () -> Unit,
+) {
     BackHandler(onBack = onBack)
     Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding().padding(horizontal = 28.dp)) {
-        SimpleTopBar(stringResource(R.string.add_log), onBack)
+        SimpleTopBar(stringResource(if (fromEntry) R.string.register else R.string.add_log), onBack)
         Box(Modifier.weight(1f).fillMaxWidth()) {
             PagedList(LogKind.entries) { kind ->
                 SettingsItem(label = logKindLabel(kind), onClick = { onSelect(kind) })
@@ -401,7 +410,7 @@ fun TrackingLogDetailScreen(
                 .padding(top = 20.dp, bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(log.title, color = Ink, fontSize = 30.sp, lineHeight = 38.sp)
+            Text(displayLogTitle(log), color = Ink, fontSize = 30.sp, lineHeight = 38.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(formatLogTime(log), color = DimInk, fontSize = 13.sp)
                 if (log.revision > 0 && historyCount != null) {
@@ -421,14 +430,16 @@ fun TrackingLogDetailScreen(
                     )
                 }
             }
-            if (log.kind == LogKind.WORKOUT) {
-                log.exercises.forEach { WorkoutDetail(it) }
-            } else {
-                log.foods.forEachIndexed { index, food ->
-                    FoodDetail(food, onFood?.let { callback -> { callback(index) } })
+            when (log.kind) {
+                LogKind.WORKOUT -> log.exercises.forEach { WorkoutDetail(it) }
+                LogKind.MEAL, LogKind.RECIPE -> {
+                    log.foods.forEachIndexed { index, food ->
+                        FoodDetail(food, onFood?.let { callback -> { callback(index) } })
+                    }
                 }
+                LogKind.RECEIPT -> log.receipt?.let { ReceiptDetail(it) }
             }
-            if (log.note.isNotBlank() && log.note != log.title) {
+            if (log.kind != LogKind.RECEIPT && log.note.isNotBlank() && log.note != log.title) {
                 Text(log.note, color = Ink, fontSize = 20.sp, lineHeight = 28.sp)
             }
         }
@@ -545,6 +556,37 @@ private fun WorkoutDetail(exercise: WorkoutExercise) {
 }
 
 @Composable
+private fun ReceiptDetail(receipt: ReceiptDetails) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        receipt.merchant?.let { Text(it, color = Ink, fontSize = 22.sp) }
+        receipt.items.forEach { item ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    buildString {
+                        append(item.name)
+                        item.quantity?.let { append(" × ").append(formatNumber(it)) }
+                    },
+                    color = Ink,
+                    fontSize = 18.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                item.lineTotal?.let { Text(formatReceiptMoney(it), color = DimInk, fontSize = 16.sp) }
+            }
+            item.category?.let { Text(it, color = DimInk, fontSize = 12.sp) }
+        }
+        receipt.subtotal?.let {
+            Text(stringResource(R.string.receipt_subtotal, formatReceiptMoney(it)), color = DimInk, fontSize = 14.sp)
+        }
+        receipt.tax?.let {
+            Text(stringResource(R.string.receipt_tax, formatReceiptMoney(it)), color = DimInk, fontSize = 14.sp)
+        }
+        receipt.total?.let {
+            Text(stringResource(R.string.receipt_total, formatReceiptMoney(it)), color = Ink, fontSize = 20.sp)
+        }
+    }
+}
+
+@Composable
 fun TrackingLogOptionsScreen(
     log: LogRecord,
     onEdit: () -> Unit,
@@ -618,6 +660,7 @@ private fun logKindLabel(kind: LogKind): String = stringResource(
         LogKind.MEAL -> R.string.meal
         LogKind.RECIPE -> R.string.recipe
         LogKind.WORKOUT -> R.string.workout
+        LogKind.RECEIPT -> R.string.receipt
     },
 )
 
@@ -675,7 +718,15 @@ private fun logSummary(log: LogRecord): String? = when (log.kind) {
         val bases = log.foods.mapNotNull { it.nutrition?.basis }.distinct()
         bases.singleOrNull()?.let { nutritionBasisLabel(it) }
     }
+    LogKind.RECEIPT -> log.receipt?.total?.let(::formatReceiptMoney)
 }
+
+private fun formatReceiptMoney(money: ReceiptMoney): String =
+    "${money.currencyCode} ${money.minorUnits / 100}.${(money.minorUnits % 100).toString().padStart(2, '0')}"
+
+@Composable
+private fun displayLogTitle(log: LogRecord): String =
+    if (log.kind == LogKind.RECEIPT && log.title == "Receipt") stringResource(R.string.receipt) else log.title
 
 private fun formatLogTime(log: LogRecord): String =
     DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT)

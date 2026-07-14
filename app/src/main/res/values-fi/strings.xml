@@ -197,7 +197,7 @@
     <string name="developer_key_storage">Avain salataan Android Keystorella eikä sitä viedä. Tyhjän arvon tallentaminen poistaa avaimen.</string>
     <string name="developer_key_saved">tallennettu</string>
     <string name="developer_key_missing">puuttuu</string>
-    <string name="developer_cloud_privacy">Käytä omaa palveluavaintasi; Somalla ei ole tiliä tai palvelinta, ja palveluntarjoaja laskuttaa tiliäsi. Oletuksena pois. Litterointi lähettää äänen ja sanaston valitulle palvelulle. Tärkeä-ehdotukset ja tunnisteet lähettävät merkinnän tekstin Groqille. Ateria- ja harjoitusehdotukset lähettävät valitun tekstin ja vain kuvan ollessa mukana myös kuvan Groqille. Groqin käsittely ja säilytettävät asiakastiedot ovat Yhdysvalloissa; ota Groqin Zero Data Retention käyttöön. ElevenLabs vaatii Enterprise-tilin nollasäilytykseen. Pyynnöt voivat käyttää mobiiliverkkoa, ellei vain Wi-Fi ole päällä.</string>
+    <string name="developer_cloud_privacy">Käytä omaa palveluavaintasi; Somalla ei ole tiliä tai palvelinta, ja palveluntarjoaja laskuttaa tiliäsi. Oletuksena pois. Litterointi lähettää äänen ja sanaston valitulle palvelulle. Tärkeä-ehdotukset ja tunnisteet lähettävät merkinnän tekstin Groqille. Ateria-, harjoitus- ja kuittiehdotukset lähettävät valitun tekstin ja vain kuvan ollessa mukana myös kuvan Groqille. Groqin käsittely ja säilytettävät asiakastiedot ovat Yhdysvalloissa; ota Groqin Zero Data Retention käyttöön. ElevenLabs vaatii Enterprise-tilin nollasäilytykseen. Pyynnöt voivat käyttää mobiiliverkkoa, ellei vain Wi-Fi ole päällä.</string>
     <string name="developer_cloud_data">pilvidata ja yksityisyys</string>
     <string name="developer_enabled">Kehittäjäasetukset käytössä</string>
     <string name="language_name_english">English</string>

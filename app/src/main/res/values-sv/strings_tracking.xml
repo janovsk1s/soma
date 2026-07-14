@@ -1,13 +1,30 @@
 <resources>
     <string name="transcription_engine_groq_turbo">Groq · Whisper Large v3 Turbo</string>
-    <string name="logs">Loggar</string><string name="logs_all">alla</string><string name="logs_empty">Inga måltider, recept eller träningspass än.</string>
+    <string name="logs">Loggar</string><string name="logs_all">alla</string><string name="logs_empty">Inga måltider, recept, träningspass eller kvitton än.</string>
     <string name="meal">måltid</string><string name="meals">måltider</string><string name="recipe">recept</string><string name="recipes">recept</string>
-    <string name="workout">träningspass</string><string name="workouts">träningspass</string><string name="add_log">lägg till logg</string>
+    <string name="workout">träningspass</string><string name="workouts">träningspass</string><string name="add_log">lägg till logg</string><string name="register">registrera</string>
+    <string name="meal_suggestion">→ måltid?</string><string name="recipe_suggestion">→ recept?</string><string name="workout_suggestion">→ träningspass?</string>
+    <string name="receipt_suggestion">→ kvitto?</string><string name="receipt">kvitto</string><string name="receipts">kvitton</string>
     <string name="add_meal">lägg till måltid…</string><string name="add_recipe">lägg till recept…</string><string name="add_workout">lägg till träningspass…</string>
+    <string name="add_receipt">lägg till kvitto…</string>
     <string name="log_meal_help">Ett livsmedel per rad. Lägg till mängd när den är känd, till exempel ”risgrynsgröt 300 g”. Soma hittar inte på kalorier.</string>
     <string name="log_recipe_help">En ingrediens per rad, till exempel ”ris 100 g”. Mängder och näringsvärden kan redigeras.</string>
     <string name="log_workout_help">Snabbform: ”benpress 3×10 80 kg”. Använd en ny rad för nästa övning.</string>
-    <string name="log_from_entry">logga måltid, recept eller träningspass</string><string name="archive_log">arkivera logg</string>
+    <string name="log_receipt_help">En köpt vara per rad. När Groq är aktiverat kan det läsa kvittobilden; kontrollera butik, varor och exakt totalsumma innan du sparar.</string>
+    <string name="receipt_subtotal">delsumma · %1$s</string><string name="receipt_tax">skatt · %1$s</string><string name="receipt_total">totalt · %1$s</string>
+    <string name="register_receipt">registrera kvitto</string><string name="registering">registrerar…</string>
+    <string name="receipt_review_help">Kontrollera kvittouppgifterna innan du registrerar.</string>
+    <string name="receipt_photo_linked">Originalfotot förblir oförändrat och länkat till denna post.</string>
+    <string name="receipt_merchant_hint">butik…</string><string name="receipt_currency_hint">valuta…</string><string name="receipt_total_hint">totalt…</string>
+    <string name="receipt_items">köpta varor</string><string name="receipt_add_item">lägg till vara</string><string name="receipt_remove_item">ta bort</string>
+    <string name="receipt_item_name_hint">vara…</string><string name="receipt_item_quantity_hint">antal…</string><string name="receipt_item_amount_hint">radsumma…</string>
+    <string name="receipt_item_category_hint">kategori (valfritt)…</string><string name="receipt_optional_amounts">valfria tryckta belopp</string>
+    <string name="receipt_subtotal_hint">delsumma…</string><string name="receipt_tax_hint">skatt…</string>
+    <string name="receipt_items_sum">prissatta varor · %1$s</string><string name="receipt_total_matches">varusumman stämmer med kvittot</string>
+    <string name="receipt_total_difference">kontrollera skillnaden · %1$s</string><string name="receipt_subtotal_difference">delsumma + skatt skiljer sig med %1$s</string>
+    <string name="receipt_invalid_field">Kontrollera belopp, antal eller valutakoden med tre bokstäver.</string>
+    <string name="receipt_nothing_to_register">Lägg till kvittouppgifter innan du registrerar.</string><string name="read_receipt_with_groq">läs kvitto med Groq</string>
+    <string name="log_from_entry">logga måltid, recept, träningspass eller kvitto</string><string name="archive_log">arkivera logg</string>
     <string name="log_earlier_versions">%1$d tidigare versioner</string><string name="source_entry">källanteckning</string>
     <string name="nutrition_package_label">förpackningsetikett</string><string name="nutrition_official_average">officiellt europeiskt genomsnitt</string>
     <string name="nutrition_estimated">uppskattning</string><string name="nutrition_unquantified">inte kvantifierat</string>
@@ -24,6 +41,6 @@
     <string name="exercise_search_hint">Hitta en övning eller maskin…</string><string name="exercise_search_empty">Ingen lokal träff. Skriv ett eget namn.</string>
     <string name="developer_light_gear">Light-kugghjul</string><string name="developer_groq_model">Groq-talmodell</string>
     <string name="developer_groq_turbo">Turbo · billigare</string><string name="developer_groq_accuracy">Large v3 · noggrannhet</string>
-    <string name="developer_ai_tracking">AI-förslag för mat och träning</string><string name="suggest_with_groq">föreslå från anteckning med Groq</string>
+    <string name="developer_ai_tracking">AI-förslag för mat, träning och kvitton</string><string name="suggest_with_groq">föreslå från anteckning med Groq</string>
     <string name="suggesting_with_groq">frågar Groq…</string><string name="tracking_suggestion_failed">Inget förslag returnerades. Originalanteckningen är oförändrad.</string>
 </resources>

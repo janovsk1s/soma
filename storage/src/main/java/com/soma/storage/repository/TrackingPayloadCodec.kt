@@ -8,6 +8,9 @@ import com.soma.core.model.LogRecord
 import com.soma.core.model.NutritionBasis
 import com.soma.core.model.NutritionEstimate
 import com.soma.core.model.NutritionSource
+import com.soma.core.model.ReceiptDetails
+import com.soma.core.model.ReceiptItem
+import com.soma.core.model.ReceiptMoney
 import com.soma.core.model.WorkoutExercise
 import com.soma.core.model.WorkoutSet
 import java.io.ByteArrayInputStream
@@ -20,7 +23,7 @@ import java.util.Base64
 
 /** Versioned deterministic representation encrypted as one opaque tracking payload. */
 internal object TrackingPayloadCodec {
-    private const val FORMAT_VERSION = 1
+    private const val FORMAT_VERSION = 2
     private const val MAX_COLLECTION_SIZE = 500
 
     fun encode(log: LogRecord): String {
@@ -42,6 +45,7 @@ internal object TrackingPayloadCodec {
                 log.foods.forEach { output.writeFood(it) }
                 output.writeInt(log.exercises.size)
                 log.exercises.forEach { output.writeExercise(it) }
+                output.writeNullable(log.receipt) { output.writeReceipt(it) }
                 output.writeLong(log.revision)
                 output.writeNullable(log.archivedAt) { output.writeInstant(it) }
             }
@@ -58,7 +62,8 @@ internal object TrackingPayloadCodec {
         val bytes = Base64.getDecoder().decode(encoded)
         return try {
             DataInputStream(ByteArrayInputStream(bytes)).use { input ->
-                require(input.readInt() == FORMAT_VERSION) { "Unsupported tracking payload version" }
+                val version = input.readInt()
+                require(version in 1..FORMAT_VERSION) { "Unsupported tracking payload version" }
                 val log = LogRecord(
                     id = input.readUTF(),
                     kind = enumValueOf(input.readUTF()),
@@ -75,6 +80,7 @@ internal object TrackingPayloadCodec {
                     },
                     foods = input.readBoundedList { input.readFood() },
                     exercises = input.readBoundedList { input.readExercise() },
+                    receipt = if (version >= 2) input.readNullable { input.readReceipt() } else null,
                     revision = input.readLong(),
                     archivedAt = input.readNullable { input.readInstant() },
                 )
@@ -147,6 +153,49 @@ internal object TrackingPayloadCodec {
                 durationSeconds = readNullable { readInt() },
             )
         },
+    )
+
+    private fun DataOutputStream.writeReceipt(receipt: ReceiptDetails) {
+        writeNullable(receipt.merchant) { writeUTF(it) }
+        writeUTF(receipt.currencyCode)
+        writeNullable(receipt.subtotal) { writeMoney(it) }
+        writeNullable(receipt.tax) { writeMoney(it) }
+        writeNullable(receipt.total) { writeMoney(it) }
+        writeInt(receipt.items.size)
+        receipt.items.forEach { item ->
+            writeUTF(item.name)
+            writeNullable(item.quantity) { writeDouble(it) }
+            writeNullable(item.unitPrice) { writeMoney(it) }
+            writeNullable(item.lineTotal) { writeMoney(it) }
+            writeNullable(item.category) { writeUTF(it) }
+        }
+    }
+
+    private fun DataInputStream.readReceipt(): ReceiptDetails = ReceiptDetails(
+        merchant = readNullable { readUTF() },
+        currencyCode = readUTF(),
+        subtotal = readNullable { readMoney() },
+        tax = readNullable { readMoney() },
+        total = readNullable { readMoney() },
+        items = readBoundedList {
+            ReceiptItem(
+                name = readUTF(),
+                quantity = readNullable { readDouble() },
+                unitPrice = readNullable { readMoney() },
+                lineTotal = readNullable { readMoney() },
+                category = readNullable { readUTF() },
+            )
+        },
+    )
+
+    private fun DataOutputStream.writeMoney(money: ReceiptMoney) {
+        writeLong(money.minorUnits)
+        writeUTF(money.currencyCode)
+    }
+
+    private fun DataInputStream.readMoney(): ReceiptMoney = ReceiptMoney(
+        minorUnits = readLong(),
+        currencyCode = readUTF(),
     )
 
     private inline fun <T> DataOutputStream.writeNullable(value: T?, writer: (T) -> Unit) {
