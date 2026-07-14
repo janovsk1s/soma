@@ -463,7 +463,9 @@ private object CloudHttp {
                                 "content",
                                 "Extract only explicit actions the writer intends or needs to do. " +
                                     "Return no items for observations, memories, or vague ideas. " +
-                                    "Keep each item in the note's original language. Do not invent dates or details.",
+                                    "Keep each item in the note's original language. Do not invent dates or details. " +
+                                    "Never shorten an enumeration: if one action lists several things " +
+                                    "(for example items to buy), keep every listed thing in that one item.",
                             ),
                     )
                     .put(JSONObject().put("role", "user").put("content", text.take(MAX_NOTE_CHARACTERS))),

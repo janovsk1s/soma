@@ -247,4 +247,37 @@ class RuleBasedTodoDetectorTest {
 
         assertEquals(20, detector.detect(input, SupportedLanguage.ENGLISH).size)
     }
+
+    @Test
+    fun `latvian debitive keeps the whole enumeration as one action`() {
+        val candidate = detector.detect(
+            "Jānopērk olas, piens, zeķes.",
+            SupportedLanguage.LATVIAN,
+        ).single()
+
+        assertEquals(TodoSuggestionReason.IMPERATIVE, candidate.reason)
+        assertEquals("Jānopērk olas, piens, zeķes.", candidate.suggestedText)
+    }
+
+    @Test
+    fun `various latvian debitive verbs are detected`() {
+        listOf("Jāpiezvana ārstam.", "Jāaizved suns pastaigā.", "Man šodien jāiet uz veikalu.")
+            .forEach { sentence ->
+                assertTrue(
+                    "Expected a candidate for: $sentence",
+                    detector.detect(sentence, SupportedLanguage.LATVIAN).isNotEmpty(),
+                )
+            }
+    }
+
+    @Test
+    fun `short latvian ja-lookalikes do not match the debitive`() {
+        listOf("Jā, protams.", "Es jau to izdarīju.", "Viņš jāja ar zirgu.")
+            .forEach { sentence ->
+                assertTrue(
+                    "Unexpected candidate for: $sentence",
+                    detector.detect(sentence, SupportedLanguage.LATVIAN).isEmpty(),
+                )
+            }
+    }
 }

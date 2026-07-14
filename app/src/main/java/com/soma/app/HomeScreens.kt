@@ -383,16 +383,19 @@ private fun StillOpenBlock(
     ) {
         Column(modifier = Modifier.weight(1f).then(tapModifier(onOpen, "still open"))) {
             Text(stringResource(R.string.still_open), color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Normal)
-            Text(
-                if (resurfacingCount > 0) {
-                    stringResource(R.string.still_open_summary_scheduled, resurfacingCount, openCount, returnCount)
-                } else {
-                    stringResource(R.string.still_open_summary, openCount, returnCount)
-                },
-                color = DimInk,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Light,
-            )
+            val summary = buildList {
+                if (resurfacingCount > 0) add(stringResource(R.string.still_open_seg_today, resurfacingCount))
+                if (openCount > 0) add(stringResource(R.string.still_open_seg_important, openCount))
+                if (returnCount > 0) add(stringResource(R.string.still_open_seg_return, returnCount))
+            }.joinToString(" · ")
+            if (summary.isNotEmpty()) {
+                Text(
+                    summary,
+                    color = DimInk,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Light,
+                )
+            }
         }
         Text(
             "×",

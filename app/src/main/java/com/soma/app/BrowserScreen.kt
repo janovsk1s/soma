@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -140,22 +141,31 @@ fun BrowserScreen(onBack: () -> Unit) {
                         lineHeight = 26.sp,
                         modifier = Modifier.padding(top = 48.dp),
                     )
-                    Text(
-                        stringResource(R.string.browser_allow_export) + "  " +
-                            stringResource(if (exportAllowed) R.string.on else R.string.off),
-                        color = if (exportAllowed) Ink else DimInk,
-                        fontSize = 16.sp,
+                    Row(
                         modifier = Modifier
+                            .fillMaxWidth()
                             .padding(top = 28.dp)
                             .then(
                                 tapModifier(
-                                    {
-                                        exportAllowed = !exportAllowed
-                                    },
+                                    { exportAllowed = !exportAllowed },
                                     stringResource(R.string.browser_allow_export),
                                 ),
                             ),
-                    )
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            stringResource(R.string.browser_allow_export),
+                            color = if (exportAllowed) Ink else DimInk,
+                            fontSize = 16.sp,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            stringResource(if (exportAllowed) R.string.on else R.string.off),
+                            color = DimInk,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Light,
+                        )
+                    }
                     Text(
                         stringResource(R.string.browser_export_session_note),
                         color = DimInk,

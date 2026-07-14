@@ -72,8 +72,9 @@
     <string name="recording_recovered">Įrašymas netikėtai sustojo. Garsas, kurį buvo galima atkurti, išsaugotas.</string>
     <string name="microphone_permission_needed">Prieigos prie mikrofono reikia tik įrašant.</string>
     <string name="still_open">vis dar atvira</string>
-    <string name="still_open_summary">svarbių: %1$d · grįžimo žymų: %2$d</string>
-    <string name="still_open_summary_scheduled">šiandien: %1$d · svarbių: %2$d · vėliau: %3$d</string>
+    <string name="still_open_seg_today">šiandien: %1$d</string>
+    <string name="still_open_seg_important">svarbių: %1$d</string>
+    <string name="still_open_seg_return">vėliau: %1$d</string>
     <string name="dismiss_today">paslėpti šiandienai</string>
     <string name="return_later">grįžti vėliau</string>
     <string name="returned">pašalinti grįžimo žymą</string>
@@ -188,7 +189,7 @@
     <string name="developer_light_mode">šviesus režimas</string>
     <string name="developer_demo">demo režimas</string>
     <string name="developer_return_home">išėjus grįžti į pradžią</string>
-    <string name="developer_transcribe_power_saver">transkribuoti energijos taupymo režimu</string>
+    <string name="developer_transcribe_power_saver">transkribuoti taupymo režimu</string>
     <string name="developer_language">kalba</string>
     <string name="developer_cloud">debesijos eksperimentai</string>
     <string name="developer_experimental">eksperimentinė</string>

@@ -220,6 +220,8 @@ private fun TodoRow(
                     .padding(12.dp),
             )
         }
+        // Baseline alignment keeps the kind label, date, and any prompt actions
+        // on one line even though the tappable ones sit in taller hit boxes.
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
             if (todo.kind != ImportantKind.ACTION) {
                 Text(
@@ -233,6 +235,7 @@ private fun TodoRow(
                     color = DimInk,
                     fontSize = 12.sp,
                     lineHeight = 13.sp,
+                    modifier = Modifier.alignByBaseline(),
                 )
             }
             todo.source?.takeIf { it.noteDate != today }?.let { source ->
@@ -241,7 +244,7 @@ private fun TodoRow(
                     color = DimInk,
                     fontSize = 12.sp,
                     lineHeight = 13.sp,
-                    modifier = Modifier.then(tapModifier(onSource, "source note")),
+                    modifier = Modifier.alignByBaseline().then(tapModifier(onSource, "source note")),
                 )
             }
             todo.resurfaceOn?.let { date ->
@@ -253,11 +256,12 @@ private fun TodoRow(
                     color = DimInk,
                     fontSize = 12.sp,
                     lineHeight = 13.sp,
+                    modifier = Modifier.alignByBaseline(),
                 )
             }
             if (stalePrompt) {
-                Text(stringResource(R.string.keep), color = DimInk, fontSize = 14.sp, lineHeight = 15.sp, modifier = Modifier.then(tapModifier(onKeep, "keep")))
-                Text(stringResource(R.string.let_go), color = DimInk, fontSize = 14.sp, lineHeight = 15.sp, modifier = Modifier.then(tapModifier(onLetGo, "let go")))
+                Text(stringResource(R.string.keep), color = DimInk, fontSize = 14.sp, lineHeight = 15.sp, modifier = Modifier.alignByBaseline().then(tapModifier(onKeep, "keep")))
+                Text(stringResource(R.string.let_go), color = DimInk, fontSize = 14.sp, lineHeight = 15.sp, modifier = Modifier.alignByBaseline().then(tapModifier(onLetGo, "let go")))
             }
         }
     }

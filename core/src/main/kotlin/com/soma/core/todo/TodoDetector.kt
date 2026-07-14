@@ -23,7 +23,20 @@ data class TodoLanguageRules(
     val listHeadings: Set<String> = emptySet(),
     /** Labels that deliberately introduce a booking, order, tracking, or similar code. */
     val referenceLabels: Set<String> = emptySet(),
-)
+    /**
+     * Word-initial obligation prefixes such as Latvian debitive `jā-` (jānopērk,
+     * jāpiezvana). Any single word beginning with one and at least
+     * [MIN_DEBITIVE_WORD_LENGTH] letters long marks the whole sentence as an
+     * action. Kept empty for languages that express obligation with separate
+     * words already covered by [triggerPhrases].
+     */
+    val debitivePrefixes: Set<String> = emptySet(),
+) {
+    companion object {
+        /** Excludes short lookalikes like Latvian "jau" (already) or "jāja" (rode). */
+        const val MIN_DEBITIVE_WORD_LENGTH = 5
+    }
+}
 
 fun interface TodoDetector {
     fun detect(text: String, language: SupportedLanguage): List<TodoCandidate>
@@ -209,14 +222,37 @@ class RuleBasedTodoDetector(
             .firstOrNull { phrase ->
                 normalized.startsWith("$phrase ") && normalized.length > phrase.length + 1
             }
-        return imperative?.let {
+        if (imperative != null) {
+            return TodoCandidate(
+                suggestedText = sentence.trim(),
+                language = language,
+                reason = TodoSuggestionReason.IMPERATIVE,
+                matchedRule = imperative,
+            )
+        }
+
+        val debitive = languageRules.debitivePrefixes
+            .asSequence()
+            .map { it.lowercase(Locale.ROOT) }
+            .firstOrNull { prefix -> containsDebitiveWord(normalized, prefix) }
+        return debitive?.let {
             TodoCandidate(
                 suggestedText = sentence.trim(),
                 language = language,
                 reason = TodoSuggestionReason.IMPERATIVE,
-                matchedRule = it,
+                matchedRule = "$it…",
             )
         }
+    }
+
+    private fun containsDebitiveWord(sentence: String, prefix: String): Boolean {
+        if (prefix.isEmpty()) return false
+        val pattern = Regex(
+            "(?<![\\p{L}\\p{N}])${Regex.escape(prefix)}\\p{L}{${
+                (TodoLanguageRules.MIN_DEBITIVE_WORD_LENGTH - prefix.length).coerceAtLeast(0)
+            },}(?![\\p{L}\\p{N}])",
+        )
+        return pattern.containsMatchIn(sentence)
     }
 
     private fun sentences(text: String): List<String> = text.take(MAX_INPUT_CHARS)
@@ -304,6 +340,7 @@ object DefaultTodoRules {
             ),
         ),
         SupportedLanguage.LATVIAN to TodoLanguageRules(
+            debitivePrefixes = setOf("jā"),
             triggerPhrases = setOf(
                 "jāizdara",
                 "jāatceras",

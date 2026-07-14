@@ -72,8 +72,9 @@
     <string name="recording_recovered">Nahrávanie sa neočakávane zastavilo. Obnoviteľný zvuk zostal zachovaný.</string>
     <string name="microphone_permission_needed">Prístup k mikrofónu je potrebný iba počas nahrávania.</string>
     <string name="still_open">stále otvorené</string>
-    <string name="still_open_summary">dôležité: %1$d · označené na neskôr: %2$d</string>
-    <string name="still_open_summary_scheduled">dnes: %1$d · dôležité: %2$d · na neskôr: %3$d</string>
+    <string name="still_open_seg_today">dnes: %1$d</string>
+    <string name="still_open_seg_important">dôležité: %1$d</string>
+    <string name="still_open_seg_return">na neskôr: %1$d</string>
     <string name="dismiss_today">dnes skryť</string>
     <string name="return_later">vrátiť sa neskôr</string>
     <string name="returned">odstrániť značku návratu</string>

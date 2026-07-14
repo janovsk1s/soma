@@ -6,6 +6,20 @@ Notable changes to Soma are documented here.
 
 ### Fixed
 
+- Latvian debitive obligations (jānopērk, jāpiezvana, jāaizved…) are now
+  detected locally, so a note like "Jānopērk olas, piens, zeķes" becomes one
+  complete Important suggestion instead of falling through to the cloud, which
+  had been silently dropping items from such lists. The AI todo prompt also now
+  forbids shortening an enumeration.
+- Every row on a settings/options page now shares one font size (the largest
+  that fits the longest label on that page), replacing the previous mix of
+  large and shrunken rows. Long localized labels fit on one line instead of
+  ellipsizing, and the Latvian, Lithuanian, and German battery-saver labels
+  were tightened to match.
+- The still-open banner no longer shows empty "· 0" segments; it lists only the
+  non-zero counts.
+- The Browser-view export row right-aligns its on/off value like every other
+  settings row, and Important/Logs metadata lines align on one baseline.
 - Important and Logs rows with two-line text no longer clip their date and
   metadata line inside the fixed five-slot page; wrapped titles use a tighter
   line height so both lines and the metadata always fit.

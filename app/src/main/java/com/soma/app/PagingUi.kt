@@ -16,12 +16,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -93,20 +95,40 @@ fun EmptyHint(text: String) {
     }
 }
 
+/**
+ * Lets every row on one page settle to a single shared font size: each row
+ * reports the size that fits its own label, and the page renders them all at
+ * the smallest reported size. [PagedList] provides one per page; outside a
+ * page the local is null and [AutoFitText] self-fits as before.
+ */
+class SharedTextFit(initial: Float) {
+    var size by mutableFloatStateOf(initial)
+        private set
+
+    fun report(candidate: Float) {
+        if (candidate < size) size = candidate
+    }
+}
+
+val LocalSharedTextFit = staticCompositionLocalOf<SharedTextFit?> { null }
+
 @Composable
 fun AutoFitText(
     text: String,
     modifier: Modifier = Modifier,
     color: Color = Ink,
     maxFontSize: TextUnit = 30.sp,
-    minFontSize: TextUnit = 18.sp,
+    // 16sp lets long localized labels (e.g. Latvian battery-saver row) complete
+    // on one line under the shared per-page fit instead of ellipsizing.
+    minFontSize: TextUnit = 16.sp,
     fontWeight: FontWeight = FontWeight.Normal,
 ) {
+    val shared = LocalSharedTextFit.current
     BoxWithConstraints(modifier) {
         val measurer = rememberTextMeasurer()
         val style = LocalTextStyle.current
         val width = constraints.maxWidth
-        val fitted = remember(text, maxFontSize, minFontSize, fontWeight, style, width) {
+        val ownFit = remember(text, maxFontSize, minFontSize, fontWeight, style, width) {
             var size = maxFontSize.value
             while (constraints.hasBoundedWidth && size > minFontSize.value) {
                 val layout = measurer.measure(
@@ -120,6 +142,8 @@ fun AutoFitText(
             }
             size
         }
+        LaunchedEffect(shared, ownFit) { shared?.report(ownFit) }
+        val fitted = shared?.size?.coerceAtMost(ownFit) ?: ownFit
         Text(
             text,
             color = color,
@@ -154,19 +178,24 @@ fun <T> PagedList(
         contentKey = items,
         onPageChange = onPageChange?.let { report -> { page -> report(pages[page]) } },
     ) { page ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(top = 8.dp, end = endPadding, bottom = 8.dp),
-        ) {
-            pages[page].forEach { item ->
-                Box(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    contentAlignment = Alignment.CenterStart,
-                ) { content(item) }
+        val sharedFit = remember(pages[page]) { SharedTextFit(AUTO_FIT_MAX_SP) }
+        CompositionLocalProvider(LocalSharedTextFit provides sharedFit) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(top = 8.dp, end = endPadding, bottom = 8.dp),
+            ) {
+                pages[page].forEach { item ->
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        contentAlignment = Alignment.CenterStart,
+                    ) { content(item) }
+                }
+                repeat(ITEMS_PER_PAGE - pages[page].size) { Spacer(Modifier.weight(1f)) }
             }
-            repeat(ITEMS_PER_PAGE - pages[page].size) { Spacer(Modifier.weight(1f)) }
         }
     }
 }
+
+private const val AUTO_FIT_MAX_SP = 30f
 
 @Composable
 fun HardCutPager(

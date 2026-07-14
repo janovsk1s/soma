@@ -159,8 +159,9 @@
     <string name="recording_recovered">The recording stopped unexpectedly. Recoverable audio was kept.</string>
     <string name="microphone_permission_needed">Microphone access is needed only while recording.</string>
     <string name="still_open">still open</string>
-    <string name="still_open_summary">%1$d important · %2$d to return to</string>
-    <string name="still_open_summary_scheduled">%1$d for today · %2$d important · %3$d to return to</string>
+    <string name="still_open_seg_today">%1$d for today</string>
+    <string name="still_open_seg_important">%1$d important</string>
+    <string name="still_open_seg_return">%1$d to return to</string>
     <string name="dismiss_today">dismiss today</string>
     <string name="return_later">return later</string>
     <string name="returned">remove return marker</string>

@@ -72,8 +72,9 @@
     <string name="recording_recovered">Nauhoitus pysähtyi odottamatta. Palautettavissa oleva ääni säilytettiin.</string>
     <string name="microphone_permission_needed">Mikrofonin käyttöoikeutta tarvitaan vain nauhoituksen aikana.</string>
     <string name="still_open">yhä avoinna</string>
-    <string name="still_open_summary">tärkeitä: %1$d · myöhemmäksi merkittyjä: %2$d</string>
-    <string name="still_open_summary_scheduled">tänään: %1$d · tärkeitä: %2$d · myöhemmäksi: %3$d</string>
+    <string name="still_open_seg_today">tänään: %1$d</string>
+    <string name="still_open_seg_important">tärkeitä: %1$d</string>
+    <string name="still_open_seg_return">myöhemmäksi: %1$d</string>
     <string name="dismiss_today">piilota tältä päivältä</string>
     <string name="return_later">palaa myöhemmin</string>
     <string name="returned">poista paluumerkintä</string>

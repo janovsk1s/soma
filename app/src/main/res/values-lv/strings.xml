@@ -72,8 +72,9 @@
     <string name="recording_recovered">Ierakstīšana negaidīti apstājās. Atkopjamais audio tika paturēts.</string>
     <string name="microphone_permission_needed">Piekļuve mikrofonam ir vajadzīga tikai ierakstīšanas laikā.</string>
     <string name="still_open">vēl atvērts</string>
-    <string name="still_open_summary">svarīgi: %1$d · pie kā atgriezties: %2$d</string>
-    <string name="still_open_summary_scheduled">šodien: %1$d · svarīgi: %2$d · vēlākam: %3$d</string>
+    <string name="still_open_seg_today">šodien: %1$d</string>
+    <string name="still_open_seg_important">svarīgi: %1$d</string>
+    <string name="still_open_seg_return">vēlākam: %1$d</string>
     <string name="dismiss_today">šodien vairs nerādīt</string>
     <string name="return_later">atgriezties vēlāk</string>
     <string name="returned">noņemt atgriešanās atzīmi</string>
@@ -188,7 +189,7 @@
     <string name="developer_light_mode">gaišais režīms</string>
     <string name="developer_demo">demo režīms</string>
     <string name="developer_return_home">izejot atgriezties sākumā</string>
-    <string name="developer_transcribe_power_saver">transkribēt enerģijas taupīšanas režīmā</string>
+    <string name="developer_transcribe_power_saver">transkribēt taupīšanas režīmā</string>
     <string name="developer_language">valoda</string>
     <string name="developer_cloud">mākoņa eksperimenti</string>
     <string name="developer_experimental">eksperimentāls</string>

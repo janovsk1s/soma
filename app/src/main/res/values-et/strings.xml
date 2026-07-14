@@ -72,8 +72,9 @@
     <string name="recording_recovered">Lindistamine peatus ootamatult. Taastatav heli jäeti alles.</string>
     <string name="microphone_permission_needed">Juurdepääsu mikrofonile on vaja ainult lindistamise ajal.</string>
     <string name="still_open">veel lahti</string>
-    <string name="still_open_summary">olulisi: %1$d · naasmismärkeid: %2$d</string>
-    <string name="still_open_summary_scheduled">täna: %1$d · olulisi: %2$d · hilisemaks: %3$d</string>
+    <string name="still_open_seg_today">täna: %1$d</string>
+    <string name="still_open_seg_important">olulisi: %1$d</string>
+    <string name="still_open_seg_return">hilisemaks: %1$d</string>
     <string name="dismiss_today">peida tänaseks</string>
     <string name="return_later">naase hiljem</string>
     <string name="returned">eemalda naasmismärge</string>
