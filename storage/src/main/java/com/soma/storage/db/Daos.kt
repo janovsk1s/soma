@@ -162,6 +162,16 @@ interface EntryMetadataDao {
     @Query("SELECT * FROM entry_metadata ORDER BY entry_id ASC, source ASC")
     suspend fun listAll(): List<EntryMetadataEntity>
 
+    @Query(
+        """
+        SELECT entry_metadata.* FROM entry_metadata
+        INNER JOIN entries ON entries.id = entry_metadata.entry_id
+        WHERE entries.deleted_at_millis IS NULL
+        ORDER BY entry_metadata.entry_id ASC, entry_metadata.source ASC
+        """,
+    )
+    suspend fun listAllVisible(): List<EntryMetadataEntity>
+
     @Upsert
     suspend fun upsert(metadata: EntryMetadataEntity)
 

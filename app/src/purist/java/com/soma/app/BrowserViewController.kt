@@ -5,6 +5,7 @@ import com.soma.core.model.EntryKind
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.TodoState
 import com.soma.core.repository.DailyNoteRepository
+import com.soma.core.repository.EntryMetadataRepository
 import com.soma.core.repository.TodoRepository
 import com.soma.voice.AudioWrappingKeyProvider
 import com.soma.voice.EncryptedAudioReader
@@ -183,6 +184,7 @@ class RepositoryBrowserViewDataSource(
     private val todos: TodoRepository,
     private val audioProvider: BrowserViewAudioProvider = BrowserViewAudioProvider.NONE,
     private val imageProvider: BrowserViewImageProvider = BrowserViewImageProvider.NONE,
+    @Suppress("UNUSED_PARAMETER") private val metadata: EntryMetadataRepository? = null,
     private val zoneId: ZoneId = ZoneId.systemDefault(),
     private val today: () -> LocalDate = { LocalDate.now(zoneId) },
 ) : BrowserViewDataSource {

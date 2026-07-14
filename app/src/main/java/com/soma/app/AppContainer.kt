@@ -181,6 +181,15 @@ class InMemorySomaRepository private constructor(
     override suspend fun listAll(): List<EntryMetadata> = metadata.values
         .sortedWith(compareBy(EntryMetadata::entryId, EntryMetadata::source))
 
+    override suspend fun listAllVisible(): List<EntryMetadata> {
+        val visibleIds = notes.value.values.asSequence()
+            .flatMap { it.entries.asSequence() }
+            .filterNot(NoteEntry::isDeleted)
+            .mapTo(hashSetOf(), NoteEntry::id)
+        return metadata.values.filter { it.entryId in visibleIds }
+            .sortedWith(compareBy(EntryMetadata::entryId, EntryMetadata::source))
+    }
+
     override suspend fun upsert(metadata: EntryMetadata): Boolean = mutex.withLock {
         val entryExists = notes.value.values.any { note ->
             note.entries.any { it.id == metadata.entryId && !it.isDeleted }

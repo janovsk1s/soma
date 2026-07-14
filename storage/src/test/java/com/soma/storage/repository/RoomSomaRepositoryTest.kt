@@ -205,6 +205,10 @@ class RoomSomaRepositoryTest {
         assertEquals(listOf(manual), repository.forEntry(entry.id))
         assertEquals(entry.createdAt, repository.getEntry(entry.id)?.createdAt)
         assertEquals(entry.updatedAt, repository.getEntry(entry.id)?.updatedAt)
+
+        repository.mutateEntry(entry.id) { it.copy(deletedAt = start.plusSeconds(3)) }
+        assertTrue(repository.listAllVisible().isEmpty())
+        assertEquals(listOf(manual), repository.listAll())
     }
 
     @Test

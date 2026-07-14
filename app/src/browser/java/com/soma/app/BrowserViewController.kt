@@ -2,15 +2,21 @@ package com.soma.app
 
 import com.soma.core.model.DailyNote
 import com.soma.core.model.EntryKind
+import com.soma.core.model.EntryLinkKind
 import com.soma.core.model.EntryTranscriptionState
+import com.soma.core.model.MetadataSource
 import com.soma.core.model.TodoState
 import com.soma.core.repository.DailyNoteRepository
+import com.soma.core.repository.EntryMetadataRepository
 import com.soma.core.repository.TodoRepository
 import com.soma.lanserver.AudioResource
 import com.soma.lanserver.BrowserDay
 import com.soma.lanserver.BrowserEntry
 import com.soma.lanserver.BrowserEntryKind
 import com.soma.lanserver.BrowserEntryVersion
+import com.soma.lanserver.BrowserInsight
+import com.soma.lanserver.BrowserInsightKind
+import com.soma.lanserver.BrowserInsights
 import com.soma.lanserver.BrowserTodo
 import com.soma.lanserver.BrowserTodoFilter
 import com.soma.lanserver.BrowserTodoState
@@ -104,6 +110,28 @@ data class BrowserViewTodo(
     val state: BrowserViewTodoState,
     val sourceDate: LocalDate?,
     val sourceEntryId: String?,
+)
+
+enum class BrowserViewInsightKind {
+    TAG,
+    DATE,
+    ENTRY,
+}
+
+data class BrowserViewInsight(
+    val kind: BrowserViewInsightKind,
+    val label: String,
+    val occurrenceCount: Int,
+)
+
+data class BrowserViewInsights(
+    val annotatedEntryCount: Int,
+    val manualLayerCount: Int,
+    val aiLayerCount: Int,
+    val tagOccurrenceCount: Int,
+    val linkCount: Int,
+    val connectionCount: Int,
+    val connections: BrowserViewPage<BrowserViewInsight>,
 )
 
 /** A new plaintext stream must be produced for each request and is never cached by the server. */
@@ -226,6 +254,16 @@ interface BrowserViewDataSource {
         request: BrowserViewPageRequest,
     ): BrowserViewPage<BrowserViewTodo>
 
+    suspend fun metadataInsights(request: BrowserViewPageRequest): BrowserViewInsights = BrowserViewInsights(
+        annotatedEntryCount = 0,
+        manualLayerCount = 0,
+        aiLayerCount = 0,
+        tagOccurrenceCount = 0,
+        linkCount = 0,
+        connectionCount = 0,
+        connections = BrowserViewPage(emptyList(), false),
+    )
+
     suspend fun openAudio(audioId: String): BrowserViewAudio?
 
     suspend fun openImage(imageId: String): BrowserViewImage? = null
@@ -240,6 +278,7 @@ class RepositoryBrowserViewDataSource(
     private val todos: TodoRepository,
     private val audioProvider: BrowserViewAudioProvider = BrowserViewAudioProvider.NONE,
     private val imageProvider: BrowserViewImageProvider = BrowserViewImageProvider.NONE,
+    private val metadata: EntryMetadataRepository? = null,
     private val zoneId: ZoneId = ZoneId.systemDefault(),
     private val today: () -> LocalDate = { LocalDate.now(zoneId) },
 ) : BrowserViewDataSource {
@@ -317,6 +356,60 @@ class RepositoryBrowserViewDataSource(
                 sourceEntryId = todo.source?.entryId,
             )
         }
+    }
+
+    override suspend fun metadataInsights(request: BrowserViewPageRequest): BrowserViewInsights {
+        val layers = metadata?.listAllVisible().orEmpty()
+        val entryTargets = layers.asSequence()
+            .flatMap { it.links.asSequence() }
+            .filter { it.kind == EntryLinkKind.ENTRY }
+            .map { it.target }
+            .distinct()
+            .toList()
+        val targetDates = buildMap {
+            entryTargets.forEach { target -> notes.getEntry(target)?.let { put(target, it.noteDate) } }
+        }
+        val visibleLinks = layers.asSequence()
+            .flatMap { it.links.asSequence() }
+            .filter { it.kind != EntryLinkKind.ENTRY || it.target in targetDates }
+            .toList()
+        val counts = mutableMapOf<Pair<BrowserViewInsightKind, String>, Int>()
+        fun count(kind: BrowserViewInsightKind, label: String) {
+            if (label.isNotBlank()) counts[kind to label] = (counts[kind to label] ?: 0) + 1
+        }
+        layers.forEach { layer ->
+            layer.tags.forEach { count(BrowserViewInsightKind.TAG, "#$it") }
+        }
+        visibleLinks.forEach { link ->
+            when (link.kind) {
+                EntryLinkKind.TAG -> count(BrowserViewInsightKind.TAG, "#${link.target}")
+                EntryLinkKind.DATE -> count(BrowserViewInsightKind.DATE, link.target)
+                EntryLinkKind.ENTRY -> {
+                    val relation = link.relation?.replace('-', ' ')?.replace('_', ' ')
+                    val date = targetDates.getValue(link.target).toString()
+                    count(BrowserViewInsightKind.ENTRY, listOfNotNull(date, relation).joinToString(" · "))
+                }
+            }
+        }
+        val allConnections = counts.map { (key, count) ->
+            BrowserViewInsight(key.first, key.second, count)
+        }.sortedWith(
+            compareByDescending<BrowserViewInsight>(BrowserViewInsight::occurrenceCount)
+                .thenBy { it.kind.ordinal }
+                .thenBy(BrowserViewInsight::label),
+        )
+        return BrowserViewInsights(
+            annotatedEntryCount = layers.mapTo(hashSetOf()) { it.entryId }.size,
+            manualLayerCount = layers.count { it.source == MetadataSource.MANUAL },
+            aiLayerCount = layers.count { it.source == MetadataSource.AI },
+            tagOccurrenceCount = layers.sumOf { it.tags.size },
+            linkCount = visibleLinks.size,
+            connectionCount = allConnections.size,
+            connections = BrowserViewPage(
+                items = allConnections.drop(request.offset).take(request.limit),
+                hasMore = allConnections.size > request.offset + request.limit,
+            ),
+        )
     }
 
     override suspend fun openAudio(audioId: String): BrowserViewAudio? = audioProvider.open(audioId)
@@ -608,6 +701,31 @@ private class LanDataSourceAdapter(
                 sourceEntryId = todo.sourceEntryId,
             )
         }
+    }
+
+    override fun metadataInsights(request: PageRequest): BrowserInsights {
+        val insights = await { delegate.metadataInsights(request.toBrowserRequest()) }
+        return BrowserInsights(
+            annotatedEntryCount = insights.annotatedEntryCount,
+            manualLayerCount = insights.manualLayerCount,
+            aiLayerCount = insights.aiLayerCount,
+            tagOccurrenceCount = insights.tagOccurrenceCount,
+            linkCount = insights.linkCount,
+            connections = PagedResult(
+                items = insights.connections.items.take(request.limit).map { item ->
+                    BrowserInsight(
+                        kind = when (item.kind) {
+                            BrowserViewInsightKind.TAG -> BrowserInsightKind.TAG
+                            BrowserViewInsightKind.DATE -> BrowserInsightKind.DATE
+                            BrowserViewInsightKind.ENTRY -> BrowserInsightKind.ENTRY
+                        },
+                        label = item.label,
+                        occurrenceCount = item.occurrenceCount,
+                    )
+                },
+                totalCount = insights.connectionCount,
+            ),
+        )
     }
 
     override fun openAudio(audioId: String): AudioResource? {

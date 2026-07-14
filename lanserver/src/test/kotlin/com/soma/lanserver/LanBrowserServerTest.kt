@@ -209,6 +209,41 @@ class LanBrowserServerTest {
     }
 
     @Test
+    fun `insights are local escaped read only and page five connections`() {
+        val items = (1..6).map { index ->
+            BrowserInsight(
+                kind = if (index % 2 == 0) BrowserInsightKind.DATE else BrowserInsightKind.TAG,
+                label = if (index == 1) "<script>bad</script>" else "connection-$index",
+                occurrenceCount = 7 - index,
+            )
+        }
+        val data = FakeDataSource(
+            insights = BrowserInsights(
+                annotatedEntryCount = 4,
+                manualLayerCount = 1,
+                aiLayerCount = 3,
+                tagOccurrenceCount = 9,
+                linkCount = 2,
+                connections = PagedResult(items, items.size),
+            ),
+        )
+        val server = server(data)
+        val endpoint = server.start()
+        val cookie = authenticate(endpoint).cookie
+
+        val page = request(endpoint, "GET", "/insights", cookie = cookie)
+
+        assertEquals(200, page.status)
+        assertEquals(5, Regex("<li>").findAll(page.text).count())
+        assertTrue(page.text.contains("Local metadata only"))
+        assertTrue(page.text.contains("<dd>4</dd>"))
+        assertTrue(page.text.contains("&lt;script&gt;bad&lt;/script&gt;"))
+        assertFalse(page.text.contains("<script>bad</script>"))
+        assertTrue(page.text.contains("1 / 2"))
+        assertEquals(405, request(endpoint, "POST", "/insights", cookie = cookie).status)
+    }
+
+    @Test
     fun `photo with a spoken comment exposes both authenticated media controls`() {
         val date = LocalDate.of(2026, 7, 14)
         val entry = BrowserEntry(
@@ -462,6 +497,14 @@ class LanBrowserServerTest {
         private val audio: ByteArray? = null,
         private val image: ByteArray? = null,
         private val ignoreRequestedLimit: Boolean = false,
+        private val insights: BrowserInsights = BrowserInsights(
+            annotatedEntryCount = 0,
+            manualLayerCount = 0,
+            aiLayerCount = 0,
+            tagOccurrenceCount = 0,
+            linkCount = 0,
+            connections = PagedResult(emptyList(), 0),
+        ),
     ) : ReadOnlySomaDataSource {
         val daysRequests = CopyOnWriteArrayList<PageRequest>()
 
@@ -485,6 +528,13 @@ class LanBrowserServerTest {
             filter: BrowserTodoFilter,
             request: PageRequest,
         ): PagedResult<BrowserTodo> = PagedResult(page(todos, request), todos.size)
+
+        override fun metadataInsights(request: PageRequest): BrowserInsights = insights.copy(
+            connections = PagedResult(
+                page(insights.connections.items, request),
+                insights.connections.totalCount,
+            ),
+        )
 
         override fun openAudio(audioId: String): AudioResource? {
             audioOpenCount++

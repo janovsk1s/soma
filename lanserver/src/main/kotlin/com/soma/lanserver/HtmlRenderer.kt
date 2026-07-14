@@ -172,6 +172,49 @@ internal object HtmlRenderer {
         },
     )
 
+    fun insights(
+        pageNumber: Int,
+        insights: BrowserInsights,
+        lightMode: Boolean = false,
+    ): String = page(
+        title = "Insights",
+        lightMode = lightMode,
+        body = buildString {
+            append("<main><header><h1>Insights</h1><p>Local metadata only</p></header>")
+            append("<dl class=\"summary\">")
+            metric("Entries", insights.annotatedEntryCount)
+            metric("Manual", insights.manualLayerCount)
+            metric("AI", insights.aiLayerCount)
+            metric("Tags", insights.tagOccurrenceCount)
+            metric("Links", insights.linkCount)
+            append("</dl><h2>Connections</h2>")
+            val connections = insights.connections.items.take(PAGE_SIZE)
+            if (connections.isEmpty()) {
+                append("<p class=\"empty\">No metadata yet.</p>")
+            } else {
+                append("<ol class=\"list\">")
+                connections.forEach { item ->
+                    append("<li><div class=\"row\"><span><strong>")
+                    append(Html.escape(item.label))
+                    append("</strong><small>")
+                    append(
+                        when (item.kind) {
+                            BrowserInsightKind.TAG -> "tag"
+                            BrowserInsightKind.DATE -> "date link"
+                            BrowserInsightKind.ENTRY -> "entry link"
+                        },
+                    )
+                    append("</small></span><span class=\"count\">")
+                    append(item.occurrenceCount)
+                    append("</span></div></li>")
+                }
+                append("</ol>")
+            }
+            append(pager("/insights", pageNumber, insights.connections.totalCount))
+            append("</main>")
+        },
+    )
+
     fun error(status: Int, title: String, message: String, lightMode: Boolean = false): String = page(
         title = title,
         lightMode = lightMode,
@@ -187,6 +230,14 @@ internal object HtmlRenderer {
         append(">")
         append(Html.escape(label))
         append("</a>")
+    }
+
+    private fun StringBuilder.metric(label: String, value: Int) {
+        append("<div><dt>")
+        append(Html.escape(label))
+        append("</dt><dd>")
+        append(value.coerceAtLeast(0))
+        append("</dd></div>")
     }
 
     private fun pager(
@@ -246,7 +297,8 @@ internal object HtmlRenderer {
         if (navigation) {
             append(
                 "<nav class=\"primary\" aria-label=\"Main\">" +
-                    "<a href=\"/days\">Days</a><a href=\"/todos\">Todos</a></nav>",
+                    "<a href=\"/days\">Days</a><a href=\"/todos\">Todos</a>" +
+                    "<a href=\"/insights\">Insights</a></nav>",
             )
         }
         append(body)
@@ -270,9 +322,10 @@ internal object HtmlRenderer {
         audio{display:block;width:100%;margin-top:14px}.entry img{display:block;width:100%;height:auto;max-height:520px;object-fit:contain;margin-top:14px}.empty{padding:36px 0}
         .pager{display:grid;grid-template-columns:1fr auto 1fr;gap:20px;padding:28px 0;align-items:center}.pager>*:last-child{text-align:right}
         .tabs{display:flex;gap:24px;margin-bottom:20px}.tabs [aria-current=page]{font-weight:bold;text-decoration-thickness:2px}
+        h2{font-size:22px;margin:34px 0 10px}.summary{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin:0}.summary div{min-width:0}.summary dt{color:var(--dim);font-size:14px}.summary dd{font-size:24px;margin:3px 0 0;font-variant-numeric:tabular-nums}
         form{border-top:2px solid var(--ink);padding-top:24px}label{display:block;margin-bottom:8px}input,button{font:inherit;border:2px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:0;padding:12px}
         input{width:100%;letter-spacing:.2em}button{width:100%;margin-top:16px;font-weight:bold}.message{border:2px solid var(--ink);padding:12px}
-        @media(max-width:520px){main,.primary{padding-left:18px;padding-right:18px}body{font-size:17px}}
+        @media(max-width:520px){main,.primary{padding-left:18px;padding-right:18px}body{font-size:17px}.summary{grid-template-columns:repeat(3,1fr)}}
     """
 }
 

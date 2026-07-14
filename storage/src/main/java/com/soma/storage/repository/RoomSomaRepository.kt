@@ -180,6 +180,9 @@ class RoomSomaRepository(
     override suspend fun listAll(): List<EntryMetadata> =
         metadataDao.listAll().map(mapper::metadataFromEntity)
 
+    override suspend fun listAllVisible(): List<EntryMetadata> =
+        metadataDao.listAllVisible().map(mapper::metadataFromEntity)
+
     override suspend fun upsert(metadata: EntryMetadata): Boolean = database.withTransaction {
         val entry = entryDao.getById(metadata.entryId) ?: return@withTransaction false
         if (entry.deletedAtMillis != null) return@withTransaction false

@@ -224,6 +224,7 @@ class LanBrowserServer(
                 request.path == "/days" -> daysResponse(request)
                 request.path.startsWith("/day/") -> dayResponse(request)
                 request.path == "/todos" -> todosResponse(request)
+                request.path == "/insights" -> insightsResponse(request)
                 request.path.startsWith("/audio/") -> audioResponse(request)
                 request.path.startsWith("/image/") -> imageResponse(request)
                 else -> errorResponse(404, "That page does not exist.")
@@ -327,6 +328,13 @@ class LanBrowserServer(
         val page = pageNumber(request)
         val result = dataSource.listTodos(filter, pageRequest(page)).bounded()
         return htmlResponse(200, HtmlRenderer.todos(filter, page, result, config.lightMode))
+    }
+
+    private fun insightsResponse(request: HttpRequest): HttpResponse {
+        val page = pageNumber(request)
+        val insights = dataSource.metadataInsights(pageRequest(page))
+        val bounded = insights.copy(connections = insights.connections.bounded())
+        return htmlResponse(200, HtmlRenderer.insights(page, bounded, config.lightMode))
     }
 
     private fun audioResponse(request: HttpRequest): HttpResponse {

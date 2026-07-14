@@ -2,6 +2,31 @@
 
 Notable changes to Soma are documented here.
 
+## 0.1.0-preview.22 — 2026-07-14
+
+### Added
+
+- The authenticated LAN Browser view now has a restrained, read-only Insights
+  page. It shows local counts for annotated entries, manual and AI layers,
+  tags, and links, followed by topic/date/entry connections five per page.
+- The page uses the same dependency-free HTML and monochrome navigation as the
+  existing Days and Important pages. It adds no JavaScript graph library and
+  does not ask a cloud model to summarize the user's notes.
+
+### Security
+
+- Metadata is decrypted only for an authenticated request and remains covered
+  by the existing no-store response, short-lived session, LAN-only binding, and
+  read-only route policy. Nothing is cached as plaintext on disk.
+- The storage query excludes metadata owned by tombstoned entries. Entry links
+  whose target was deleted are also omitted from the page and its link total.
+
+### Performance
+
+- Insights are calculated only when that browser page is opened. There is no
+  background indexing, polling, phone-side rendering, or idle battery work;
+  rendered connection rows remain bounded to five per request.
+
 ## 0.1.0-preview.21 — 2026-07-14
 
 ### Added

@@ -171,9 +171,11 @@ window. It cannot carry `Secure` because the intentionally local endpoint is
 plain HTTP. Comparisons use constant-time digest comparison. Five wrong codes
 stop the server; starting again creates a new code and token.
 
-Authenticated routes support only days, entries, Important items, ranged audio, and images
-playback. Mutation and export routes do not exist. Pages contain at most five
-records. Responses send `Cache-Control: no-store`, a restrictive content
+Authenticated routes support only days, entries, Important items, local metadata
+insights, ranged audio, and image playback. Metadata owned by a tombstoned entry
+and entry links to a tombstoned target are omitted. Mutation and export routes do
+not exist. Pages contain at most five record or connection rows. Responses send
+`Cache-Control: no-store`, a restrictive content
 security policy, framing and MIME-sniffing protections, no-referrer policy, and
 camera/microphone/geolocation denial. The server does not log note data.
 
@@ -187,8 +189,8 @@ service is intended to extend the listener beyond the Browser screen's lifetime.
 
 Plain HTTP gives no transport confidentiality or server authentication. Anyone
 able to observe the Wi-Fi can see the access code submission, session cookie,
-notes, Important items, and played audio; an active LAN attacker can intercept or replace
-traffic. The ephemeral token, narrow bind, short lifetime, read-only routes, and
+notes, Important items, metadata insights, and played media; an active LAN attacker
+can intercept or replace traffic. The ephemeral token, narrow bind, short lifetime, read-only routes, and
 explicit start reduce exposure but do not make an untrusted café, hotel, or
 shared workplace LAN safe. Use Browser view only on a trusted private Wi-Fi
 network, stop it when finished, or install the `purist` flavor. Self-signed TLS

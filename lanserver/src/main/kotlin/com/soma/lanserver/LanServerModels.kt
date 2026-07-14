@@ -160,6 +160,44 @@ data class BrowserTodo(
     val sourceEntryId: String? = null,
 )
 
+enum class BrowserInsightKind {
+    TAG,
+    DATE,
+    ENTRY,
+}
+
+data class BrowserInsight(
+    val kind: BrowserInsightKind,
+    val label: String,
+    val occurrenceCount: Int,
+) {
+    init {
+        require(label.isNotBlank()) { "Insight label must not be blank" }
+        require(occurrenceCount > 0) { "Insight count must be positive" }
+    }
+}
+
+data class BrowserInsights(
+    val annotatedEntryCount: Int,
+    val manualLayerCount: Int,
+    val aiLayerCount: Int,
+    val tagOccurrenceCount: Int,
+    val linkCount: Int,
+    val connections: PagedResult<BrowserInsight>,
+) {
+    init {
+        require(
+            listOf(
+                annotatedEntryCount,
+                manualLayerCount,
+                aiLayerCount,
+                tagOccurrenceCount,
+                linkCount,
+            ).all { it >= 0 },
+        ) { "Insight totals must not be negative" }
+    }
+}
+
 /**
  * A fresh stream must be returned by [openStream] for every request. This lets
  * encrypted storage decrypt per request without ever caching plaintext on disk.
@@ -198,6 +236,15 @@ interface ReadOnlySomaDataSource {
     fun entriesForDay(date: LocalDate, request: PageRequest): PagedResult<BrowserEntry>?
 
     fun listTodos(filter: BrowserTodoFilter, request: PageRequest): PagedResult<BrowserTodo>
+
+    fun metadataInsights(request: PageRequest): BrowserInsights = BrowserInsights(
+        annotatedEntryCount = 0,
+        manualLayerCount = 0,
+        aiLayerCount = 0,
+        tagOccurrenceCount = 0,
+        linkCount = 0,
+        connections = PagedResult(emptyList(), 0),
+    )
 
     fun openAudio(audioId: String): AudioResource?
 
