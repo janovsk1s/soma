@@ -26,6 +26,14 @@
     <string name="transcription_fallback_wifi">prepísané lokálne · %1$s vynechané bez Wi-Fi</string>
     <string name="transcription_fallback_key">prepísané lokálne · chýba API kľúč pre %1$s</string>
     <string name="transcription_fallback_error">prepísané lokálne · %1$s zlyhalo</string>
+    <string name="transcription_fallback_authentication">prepísané lokálne · %1$s odmietol API kľúč</string>
+    <string name="transcription_fallback_invalid_request">prepísané lokálne · %1$s odmietol zvukovú požiadavku</string>
+    <string name="transcription_fallback_network">prepísané lokálne · %1$s bol nedostupný</string>
+    <string name="transcription_fallback_payment">prepísané lokálne · %1$s potrebuje kredit</string>
+    <string name="transcription_fallback_permission">prepísané lokálne · kľúč pre %1$s nemá prístup k prepisu reči</string>
+    <string name="transcription_fallback_rate_limit">prepísané lokálne · %1$s obmedzil požiadavky</string>
+    <string name="transcribe_again">prepísať znova</string>
+    <string name="transcription_retry_failed">Nahrávku sa nepodarilo znova zaradiť do frontu.</string>
     <string name="transcription_source_unknown">zdroj prepisu nebol uložený</string>
     <string name="save">uložiť</string>
     <string name="save_failed_kept">Uloženie zlyhalo. Váš text je stále tu.</string>

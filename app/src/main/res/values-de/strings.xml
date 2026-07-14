@@ -26,6 +26,14 @@
     <string name="transcription_fallback_wifi">lokal transkribiert · %1$s ohne WLAN übersprungen</string>
     <string name="transcription_fallback_key">lokal transkribiert · API-Schlüssel für %1$s fehlt</string>
     <string name="transcription_fallback_error">lokal transkribiert · %1$s fehlgeschlagen</string>
+    <string name="transcription_fallback_authentication">lokal transkribiert · %1$s hat den API-Schlüssel abgelehnt</string>
+    <string name="transcription_fallback_invalid_request">lokal transkribiert · %1$s hat die Audioanfrage abgelehnt</string>
+    <string name="transcription_fallback_network">lokal transkribiert · %1$s war nicht erreichbar</string>
+    <string name="transcription_fallback_payment">lokal transkribiert · %1$s benötigt Guthaben</string>
+    <string name="transcription_fallback_permission">lokal transkribiert · %1$s-Schlüssel hat keinen Speech-to-Text-Zugriff</string>
+    <string name="transcription_fallback_rate_limit">lokal transkribiert · %1$s hat die Anfrage begrenzt</string>
+    <string name="transcribe_again">erneut transkribieren</string>
+    <string name="transcription_retry_failed">Die Aufnahme konnte nicht erneut eingereiht werden.</string>
     <string name="transcription_source_unknown">Transkriptionsquelle nicht gespeichert</string>
     <string name="save">speichern</string>
     <string name="save_failed_kept">Speichern fehlgeschlagen. Dein Text ist noch hier.</string>

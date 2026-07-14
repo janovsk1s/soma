@@ -26,6 +26,14 @@
     <string name="transcription_fallback_wifi">transkribeeritud kohapeal · %1$s jäeti ilma Wi-Fita vahele</string>
     <string name="transcription_fallback_key">transkribeeritud kohapeal · %1$s API-võti puudub</string>
     <string name="transcription_fallback_error">transkribeeritud kohapeal · %1$s nurjus</string>
+    <string name="transcription_fallback_authentication">transkribeeritud kohapeal · %1$s lükkas API-võtme tagasi</string>
+    <string name="transcription_fallback_invalid_request">transkribeeritud kohapeal · %1$s lükkas helipäringu tagasi</string>
+    <string name="transcription_fallback_network">transkribeeritud kohapeal · %1$s polnud kättesaadav</string>
+    <string name="transcription_fallback_payment">transkribeeritud kohapeal · %1$s vajab krediiti</string>
+    <string name="transcription_fallback_permission">transkribeeritud kohapeal · %1$s võtmel puudub kõnetuvastuse ligipääs</string>
+    <string name="transcription_fallback_rate_limit">transkribeeritud kohapeal · %1$s piiras päringute sagedust</string>
+    <string name="transcribe_again">transkribeeri uuesti</string>
+    <string name="transcription_retry_failed">Salvestist ei õnnestunud uuesti järjekorda panna.</string>
     <string name="transcription_source_unknown">transkriptsiooni allikat ei salvestatud</string>
     <string name="save">salvesta</string>
     <string name="save_failed_kept">Salvestamine ebaõnnestus. Sinu tekst on endiselt siin.</string>

@@ -26,6 +26,14 @@
     <string name="transcription_fallback_wifi">litteroitu paikallisesti · %1$s ohitettiin ilman Wi-Fiä</string>
     <string name="transcription_fallback_key">litteroitu paikallisesti · %1$s-API-avain puuttuu</string>
     <string name="transcription_fallback_error">litteroitu paikallisesti · %1$s epäonnistui</string>
+    <string name="transcription_fallback_authentication">litteroitu paikallisesti · %1$s hylkäsi API-avaimen</string>
+    <string name="transcription_fallback_invalid_request">litteroitu paikallisesti · %1$s hylkäsi äänipyynnön</string>
+    <string name="transcription_fallback_network">litteroitu paikallisesti · %1$s ei ollut tavoitettavissa</string>
+    <string name="transcription_fallback_payment">litteroitu paikallisesti · %1$s tarvitsee saldoa</string>
+    <string name="transcription_fallback_permission">litteroitu paikallisesti · %1$s-avaimelta puuttuu puheentunnistuksen käyttöoikeus</string>
+    <string name="transcription_fallback_rate_limit">litteroitu paikallisesti · %1$s rajoitti pyyntöjä</string>
+    <string name="transcribe_again">litteroi uudelleen</string>
+    <string name="transcription_retry_failed">Tallennetta ei voitu lisätä jonoon uudelleen.</string>
     <string name="transcription_source_unknown">litteroinnin lähdettä ei tallennettu</string>
     <string name="save">tallenna</string>
     <string name="save_failed_kept">Tallennus epäonnistui. Tekstisi on yhä tässä.</string>

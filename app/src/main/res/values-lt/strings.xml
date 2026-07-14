@@ -26,6 +26,14 @@
     <string name="transcription_fallback_wifi">transkribuota vietoje · %1$s praleista be Wi-Fi</string>
     <string name="transcription_fallback_key">transkribuota vietoje · trūksta %1$s API rakto</string>
     <string name="transcription_fallback_error">transkribuota vietoje · %1$s nepavyko</string>
+    <string name="transcription_fallback_authentication">transkribuota vietoje · %1$s atmetė API raktą</string>
+    <string name="transcription_fallback_invalid_request">transkribuota vietoje · %1$s atmetė garso užklausą</string>
+    <string name="transcription_fallback_network">transkribuota vietoje · %1$s nepasiekiamas</string>
+    <string name="transcription_fallback_payment">transkribuota vietoje · %1$s reikia kredito</string>
+    <string name="transcription_fallback_permission">transkribuota vietoje · %1$s raktas neturi kalbos atpažinimo prieigos</string>
+    <string name="transcription_fallback_rate_limit">transkribuota vietoje · %1$s apribojo užklausas</string>
+    <string name="transcribe_again">transkribuoti dar kartą</string>
+    <string name="transcription_retry_failed">Įrašo nepavyko įtraukti į eilę iš naujo.</string>
     <string name="transcription_source_unknown">transkripcijos šaltinis neišsaugotas</string>
     <string name="save">išsaugoti</string>
     <string name="save_failed_kept">Nepavyko išsaugoti. Tavo tekstas vis dar čia.</string>

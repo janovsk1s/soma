@@ -26,6 +26,14 @@
     <string name="transcription_fallback_wifi">transkribēts lokāli · %1$s izlaists bez Wi-Fi</string>
     <string name="transcription_fallback_key">transkribēts lokāli · trūkst %1$s API atslēgas</string>
     <string name="transcription_fallback_error">transkribēts lokāli · %1$s neizdevās</string>
+    <string name="transcription_fallback_authentication">transkribēts lokāli · %1$s noraidīja API atslēgu</string>
+    <string name="transcription_fallback_invalid_request">transkribēts lokāli · %1$s noraidīja audio pieprasījumu</string>
+    <string name="transcription_fallback_network">transkribēts lokāli · %1$s nebija sasniedzams</string>
+    <string name="transcription_fallback_payment">transkribēts lokāli · %1$s nepieciešams kredīts</string>
+    <string name="transcription_fallback_permission">transkribēts lokāli · %1$s atslēgai nav runas atpazīšanas piekļuves</string>
+    <string name="transcription_fallback_rate_limit">transkribēts lokāli · %1$s ierobežoja pieprasījumu</string>
+    <string name="transcribe_again">transkribēt vēlreiz</string>
+    <string name="transcription_retry_failed">Ierakstu neizdevās pievienot rindai vēlreiz.</string>
     <string name="transcription_source_unknown">transkripcijas avots nav saglabāts</string>
     <string name="save">saglabāt</string>
     <string name="save_failed_kept">Neizdevās saglabāt. Tavs teksts joprojām ir šeit.</string>

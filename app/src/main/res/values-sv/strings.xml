@@ -26,6 +26,14 @@
     <string name="transcription_fallback_wifi">transkriberat lokalt · %1$s hoppades över utan Wi-Fi</string>
     <string name="transcription_fallback_key">transkriberat lokalt · API-nyckel för %1$s saknas</string>
     <string name="transcription_fallback_error">transkriberat lokalt · %1$s misslyckades</string>
+    <string name="transcription_fallback_authentication">transkriberat lokalt · %1$s avvisade API-nyckeln</string>
+    <string name="transcription_fallback_invalid_request">transkriberat lokalt · %1$s avvisade ljudförfrågan</string>
+    <string name="transcription_fallback_network">transkriberat lokalt · %1$s kunde inte nås</string>
+    <string name="transcription_fallback_payment">transkriberat lokalt · %1$s behöver krediter</string>
+    <string name="transcription_fallback_permission">transkriberat lokalt · %1$s-nyckeln saknar åtkomst till tal-till-text</string>
+    <string name="transcription_fallback_rate_limit">transkriberat lokalt · %1$s begränsade förfrågningarna</string>
+    <string name="transcribe_again">transkribera igen</string>
+    <string name="transcription_retry_failed">Inspelningen kunde inte köas igen.</string>
     <string name="transcription_source_unknown">transkriptionskällan sparades inte</string>
     <string name="save">spara</string>
     <string name="save_failed_kept">Kunde inte spara. Din text finns kvar här.</string>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Soma</string>
+    <string name="app_name" translatable="false">Soma</string>
     <string name="product_name" translatable="false">Soma</string>
     <string name="app_description">A calm, offline place to drop thoughts and return to what matters.</string>
     <string name="app_description_networked">A calm place to drop thoughts and return to what matters.</string>
