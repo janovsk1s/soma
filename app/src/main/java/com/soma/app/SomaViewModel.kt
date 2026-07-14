@@ -9,6 +9,7 @@ import com.soma.core.model.AudioFormat
 import com.soma.core.model.EntrySource
 import com.soma.core.model.EntryKind
 import com.soma.core.model.EntryTranscriptionState
+import com.soma.core.metadata.ImportantResurfaceDeriver
 import com.soma.core.model.ImportantKind
 import com.soma.core.model.ImageAttachment
 import com.soma.core.model.ImageFormat
@@ -566,7 +567,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
         val suggestion = suggestions.value[entry.id] ?: return
         viewModelScope.launch {
             val now = clock.instant()
-            val todo = Todo(
+            val base = Todo(
                 id = UUID.randomUUID().toString(),
                 text = suggestion.suggestedText,
                 createdAt = now,
@@ -574,6 +575,16 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                 kind = suggestion.suggestedKind,
                 source = EntrySource(entry.noteDate, entry.id),
             )
+            // Quietly pre-fill a resurface date from the item's own words so it
+            // returns to Today on the day, using the existing showAgainOn/StillOpen
+            // machinery. Local, deterministic, clearable; never touches the entry.
+            val todo = if (suggestion.suggestedKind == ImportantKind.ACTION) {
+                val today = now.atZone(ZoneId.systemDefault()).toLocalDate()
+                ImportantResurfaceDeriver.deriveDate(suggestion.suggestedText, suggestion.language, today)
+                    ?.let { base.showAgainOn(it, now) } ?: base
+            } else {
+                base
+            }
             if (repositories.suggestions.accept(suggestion.id, todo, now)) {
                 // AI extraction can return more than one explicit action. Keep
                 // presenting them one at a time; each still needs a deliberate tap.
