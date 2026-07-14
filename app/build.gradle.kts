@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -8,6 +9,15 @@ plugins {
 val releaseAbi = providers.gradleProperty("soma.releaseAbi").getOrElse("arm64-v8a")
 require(releaseAbi == "arm64-v8a") {
     "Soma v1 supports the Light Phone III arm64-v8a release target (got '$releaseAbi')"
+}
+
+// Stable release signing. keystore.properties and the keystore are gitignored;
+// without them assembleRelease stays unsigned, so CI needs no secrets.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { stream -> load(stream) }
+    }
 }
 
 android {
@@ -50,6 +60,17 @@ android {
         getByName("cloud").kotlin.srcDir("src/browser/java")
     }
 
+    signingConfigs {
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
@@ -64,6 +85,7 @@ android {
                 "proguard-rules.pro",
             )
             ndk { abiFilters += releaseAbi }
+            signingConfig = signingConfigs.findByName("release")
         }
         create("preview") {
             initWith(getByName("release"))
