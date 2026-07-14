@@ -20,6 +20,8 @@ data class LanServerConfig(
     val idleTimeout: Duration = Duration.ofMinutes(15),
     val requestReadTimeout: Duration = Duration.ofSeconds(10),
     val lightMode: Boolean = false,
+    /** Enables the explicit, off-by-default data-export routes for this session. */
+    val exportEnabled: Boolean = false,
 ) {
     init {
         require(!bindAddress.isAnyLocalAddress) { "A concrete LAN address is required" }
@@ -294,4 +296,13 @@ interface ReadOnlySomaDataSource {
     fun openAudio(audioId: String): AudioResource?
 
     fun openImage(imageId: String): ImageResource? = null
+
+    /**
+     * The downloadable analysis bundle, or null when export is unavailable. Only
+     * called for the export routes, which are themselves gated by [LanServerConfig.exportEnabled].
+     */
+    fun exportBundle(): ExportBundle? = null
 }
+
+/** A one-file, download-only export handed to the user's own AI tool. */
+class ExportBundle(val fileName: String, val bytes: ByteArray)

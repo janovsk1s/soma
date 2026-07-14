@@ -223,4 +223,5 @@
     <string name="transcription_vocabulary_duplicate">Det finns redan i listan.</string>
     <string name="transcription_vocabulary_editing">Redigerar · tryck + eller Klar för att spara</string>
     <string name="transcription_vocabulary_remove">ta bort från ordlistan</string>
+    <string name="browser_allow_export">Dataexport</string>
 </resources>

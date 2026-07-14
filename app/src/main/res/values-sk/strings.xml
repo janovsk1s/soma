@@ -223,4 +223,5 @@
     <string name="transcription_vocabulary_duplicate">Táto položka už je v zozname.</string>
     <string name="transcription_vocabulary_editing">Úprava · ulož stlačením + alebo Hotovo</string>
     <string name="transcription_vocabulary_remove">odstrániť zo slovníka</string>
+    <string name="browser_allow_export">Export údajov</string>
 </resources>

@@ -228,6 +228,8 @@ class LanBrowserServer(
                 request.path == "/graph" -> graphResponse(request)
                 request.path.startsWith("/audio/") -> audioResponse(request)
                 request.path.startsWith("/image/") -> imageResponse(request)
+                request.path == "/export" -> exportPageResponse()
+                request.path == "/export/vault.zip" -> exportDownloadResponse()
                 else -> errorResponse(404, "That page does not exist.")
             },
         )
@@ -335,7 +337,25 @@ class LanBrowserServer(
         val page = pageNumber(request)
         val insights = dataSource.metadataInsights(pageRequest(page))
         val bounded = insights.copy(connections = insights.connections.bounded())
-        return htmlResponse(200, HtmlRenderer.insights(page, bounded, config.lightMode))
+        return htmlResponse(200, HtmlRenderer.insights(page, bounded, config.lightMode, config.exportEnabled))
+    }
+
+    private fun exportPageResponse(): HttpResponse {
+        if (!config.exportEnabled) return errorResponse(404, "That page does not exist.")
+        return htmlResponse(200, HtmlRenderer.export(config.lightMode))
+    }
+
+    private fun exportDownloadResponse(): HttpResponse {
+        if (!config.exportEnabled) return errorResponse(404, "That page does not exist.")
+        val bundle = dataSource.exportBundle() ?: return errorResponse(404, "Export is not available.")
+        return secureResponse(
+            status = 200,
+            headers = linkedMapOf(
+                "Content-Type" to "application/zip",
+                "Content-Disposition" to "attachment; filename=\"${bundle.fileName}\"",
+            ),
+            body = ResponseBody.Bytes(bundle.bytes),
+        )
     }
 
     private fun graphResponse(request: HttpRequest): HttpResponse {

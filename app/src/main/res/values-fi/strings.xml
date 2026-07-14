@@ -223,4 +223,5 @@
     <string name="transcription_vocabulary_duplicate">Tämä on jo luettelossa.</string>
     <string name="transcription_vocabulary_editing">Muokkaus · tallenna painamalla + tai Valmis</string>
     <string name="transcription_vocabulary_remove">poista sanastosta</string>
+    <string name="browser_allow_export">Tietojen vienti</string>
 </resources>

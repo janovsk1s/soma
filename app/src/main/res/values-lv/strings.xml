@@ -223,4 +223,5 @@
     <string name="transcription_vocabulary_duplicate">Šis jau ir sarakstā.</string>
     <string name="transcription_vocabulary_editing">Labo · spied + vai Gatavs, lai saglabātu</string>
     <string name="transcription_vocabulary_remove">noņemt no vārdnīcas</string>
+    <string name="browser_allow_export">Datu eksports</string>
 </resources>

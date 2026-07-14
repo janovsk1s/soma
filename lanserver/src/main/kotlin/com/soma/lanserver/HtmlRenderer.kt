@@ -176,11 +176,13 @@ internal object HtmlRenderer {
         pageNumber: Int,
         insights: BrowserInsights,
         lightMode: Boolean = false,
+        exportEnabled: Boolean = false,
     ): String = page(
         title = "Insights",
         lightMode = lightMode,
         body = buildString {
             append("<main><header><h1>Insights</h1><p>Local metadata only</p></header>")
+            if (exportEnabled) append("<p><a href=\"/export\">Export for analysis →</a></p>")
             append("<dl class=\"summary\">")
             metric("Entries", insights.annotatedEntryCount)
             metric("Manual", insights.manualLayerCount)
@@ -211,6 +213,28 @@ internal object HtmlRenderer {
                 append("</ol>")
             }
             append(pager("/insights", pageNumber, insights.connections.totalCount))
+            append("</main>")
+        },
+    )
+
+    fun export(lightMode: Boolean = false): String = page(
+        title = "Export",
+        lightMode = lightMode,
+        body = buildString {
+            append("<main><header><h1>Export for analysis</h1><p>Your data, your AI</p></header>")
+            append(
+                "<p>Download a plain-text Markdown copy of your notes, Important items, and their " +
+                    "tags, dates, and links. Open the folder in your own AI tool — for example " +
+                    "Claude Code, Codex, or another — to summarise or explore it. Soma never " +
+                    "sends anything to an AI itself.</p>",
+            )
+            append(
+                "<p><strong>This copy is not encrypted and leaves your phone.</strong> It travels " +
+                    "over the plain-HTTP LAN and is readable by anything on this network. Save it " +
+                    "only to a device you trust, and delete it when you are done.</p>",
+            )
+            append("<p><a class=\"download\" href=\"/export/vault.zip\" download>Download vault (.zip)</a></p>")
+            append("<p><a class=\"back\" href=\"/insights\">← Insights</a></p>")
             append("</main>")
         },
     )

@@ -33,6 +33,7 @@ import com.soma.lanserver.LanServerStateListener
 import com.soma.lanserver.LanServerStopReason
 import com.soma.lanserver.PageRequest
 import com.soma.lanserver.PagedResult
+import com.soma.lanserver.ExportBundle
 import com.soma.lanserver.ReadOnlySomaDataSource
 import com.soma.voice.AudioWrappingKeyProvider
 import com.soma.voice.EncryptedAudioReader
@@ -657,9 +658,11 @@ sealed interface BrowserViewState {
 class BrowserViewController(
     dataSource: BrowserViewDataSource,
     private val lightMode: Boolean = false,
+    private val exportEnabled: () -> Boolean = { false },
+    exportProvider: (suspend () -> ByteArray?)? = null,
 ) : AutoCloseable {
     private val lock = Any()
-    private val lanDataSource = LanDataSourceAdapter(dataSource)
+    private val lanDataSource = LanDataSourceAdapter(dataSource, exportProvider)
     private val mutableState = MutableStateFlow<BrowserViewState>(BrowserViewState.Off)
 
     private var generation = 0
@@ -694,7 +697,7 @@ class BrowserViewController(
             }
 
             val candidate = LanBrowserServer(
-                config = LanServerConfig(bindAddress = address, lightMode = lightMode),
+                config = LanServerConfig(bindAddress = address, lightMode = lightMode, exportEnabled = exportEnabled()),
                 dataSource = lanDataSource,
                 stateListener = LanServerStateListener { lanState -> onLanState(token, lanState) },
             )
@@ -811,6 +814,7 @@ class BrowserViewController(
 
 private class LanDataSourceAdapter(
     private val delegate: BrowserViewDataSource,
+    private val exportProvider: (suspend () -> ByteArray?)? = null,
 ) : ReadOnlySomaDataSource {
     override fun listDays(request: PageRequest): PagedResult<BrowserDay> {
         val page = await { delegate.listDays(request.toBrowserRequest()) }
@@ -946,6 +950,12 @@ private class LanDataSourceAdapter(
         val visibleItems = items.take(request.limit)
         val approximateTotal = request.offset + visibleItems.size + if (hasMore) 1 else 0
         return PagedResult(visibleItems.map(transform), approximateTotal)
+    }
+
+    override fun exportBundle(): ExportBundle? {
+        val provider = exportProvider ?: return null
+        val bytes = await { provider() } ?: return null
+        return ExportBundle("soma-vault.zip", bytes)
     }
 
     private fun <T> await(block: suspend () -> T): T = runBlocking { block() }

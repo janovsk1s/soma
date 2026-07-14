@@ -54,12 +54,24 @@ fun BrowserScreen(onBack: () -> Unit) {
             imageProvider = images,
             metadata = repositories.metadata,
         )
-        BrowserViewController(source, lightMode)
+        BrowserViewController(
+            source,
+            lightMode,
+            exportEnabled = { SomaPrefs.browserExportEnabled(context) },
+            exportProvider = {
+                if (SomaPrefs.browserExportEnabled(context)) {
+                    BackupCoordinator(app).exportMarkdown(includeAudio = false)
+                } else {
+                    null
+                }
+            },
+        )
     }
     val state by controller.state.collectAsState()
     val scope = rememberCoroutineScope()
     val running = state as? BrowserViewState.Running
     var permissionDenied by remember { mutableStateOf(false) }
+    var exportAllowed by remember { mutableStateOf(SomaPrefs.browserExportEnabled(context)) }
     val notificationPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -120,7 +132,26 @@ fun BrowserScreen(onBack: () -> Unit) {
             when (val current = state) {
                 // The single start control lives in the bottom bar; the body just
                 // explains what browser view does (previously both said "start").
-                BrowserViewState.Off -> StatusText(stringResource(R.string.browser_security_note))
+                BrowserViewState.Off -> {
+                    StatusText(stringResource(R.string.browser_security_note))
+                    Text(
+                        stringResource(R.string.browser_allow_export) + "  " +
+                            stringResource(if (exportAllowed) R.string.on else R.string.off),
+                        color = if (exportAllowed) Ink else DimInk,
+                        fontSize = 16.sp,
+                        modifier = Modifier
+                            .padding(top = 28.dp)
+                            .then(
+                                tapModifier(
+                                    {
+                                        exportAllowed = !exportAllowed
+                                        SomaPrefs.setBrowserExportEnabled(context, exportAllowed)
+                                    },
+                                    stringResource(R.string.browser_allow_export),
+                                ),
+                            ),
+                    )
+                }
                 BrowserViewState.Starting -> StatusText(stringResource(R.string.browser_starting))
                 is BrowserViewState.Running -> {
                     Text(

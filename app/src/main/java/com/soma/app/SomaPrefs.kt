@@ -23,6 +23,7 @@ object SomaPrefs {
     private const val KEY_AI_AUTO_METADATA = "cloud_ai_auto_metadata"
     private const val KEY_AI_TRACKING = "cloud_ai_tracking_suggestions"
     private const val KEY_LOCAL_AUTO_METADATA = "local_auto_metadata"
+    private const val KEY_BROWSER_EXPORT = "browser_export_enabled"
 
     private fun values(context: Context) = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
@@ -112,6 +113,12 @@ object SomaPrefs {
 
     fun setLocalAutoMetadata(context: Context, enabled: Boolean) =
         values(context).edit().putBoolean(KEY_LOCAL_AUTO_METADATA, enabled).apply()
+
+    /** Off by default: bulk export over the LAN crosses Soma's trust boundary. */
+    fun browserExportEnabled(context: Context): Boolean = values(context).getBoolean(KEY_BROWSER_EXPORT, false)
+
+    fun setBrowserExportEnabled(context: Context, enabled: Boolean) =
+        values(context).edit().putBoolean(KEY_BROWSER_EXPORT, enabled).apply()
 
     fun aiTrackingSuggestions(context: Context): Boolean = values(context).getBoolean(KEY_AI_TRACKING, false)
 

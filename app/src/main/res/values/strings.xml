@@ -291,4 +291,5 @@
     <string name="transcription_vocabulary_duplicate">That term is already in the list.</string>
     <string name="transcription_vocabulary_editing">Editing · press + or Done to save</string>
     <string name="transcription_vocabulary_remove">remove from vocabulary</string>
+    <string name="browser_allow_export">Data export</string>
 </resources>

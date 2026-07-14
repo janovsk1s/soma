@@ -223,4 +223,5 @@
     <string name="transcription_vocabulary_duplicate">Tai jau yra sąraše.</string>
     <string name="transcription_vocabulary_editing">Taisoma · spausk + arba Atlikta, kad išsaugotum</string>
     <string name="transcription_vocabulary_remove">pašalinti iš žodyno</string>
+    <string name="browser_allow_export">Duomenų eksportas</string>
 </resources>

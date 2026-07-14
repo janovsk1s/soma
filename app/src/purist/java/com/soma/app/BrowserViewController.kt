@@ -337,6 +337,8 @@ sealed interface BrowserViewState {
 class BrowserViewController(
     @Suppress("UNUSED_PARAMETER") dataSource: BrowserViewDataSource,
     @Suppress("UNUSED_PARAMETER") lightMode: Boolean = false,
+    @Suppress("UNUSED_PARAMETER") exportEnabled: () -> Boolean = { false },
+    @Suppress("UNUSED_PARAMETER") exportProvider: (suspend () -> ByteArray?)? = null,
 ) : AutoCloseable {
     private val mutableState = MutableStateFlow<BrowserViewState>(BrowserViewState.Unavailable)
 

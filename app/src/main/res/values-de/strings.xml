@@ -223,4 +223,5 @@
     <string name="transcription_vocabulary_duplicate">Dieser Eintrag ist bereits vorhanden.</string>
     <string name="transcription_vocabulary_editing">Bearbeiten · zum Speichern + oder Fertig drücken</string>
     <string name="transcription_vocabulary_remove">aus dem Wörterbuch entfernen</string>
+    <string name="browser_allow_export">Datenexport</string>
 </resources>
