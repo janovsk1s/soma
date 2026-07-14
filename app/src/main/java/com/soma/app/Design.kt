@@ -253,10 +253,15 @@ fun longPressModifier(onLongClick: () -> Unit, label: String? = null): Modifier 
 }
 
 @Composable
-fun BackArrow(modifier: Modifier = Modifier, onBack: () -> Unit) {
-    Canvas(modifier.size(48.dp).then(tapModifier(onBack, "back"))) {
+fun BackArrow(
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit,
+    enabled: Boolean = true,
+) {
+    Canvas(modifier.size(48.dp).then(if (enabled) tapModifier(onBack, "back") else Modifier)) {
         val side = size.minDimension
-        drawLine(Ink, Offset(side * 0.59f, side * 0.31f), Offset(side * 0.41f, side * 0.5f), side * 0.055f, StrokeCap.Round)
-        drawLine(Ink, Offset(side * 0.41f, side * 0.5f), Offset(side * 0.59f, side * 0.69f), side * 0.055f, StrokeCap.Round)
+        val color = if (enabled) Ink else DimInk
+        drawLine(color, Offset(side * 0.59f, side * 0.31f), Offset(side * 0.41f, side * 0.5f), side * 0.055f, StrokeCap.Round)
+        drawLine(color, Offset(side * 0.41f, side * 0.5f), Offset(side * 0.59f, side * 0.69f), side * 0.055f, StrokeCap.Round)
     }
 }

@@ -44,6 +44,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -163,9 +165,10 @@ fun CameraCaptureScreen(
     }
 
     Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding()) {
-        Box(Modifier.padding(horizontal = 28.dp)) {
-            SimpleTopBar(stringResource(R.string.photo_title), if (saving) null else onBack)
-        }
+        CameraTopBar(
+            saving = saving,
+            onBack = onBack,
+        )
         Box(Modifier.weight(1f).fillMaxWidth().background(androidx.compose.ui.graphics.Color.Black)) {
             AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
             if (!ready || bindingFailed || captureFailed || saving || captured) {
@@ -219,6 +222,38 @@ fun CameraCaptureScreen(
                 fontSize = 13.sp,
             )
         }
+    }
+}
+
+/**
+ * Camera navigation is deliberately laid out inside the full screen width.
+ * The shared top bar offsets its arrow beyond the padded content column; on a
+ * camera screen that made most of the apparent hit target fall outside its
+ * parent. Keep this control visible during saving as calm progress feedback,
+ * but disable navigation until the encrypted original is safely committed.
+ */
+@Composable
+private fun CameraTopBar(
+    saving: Boolean,
+    onBack: () -> Unit,
+) {
+    Box(
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp, start = 4.dp, end = 4.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        BackArrow(
+            modifier = Modifier.align(Alignment.CenterStart),
+            onBack = onBack,
+            enabled = !saving,
+        )
+        Text(
+            stringResource(R.string.photo_title).replaceFirstChar(Char::uppercase),
+            color = Ink,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Normal,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 64.dp),
+        )
     }
 }
 
