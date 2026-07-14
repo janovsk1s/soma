@@ -215,6 +215,74 @@ internal object HtmlRenderer {
         },
     )
 
+    fun graph(
+        pageNumber: Int,
+        result: PagedResult<BrowserGraphEdge>,
+        lightMode: Boolean = false,
+    ): String = page(
+        title = "Graph",
+        lightMode = lightMode,
+        body = buildString {
+            append("<main><header><h1>Graph</h1><p>Local connections · five per page</p></header>")
+            val edges = result.items.take(PAGE_SIZE)
+            if (edges.isEmpty()) {
+                append("<p class=\"empty\">No connections yet.</p>")
+            } else {
+                val height = 36 + edges.size * GRAPH_EDGE_HEIGHT
+                append("<svg class=\"connection-graph\" viewBox=\"0 0 900 ")
+                append(height)
+                append("\" role=\"img\" aria-labelledby=\"graph-title graph-description\">")
+                append("<title id=\"graph-title\">Entry connection graph</title>")
+                append("<desc id=\"graph-description\">Five or fewer local metadata connections.</desc>")
+                edges.forEachIndexed { index, edge ->
+                    val centerY = 38 + index * GRAPH_EDGE_HEIGHT
+                    append("<g class=\"graph-edge\">")
+                    append("<line class=\"edge-line\" x1=\"286\" y1=\"")
+                    append(centerY)
+                    append("\" x2=\"594\" y2=\"")
+                    append(centerY)
+                    append("\"/><circle cx=\"286\" cy=\"")
+                    append(centerY)
+                    append("\" r=\"6\"/><circle cx=\"594\" cy=\"")
+                    append(centerY)
+                    append("\" r=\"6\"/>")
+                    svgDayLink(edge.sourceDate, edge.sourceLabel, 0, centerY - 7)
+                    append("<text class=\"node-detail\" x=\"0\" y=\"")
+                    append(centerY + 17)
+                    append("\">")
+                    append(Html.escape(edge.sourceDate.toString()))
+                    append("</text>")
+                    append("<text class=\"edge-label\" x=\"440\" y=\"")
+                    append(centerY - 10)
+                    append("\" text-anchor=\"middle\">")
+                    append(Html.escape(edge.relation ?: edge.targetKind.defaultRelation()))
+                    append("</text><text class=\"edge-source\" x=\"440\" y=\"")
+                    append(centerY + 17)
+                    append("\" text-anchor=\"middle\">")
+                    append(if (edge.metadataSource == BrowserMetadataSource.MANUAL) "manual" else "AI")
+                    append("</text>")
+                    if (edge.targetKind == BrowserGraphNodeKind.ENTRY && edge.targetDate != null) {
+                        svgDayLink(edge.targetDate, edge.targetLabel, 620, centerY - 7)
+                    } else {
+                        append("<text class=\"node-label\" x=\"620\" y=\"")
+                        append(centerY - 7)
+                        append("\">")
+                        append(Html.escape(edge.targetLabel))
+                        append("</text>")
+                    }
+                    append("<text class=\"node-detail\" x=\"620\" y=\"")
+                    append(centerY + 17)
+                    append("\">")
+                    append(edge.targetKind.displayName())
+                    append("</text></g>")
+                }
+                append("</svg><p class=\"quiet graph-note\">Lines are derived metadata. Entry wording stays unchanged.</p>")
+            }
+            append(pager("/graph", pageNumber, result.totalCount))
+            append("</main>")
+        },
+    )
+
     fun error(status: Int, title: String, message: String, lightMode: Boolean = false): String = page(
         title = title,
         lightMode = lightMode,
@@ -238,6 +306,30 @@ internal object HtmlRenderer {
         append("</dt><dd>")
         append(value.coerceAtLeast(0))
         append("</dd></div>")
+    }
+
+    private fun StringBuilder.svgDayLink(date: LocalDate, label: String, x: Int, y: Int) {
+        append("<a href=\"/day/")
+        append(Html.pathSegment(date.toString()))
+        append("\"><text class=\"node-label\" x=\"")
+        append(x)
+        append("\" y=\"")
+        append(y)
+        append("\">")
+        append(Html.escape(label))
+        append("</text></a>")
+    }
+
+    private fun BrowserGraphNodeKind.defaultRelation(): String = when (this) {
+        BrowserGraphNodeKind.TAG -> "tag"
+        BrowserGraphNodeKind.DATE -> "date"
+        BrowserGraphNodeKind.ENTRY -> "entry"
+    }
+
+    private fun BrowserGraphNodeKind.displayName(): String = when (this) {
+        BrowserGraphNodeKind.TAG -> "tag"
+        BrowserGraphNodeKind.DATE -> "date"
+        BrowserGraphNodeKind.ENTRY -> "entry"
     }
 
     private fun pager(
@@ -298,7 +390,7 @@ internal object HtmlRenderer {
             append(
                 "<nav class=\"primary\" aria-label=\"Main\">" +
                     "<a href=\"/days\">Days</a><a href=\"/todos\">Todos</a>" +
-                    "<a href=\"/insights\">Insights</a></nav>",
+                    "<a href=\"/insights\">Insights</a><a href=\"/graph\">Graph</a></nav>",
             )
         }
         append(body)
@@ -323,10 +415,13 @@ internal object HtmlRenderer {
         .pager{display:grid;grid-template-columns:1fr auto 1fr;gap:20px;padding:28px 0;align-items:center}.pager>*:last-child{text-align:right}
         .tabs{display:flex;gap:24px;margin-bottom:20px}.tabs [aria-current=page]{font-weight:bold;text-decoration-thickness:2px}
         h2{font-size:22px;margin:34px 0 10px}.summary{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin:0}.summary div{min-width:0}.summary dt{color:var(--dim);font-size:14px}.summary dd{font-size:24px;margin:3px 0 0;font-variant-numeric:tabular-nums}
+        .connection-graph{display:block;width:100%;height:auto;overflow:visible}.connection-graph circle{fill:var(--ink)}.edge-line{stroke:var(--dim);stroke-width:2}.node-label{fill:var(--ink);font-size:18px;font-weight:bold}.node-detail,.edge-source{fill:var(--dim);font-size:14px}.edge-label{fill:var(--ink);font-size:14px}.connection-graph a{text-decoration:underline}.graph-note{margin-top:18px}
         form{border-top:2px solid var(--ink);padding-top:24px}label{display:block;margin-bottom:8px}input,button{font:inherit;border:2px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:0;padding:12px}
         input{width:100%;letter-spacing:.2em}button{width:100%;margin-top:16px;font-weight:bold}.message{border:2px solid var(--ink);padding:12px}
-        @media(max-width:520px){main,.primary{padding-left:18px;padding-right:18px}body{font-size:17px}.summary{grid-template-columns:repeat(3,1fr)}}
+        @media(max-width:520px){main,.primary{padding-left:18px;padding-right:18px}body{font-size:17px}.primary{gap:18px;overflow-x:auto}.summary{grid-template-columns:repeat(3,1fr)}}
     """
+
+    private const val GRAPH_EDGE_HEIGHT = 104
 }
 
 internal object Html {

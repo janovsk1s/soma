@@ -212,6 +212,35 @@ class RoomSomaRepositoryTest {
     }
 
     @Test
+    fun `visible metadata is ordered by newest note then entry position`() = runBlocking {
+        val newerDate = date.plusDays(1)
+        repository.getOrCreate(date, start)
+        repository.getOrCreate(newerDate, start.plusSeconds(1))
+        val older = NoteEntry.text("older", date, 0, "Older", start)
+        val newerSecond = NoteEntry.text("newer-second", newerDate, 1, "Second", start.plusSeconds(2))
+        val newerFirst = NoteEntry.text("newer-first", newerDate, 0, "First", start.plusSeconds(3))
+        listOf(older, newerSecond, newerFirst).forEach { assertTrue(repository.insertEntry(it)) }
+        listOf(older, newerSecond, newerFirst).forEach { entry ->
+            assertTrue(
+                repository.upsert(
+                    EntryMetadata(
+                        entryId = entry.id,
+                        tags = listOf("ordered"),
+                        links = emptyList(),
+                        derivedAt = start.plusSeconds(4),
+                        source = MetadataSource.MANUAL,
+                    ),
+                ),
+            )
+        }
+
+        assertEquals(
+            listOf("newer-first", "newer-second", "older"),
+            repository.listAllVisible().map(EntryMetadata::entryId),
+        )
+    }
+
+    @Test
     fun `suggestion acceptance creates todo and resolves suggestion atomically`() = runBlocking {
         repository.getOrCreate(date, start)
         repository.insertEntry(NoteEntry.text("entry-1", date, 0, "Need to call Anna", start))

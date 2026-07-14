@@ -172,7 +172,7 @@ plain HTTP. Comparisons use constant-time digest comparison. Five wrong codes
 stop the server; starting again creates a new code and token.
 
 Authenticated routes support only days, entries, Important items, local metadata
-insights, ranged audio, and image playback. Metadata owned by a tombstoned entry
+insights and their static connection graph, ranged audio, and image playback. Metadata owned by a tombstoned entry
 and entry links to a tombstoned target are omitted. Mutation and export routes do
 not exist. Pages contain at most five record or connection rows. Responses send
 `Cache-Control: no-store`, a restrictive content
@@ -189,7 +189,7 @@ service is intended to extend the listener beyond the Browser screen's lifetime.
 
 Plain HTTP gives no transport confidentiality or server authentication. Anyone
 able to observe the Wi-Fi can see the access code submission, session cookie,
-notes, Important items, metadata insights, and played media; an active LAN attacker
+notes, Important items, metadata insights/graph, and played media; an active LAN attacker
 can intercept or replace traffic. The ephemeral token, narrow bind, short lifetime, read-only routes, and
 explicit start reduce exposure but do not make an untrusted café, hotel, or
 shared workplace LAN safe. Use Browser view only on a trusted private Wi-Fi

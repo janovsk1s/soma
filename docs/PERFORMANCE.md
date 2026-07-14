@@ -35,9 +35,12 @@ and 20 candidates, and emits at most one bounded list block.
   the drain closes. Realtime local transcription is not a Light Phone target.
 - Browser view is explicit, visible, and stops on screen exit, app background,
   manual stop, or its idle timeout.
-- LAN metadata insights are assembled only for an authenticated `/insights`
-  request. They do no background indexing or cloud work and render at most five
-  connection rows per page.
+- LAN metadata insights and the static SVG graph are assembled only for an
+  authenticated `/insights` or `/graph` request. They do no background indexing,
+  JavaScript, or cloud work and render at most five connection rows/edges per page.
+- Graph paging resolves only the visible source entries. Explicit entry-link
+  targets are resolved to enforce tombstone filtering; ordinary tag and date
+  edges do not cause per-entry database reads.
 
 ## Rendering and storage
 

@@ -198,6 +198,47 @@ data class BrowserInsights(
     }
 }
 
+enum class BrowserGraphNodeKind {
+    TAG,
+    DATE,
+    ENTRY,
+}
+
+enum class BrowserMetadataSource {
+    MANUAL,
+    AI,
+}
+
+data class BrowserGraphEdge(
+    val sourceLabel: String,
+    val sourceDate: LocalDate,
+    val targetLabel: String,
+    val targetKind: BrowserGraphNodeKind,
+    val targetDate: LocalDate? = null,
+    val relation: String? = null,
+    val metadataSource: BrowserMetadataSource,
+) {
+    init {
+        require(sourceLabel.isNotBlank() && sourceLabel.length <= MAX_LABEL_LENGTH) {
+            "Graph source label is invalid"
+        }
+        require(targetLabel.isNotBlank() && targetLabel.length <= MAX_LABEL_LENGTH) {
+            "Graph target label is invalid"
+        }
+        require(relation == null || relation.length <= MAX_RELATION_LENGTH) {
+            "Graph relation is too long"
+        }
+        require(targetKind != BrowserGraphNodeKind.ENTRY || targetDate != null) {
+            "Entry graph targets require a visible date"
+        }
+    }
+
+    private companion object {
+        const val MAX_LABEL_LENGTH = 120
+        const val MAX_RELATION_LENGTH = 80
+    }
+}
+
 /**
  * A fresh stream must be returned by [openStream] for every request. This lets
  * encrypted storage decrypt per request without ever caching plaintext on disk.
@@ -245,6 +286,9 @@ interface ReadOnlySomaDataSource {
         linkCount = 0,
         connections = PagedResult(emptyList(), 0),
     )
+
+    fun connectionGraph(request: PageRequest): PagedResult<BrowserGraphEdge> =
+        PagedResult(emptyList(), 0)
 
     fun openAudio(audioId: String): AudioResource?
 

@@ -244,6 +244,40 @@ class LanBrowserServerTest {
     }
 
     @Test
+    fun `graph is server rendered escaped read only and pages five edges`() {
+        val date = LocalDate.of(2026, 7, 14)
+        val edges = (1..6).map { index ->
+            BrowserGraphEdge(
+                sourceLabel = if (index == 1) "<script>bad</script>" else "entry-$index",
+                sourceDate = date.minusDays(index.toLong()),
+                targetLabel = "#topic-$index",
+                targetKind = BrowserGraphNodeKind.TAG,
+                relation = if (index == 2) "mentions & follows" else null,
+                metadataSource = if (index % 2 == 0) {
+                    BrowserMetadataSource.MANUAL
+                } else {
+                    BrowserMetadataSource.AI
+                },
+            )
+        }
+        val server = server(FakeDataSource(graph = PagedResult(edges, edges.size)))
+        val endpoint = server.start()
+        val cookie = authenticate(endpoint).cookie
+
+        val page = request(endpoint, "GET", "/graph", cookie = cookie)
+
+        assertEquals(200, page.status)
+        assertTrue(page.text.contains("<svg class=\"connection-graph\""))
+        assertEquals(5, Regex("class=\"graph-edge\"").findAll(page.text).count())
+        assertTrue(page.text.contains("&lt;script&gt;bad&lt;/script&gt;"))
+        assertFalse(page.text.contains("<script>bad</script>"))
+        assertTrue(page.text.contains("mentions &amp; follows"))
+        assertTrue(page.text.contains("1 / 2"))
+        assertFalse(page.text.contains("<script"))
+        assertEquals(405, request(endpoint, "POST", "/graph", cookie = cookie).status)
+    }
+
+    @Test
     fun `photo with a spoken comment exposes both authenticated media controls`() {
         val date = LocalDate.of(2026, 7, 14)
         val entry = BrowserEntry(
@@ -505,6 +539,7 @@ class LanBrowserServerTest {
             linkCount = 0,
             connections = PagedResult(emptyList(), 0),
         ),
+        private val graph: PagedResult<BrowserGraphEdge> = PagedResult(emptyList(), 0),
     ) : ReadOnlySomaDataSource {
         val daysRequests = CopyOnWriteArrayList<PageRequest>()
 
@@ -535,6 +570,9 @@ class LanBrowserServerTest {
                 insights.connections.totalCount,
             ),
         )
+
+        override fun connectionGraph(request: PageRequest): PagedResult<BrowserGraphEdge> =
+            PagedResult(page(graph.items, request), graph.totalCount)
 
         override fun openAudio(audioId: String): AudioResource? {
             audioOpenCount++

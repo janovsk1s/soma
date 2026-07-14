@@ -2,6 +2,24 @@
 
 Notable changes to Soma are documented here.
 
+## 0.1.0-preview.23 — 2026-07-14
+
+### Added
+
+- The authenticated LAN Browser view has a separate, read-only connection graph.
+  It draws up to five metadata edges per page as a server-rendered monochrome SVG,
+  labels every edge as manual or AI-derived, and links visible entry nodes back to
+  their daily notes.
+
+### Security and performance
+
+- The graph has no mutation endpoint, JavaScript, graph dependency, cloud summary,
+  disk cache, or phone-side rendering. Existing session authentication, no-store
+  responses, and tombstone filtering apply unchanged.
+- Normal graph pages load at most five visible source entries. Explicit entry-link
+  targets are resolved only to omit deleted targets; tag/date edges need no extra
+  entry reads. Display labels are bounded without altering stored or exported data.
+
 ## 0.1.0-preview.22 — 2026-07-14
 
 ### Added

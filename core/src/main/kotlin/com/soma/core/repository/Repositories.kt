@@ -81,7 +81,7 @@ interface EntryMetadataRepository {
 
     suspend fun listAll(): List<EntryMetadata>
 
-    /** Layers whose owning entry is not tombstoned, for plaintext read-only views. */
+    /** Visible layers, newest note first then entry position, for plaintext read-only views. */
     suspend fun listAllVisible(): List<EntryMetadata>
 
     /** Replaces only [EntryMetadata.source]; manual metadata is never overwritten by AI. */

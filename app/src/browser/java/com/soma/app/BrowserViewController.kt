@@ -5,6 +5,7 @@ import com.soma.core.model.EntryKind
 import com.soma.core.model.EntryLinkKind
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.MetadataSource
+import com.soma.core.model.NoteEntry
 import com.soma.core.model.TodoState
 import com.soma.core.repository.DailyNoteRepository
 import com.soma.core.repository.EntryMetadataRepository
@@ -14,9 +15,12 @@ import com.soma.lanserver.BrowserDay
 import com.soma.lanserver.BrowserEntry
 import com.soma.lanserver.BrowserEntryKind
 import com.soma.lanserver.BrowserEntryVersion
+import com.soma.lanserver.BrowserGraphEdge
+import com.soma.lanserver.BrowserGraphNodeKind
 import com.soma.lanserver.BrowserInsight
 import com.soma.lanserver.BrowserInsightKind
 import com.soma.lanserver.BrowserInsights
+import com.soma.lanserver.BrowserMetadataSource
 import com.soma.lanserver.BrowserTodo
 import com.soma.lanserver.BrowserTodoFilter
 import com.soma.lanserver.BrowserTodoState
@@ -132,6 +136,27 @@ data class BrowserViewInsights(
     val linkCount: Int,
     val connectionCount: Int,
     val connections: BrowserViewPage<BrowserViewInsight>,
+)
+
+enum class BrowserViewGraphNodeKind {
+    TAG,
+    DATE,
+    ENTRY,
+}
+
+data class BrowserViewGraphEdge(
+    val sourceLabel: String,
+    val sourceDate: LocalDate,
+    val targetLabel: String,
+    val targetKind: BrowserViewGraphNodeKind,
+    val targetDate: LocalDate?,
+    val relation: String?,
+    val metadataSource: MetadataSource,
+)
+
+data class BrowserViewConnectionGraph(
+    val edgeCount: Int,
+    val edges: BrowserViewPage<BrowserViewGraphEdge>,
 )
 
 /** A new plaintext stream must be produced for each request and is never cached by the server. */
@@ -263,6 +288,9 @@ interface BrowserViewDataSource {
         connectionCount = 0,
         connections = BrowserViewPage(emptyList(), false),
     )
+
+    suspend fun connectionGraph(request: BrowserViewPageRequest): BrowserViewConnectionGraph =
+        BrowserViewConnectionGraph(0, BrowserViewPage(emptyList(), false))
 
     suspend fun openAudio(audioId: String): BrowserViewAudio?
 
@@ -412,6 +440,112 @@ class RepositoryBrowserViewDataSource(
         )
     }
 
+    override suspend fun connectionGraph(request: BrowserViewPageRequest): BrowserViewConnectionGraph {
+        val layers = metadata?.listAllVisible().orEmpty()
+        val entryTargets = layers.asSequence()
+            .flatMap { it.links.asSequence() }
+            .filter { it.kind == EntryLinkKind.ENTRY }
+            .map { it.target }
+            .distinct()
+            .toList()
+        val visibleTargets = buildMap {
+            entryTargets.forEach { entryId -> notes.getEntry(entryId)?.let { put(entryId, it) } }
+        }
+        val candidates = linkedMapOf<GraphEdgeKey, GraphEdgeSeed>()
+        fun addCandidate(
+            layerSource: MetadataSource,
+            sourceEntryId: String,
+            targetIdentity: String,
+            targetLabel: String,
+            targetKind: BrowserViewGraphNodeKind,
+            targetDate: LocalDate? = null,
+            relation: String? = null,
+        ) {
+            val normalizedRelation = relation?.replace('-', ' ')?.replace('_', ' ')
+            val key = GraphEdgeKey(sourceEntryId, targetKind, targetIdentity, normalizedRelation)
+            val current = candidates[key]
+            if (current != null && current.metadataSource == MetadataSource.MANUAL) return
+            candidates[key] = GraphEdgeSeed(
+                sourceEntryId = sourceEntryId,
+                targetLabel = targetLabel.toGraphLabel(GRAPH_LABEL_CHARACTERS),
+                targetKind = targetKind,
+                targetDate = targetDate,
+                relation = normalizedRelation?.toGraphLabel(GRAPH_RELATION_CHARACTERS),
+                metadataSource = layerSource,
+            )
+        }
+        layers.forEach { layer ->
+            layer.tags.forEach { tag ->
+                addCandidate(
+                    layerSource = layer.source,
+                    sourceEntryId = layer.entryId,
+                    targetIdentity = tag,
+                    targetLabel = "#$tag",
+                    targetKind = BrowserViewGraphNodeKind.TAG,
+                )
+            }
+            layer.links.forEach links@ { link ->
+                when (link.kind) {
+                    EntryLinkKind.TAG -> addCandidate(
+                        layerSource = layer.source,
+                        sourceEntryId = layer.entryId,
+                        targetIdentity = link.target,
+                        targetLabel = "#${link.target}",
+                        targetKind = BrowserViewGraphNodeKind.TAG,
+                        relation = link.relation,
+                    )
+                    EntryLinkKind.DATE -> addCandidate(
+                        layerSource = layer.source,
+                        sourceEntryId = layer.entryId,
+                        targetIdentity = link.target,
+                        targetLabel = link.target,
+                        targetKind = BrowserViewGraphNodeKind.DATE,
+                        targetDate = LocalDate.parse(link.target),
+                        relation = link.relation,
+                    )
+                    EntryLinkKind.ENTRY -> {
+                        val target = visibleTargets[link.target] ?: return@links
+                        addCandidate(
+                            layerSource = layer.source,
+                            sourceEntryId = layer.entryId,
+                            targetIdentity = link.target,
+                            targetLabel = target.graphLabel(),
+                            targetKind = BrowserViewGraphNodeKind.ENTRY,
+                            targetDate = target.noteDate,
+                            relation = link.relation,
+                        )
+                    }
+                }
+            }
+        }
+        val allSeeds = candidates.values.toList()
+        val visibleSeeds = allSeeds.drop(request.offset).take(request.limit)
+        val visibleSources = buildMap {
+            visibleSeeds.map(GraphEdgeSeed::sourceEntryId).distinct().forEach { entryId ->
+                notes.getEntry(entryId)?.let { put(entryId, it) }
+            }
+        }
+        val visibleEdges = visibleSeeds.mapNotNull { seed ->
+            val source = visibleSources[seed.sourceEntryId] ?: return@mapNotNull null
+            BrowserViewGraphEdge(
+                sourceLabel = source.graphLabel(),
+                sourceDate = source.noteDate,
+                targetLabel = seed.targetLabel,
+                targetKind = seed.targetKind,
+                targetDate = seed.targetDate,
+                relation = seed.relation,
+                metadataSource = seed.metadataSource,
+            )
+        }
+        return BrowserViewConnectionGraph(
+            edgeCount = allSeeds.size,
+            edges = BrowserViewPage(
+                items = visibleEdges,
+                hasMore = allSeeds.size > request.offset + request.limit,
+            ),
+        )
+    }
+
     override suspend fun openAudio(audioId: String): BrowserViewAudio? = audioProvider.open(audioId)
 
     override suspend fun openImage(imageId: String): BrowserViewImage? = imageProvider.open(imageId)
@@ -426,6 +560,25 @@ class RepositoryBrowserViewDataSource(
         return text.lineSequence().firstOrNull().orEmpty().take(PREVIEW_CHARACTERS)
     }
 
+    private fun NoteEntry.graphLabel(): String {
+        val label = text.lineSequence().firstOrNull { it.isNotBlank() }?.trim()
+            ?: when (kind) {
+                EntryKind.TEXT -> "Text entry"
+                EntryKind.VOICE -> "Voice note"
+                EntryKind.IMAGE -> "Photo"
+            }
+        return label.toGraphLabel(GRAPH_LABEL_CHARACTERS)
+    }
+
+    private fun String.toGraphLabel(maximumCharacters: Int): String {
+        val normalized = replace(WHITESPACE, " ").trim()
+        return if (normalized.length <= maximumCharacters) {
+            normalized
+        } else {
+            normalized.take(maximumCharacters - 1) + "…"
+        }
+    }
+
     private fun <T, R> List<T>.toPage(limit: Int, transform: (T) -> R): BrowserViewPage<R> =
         BrowserViewPage(
             items = take(limit).map(transform),
@@ -434,12 +587,31 @@ class RepositoryBrowserViewDataSource(
 
     private companion object {
         const val PREVIEW_CHARACTERS = 160
+        const val GRAPH_LABEL_CHARACTERS = 30
+        const val GRAPH_RELATION_CHARACTERS = 32
+        val WHITESPACE = Regex("\\s+")
         val PENDING_TRANSCRIPTION_STATES = setOf(
             EntryTranscriptionState.QUEUED,
             EntryTranscriptionState.RUNNING,
         )
     }
 }
+
+private data class GraphEdgeKey(
+    val sourceEntryId: String,
+    val targetKind: BrowserViewGraphNodeKind,
+    val targetIdentity: String,
+    val relation: String?,
+)
+
+private data class GraphEdgeSeed(
+    val sourceEntryId: String,
+    val targetLabel: String,
+    val targetKind: BrowserViewGraphNodeKind,
+    val targetDate: LocalDate?,
+    val relation: String?,
+    val metadataSource: MetadataSource,
+)
 
 data class BrowserViewEndpoint(
     val url: String,
@@ -725,6 +897,31 @@ private class LanDataSourceAdapter(
                 },
                 totalCount = insights.connectionCount,
             ),
+        )
+    }
+
+    override fun connectionGraph(request: PageRequest): PagedResult<BrowserGraphEdge> {
+        val graph = await { delegate.connectionGraph(request.toBrowserRequest()) }
+        return PagedResult(
+            items = graph.edges.items.take(request.limit).map { edge ->
+                BrowserGraphEdge(
+                    sourceLabel = edge.sourceLabel,
+                    sourceDate = edge.sourceDate,
+                    targetLabel = edge.targetLabel,
+                    targetKind = when (edge.targetKind) {
+                        BrowserViewGraphNodeKind.TAG -> BrowserGraphNodeKind.TAG
+                        BrowserViewGraphNodeKind.DATE -> BrowserGraphNodeKind.DATE
+                        BrowserViewGraphNodeKind.ENTRY -> BrowserGraphNodeKind.ENTRY
+                    },
+                    targetDate = edge.targetDate,
+                    relation = edge.relation,
+                    metadataSource = when (edge.metadataSource) {
+                        MetadataSource.MANUAL -> BrowserMetadataSource.MANUAL
+                        MetadataSource.AI -> BrowserMetadataSource.AI
+                    },
+                )
+            },
+            totalCount = graph.edgeCount,
         )
     }
 

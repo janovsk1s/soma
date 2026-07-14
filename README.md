@@ -174,9 +174,10 @@ between them. Export a portable encrypted backup before uninstalling a preview.
 ## Browser view and build flavors
 
 The standard `browser` flavor can serve notes, Important items, authenticated audio,
-photos, and a local metadata Insights page to a browser on the same trusted Wi-Fi
-network. Insights shows counts and five-per-page tag/date/entry connections; it
-does not use a cloud summary or a JavaScript graph library. Browser view is off by default. Starting it
+photos, local metadata Insights, and a connection graph to a browser on the same
+trusted Wi-Fi network. Insights shows counts and five-per-page tag/date/entry
+connections. The graph is a server-rendered monochrome SVG with five edges per
+page—no cloud summary, JavaScript, or graph library. Browser view is off by default. Starting it
 selects a concrete Wi-Fi site-local address—never a wildcard, loopback, mobile,
 or public address—and shows a URL plus a single-use six-digit code. A successful
 login receives a random 256-bit session cookie. Five wrong codes stop the server.

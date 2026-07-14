@@ -166,8 +166,9 @@ interface EntryMetadataDao {
         """
         SELECT entry_metadata.* FROM entry_metadata
         INNER JOIN entries ON entries.id = entry_metadata.entry_id
+        INNER JOIN daily_notes ON daily_notes.id = entries.note_id
         WHERE entries.deleted_at_millis IS NULL
-        ORDER BY entry_metadata.entry_id ASC, entry_metadata.source ASC
+        ORDER BY daily_notes.epoch_day DESC, entries.position ASC, entry_metadata.source ASC
         """,
     )
     suspend fun listAllVisible(): List<EntryMetadataEntity>
