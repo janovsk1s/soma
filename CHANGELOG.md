@@ -15,10 +15,20 @@ Notable changes to Soma are documented here.
   actually ran (it is part of `check`), so the guard was unenforceable. It now
   inspects resolved dependency graph coordinates and passes.
 
+- The eight cloud-transcription fallback and retry strings now exist in all
+  eight languages; they previously fell back to English in every non-English
+  locale. `app_name` is marked non-translatable as a brand name.
+
 ### Added
 
-- GitHub Actions CI runs every module's unit tests and the outbound
-  HTTP-client guard on pushes and pull requests.
+- GitHub Actions CI runs every module's unit tests (all three flavors), the
+  outbound HTTP-client guard, release lint for every flavor, and
+  debug/preview/release assembly on pushes and pull requests.
+- Release-gate tests: localization completeness with placeholder checking
+  across all eight languages, an exact per-flavor manifest permission
+  contract, and a committed portable-backup restore fixture
+  (`portable-backup-v11.somabackup`) that pins the on-disk format across
+  releases.
 
 ## 0.1.0-preview.33 — 2026-07-14
 
