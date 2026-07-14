@@ -11,11 +11,10 @@ Notable changes to Soma are documented here.
   complete Important suggestion instead of falling through to the cloud, which
   had been silently dropping items from such lists. The AI todo prompt also now
   forbids shortening an enumeration.
-- Every row on a settings/options page now shares one font size (the largest
-  that fits the longest label on that page), replacing the previous mix of
-  large and shrunken rows. Long localized labels fit on one line instead of
-  ellipsizing, and the Latvian, Lithuanian, and German battery-saver labels
-  were tightened to match.
+- Every settings and options label now renders at one fixed size across every
+  row, page, and screen, replacing the previous auto-fitting that made sizes
+  vary within and between screens. Labels too long for one line wrap to a
+  second line instead of shrinking or ellipsizing.
 - The still-open banner no longer shows empty "· 0" segments; it lists only the
   non-zero counts.
 - The Browser-view export row right-aligns its on/off value like every other

@@ -31,6 +31,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
@@ -111,9 +112,17 @@ fun SettingsItem(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AutoFitText(
+        // One fixed size for every settings/options label app-wide keeps pages
+        // and screens visually consistent. Long localized labels wrap to a
+        // second line rather than shrinking, so sizes never vary row to row,
+        // page to page, or screen to screen.
+        Text(
             label,
             color = if (onClick == null) DimInk else Ink,
+            fontSize = 22.sp,
+            lineHeight = 26.sp,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
         if (trailing != null) {
