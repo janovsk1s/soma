@@ -2,6 +2,18 @@
 
 Notable changes to Soma are documented here.
 
+## Unreleased
+
+### Added
+
+- A quiet "last cloud error" row in Developer → cloud experiments shows the
+  most recent cloud failure category and time (key missing or rejected, needs
+  credits, rate limited, Wi-Fi required, network, provider), in all eight
+  languages. Ambient AI failures were previously invisible, which made an
+  inert BYOK setup impossible to diagnose. Only the safe category and time
+  are stored — never provider responses, note text, or key material. Tapping
+  the row clears it.
+
 ## 0.1.0-preview.34 — 2026-07-14
 
 ### Fixed

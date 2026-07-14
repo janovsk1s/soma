@@ -207,6 +207,17 @@
     <string name="developer_key_missing">trūkst</string>
     <string name="developer_cloud_privacy">Izmanto savu pakalpojuma atslēgu; Soma nav konta vai servera, un maksa nonāk tavā pakalpojuma kontā. Pēc noklusējuma izslēgts. Transkripcija nosūta audio un vārdnīcu izvēlētajam pakalpojumam. Svarīgā ieteikumi un birkas nosūta ieraksta tekstu Groq. Maltīšu, treniņu un čeku priekšlikumi nosūta izvēlēto tekstu un tikai tad, ja ir, tā fotoattēlu Groq. Groq apstrāde un saglabātie klienta dati atrodas ASV; Groq iestatījumos ieslēdz Zero Data Retention. ElevenLabs nulles glabāšana prasa Enterprise. Tiek lietots arī mobilais tīkls, ja nav ieslēgts tikai Wi-Fi.</string>
     <string name="developer_cloud_data">mākoņa dati un privātums</string>
+    <string name="developer_last_cloud_error">pēdējā mākoņa kļūda</string>
+    <string name="cloud_error_none">nav</string>
+    <string name="cloud_error_key_missing">trūkst atslēgas</string>
+    <string name="cloud_error_key_rejected">atslēga noraidīta</string>
+    <string name="cloud_error_needs_credits">nepieciešams kredīts</string>
+    <string name="cloud_error_no_access">nav piekļuves</string>
+    <string name="cloud_error_rate_limited">pieprasījumi ierobežoti</string>
+    <string name="cloud_error_request_rejected">pieprasījums noraidīts</string>
+    <string name="cloud_error_network">tīkls nav sasniedzams</string>
+    <string name="cloud_error_wifi_required">nepieciešams Wi-Fi</string>
+    <string name="cloud_error_provider">pakalpojuma kļūda</string>
     <string name="developer_enabled">Izstrādātāja iespējas ieslēgtas</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">latviešu</string>

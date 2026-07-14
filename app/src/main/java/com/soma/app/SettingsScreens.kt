@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.soma.core.model.SupportedLanguage
+import com.soma.core.model.TranscriptionFallbackReason
 
 private enum class SettingsAction {
     VIBRATION,
@@ -364,6 +365,7 @@ private enum class CloudDeveloperAction {
     AI_TRACKING,
     GROQ_KEY,
     ELEVENLABS_KEY,
+    LAST_ERROR,
     PRIVACY,
 }
 
@@ -472,6 +474,7 @@ fun CloudDeveloperScreen(onBack: () -> Unit) {
                         CloudDeveloperAction.AI_TRACKING -> stringResource(R.string.developer_ai_tracking)
                         CloudDeveloperAction.GROQ_KEY -> stringResource(R.string.developer_groq_key)
                         CloudDeveloperAction.ELEVENLABS_KEY -> stringResource(R.string.developer_elevenlabs_key)
+                        CloudDeveloperAction.LAST_ERROR -> stringResource(R.string.developer_last_cloud_error)
                         CloudDeveloperAction.PRIVACY -> stringResource(R.string.developer_cloud_data)
                     },
                     trailing = when (action) {
@@ -490,6 +493,9 @@ fun CloudDeveloperScreen(onBack: () -> Unit) {
                         CloudDeveloperAction.AI_TRACKING -> stringResource(if (settings.aiTrackingSuggestions) R.string.on else R.string.off)
                         CloudDeveloperAction.GROQ_KEY -> stringResource(if (settings.hasGroqKey) R.string.developer_key_saved else R.string.developer_key_missing)
                         CloudDeveloperAction.ELEVENLABS_KEY -> stringResource(if (settings.hasElevenLabsKey) R.string.developer_key_saved else R.string.developer_key_missing)
+                        CloudDeveloperAction.LAST_ERROR -> settings.lastCloudError
+                            ?.let { error -> "${stringResource(error.reason.shortLabel())} · ${cloudErrorTime(error.at)}" }
+                            ?: stringResource(R.string.cloud_error_none)
                         CloudDeveloperAction.PRIVACY -> null
                     },
                     onClick = {
@@ -521,6 +527,7 @@ fun CloudDeveloperScreen(onBack: () -> Unit) {
                             CloudDeveloperAction.AI_TRACKING -> controller.setAiTrackingSuggestions(!settings.aiTrackingSuggestions)
                             CloudDeveloperAction.GROQ_KEY -> editingKey = CloudSpeechProvider.GROQ
                             CloudDeveloperAction.ELEVENLABS_KEY -> editingKey = CloudSpeechProvider.ELEVENLABS
+                            CloudDeveloperAction.LAST_ERROR -> SomaPrefs.clearLastCloudError(context)
                             CloudDeveloperAction.PRIVACY -> showPrivacy = true
                         }
                         refresh()
@@ -528,6 +535,29 @@ fun CloudDeveloperScreen(onBack: () -> Unit) {
                 )
             }
         }
+    }
+}
+
+private fun TranscriptionFallbackReason.shortLabel(): Int = when (this) {
+    TranscriptionFallbackReason.WIFI_REQUIRED -> R.string.cloud_error_wifi_required
+    TranscriptionFallbackReason.API_KEY_MISSING -> R.string.cloud_error_key_missing
+    TranscriptionFallbackReason.PROVIDER_ERROR -> R.string.cloud_error_provider
+    TranscriptionFallbackReason.AUTHENTICATION_ERROR -> R.string.cloud_error_key_rejected
+    TranscriptionFallbackReason.PERMISSION_ERROR -> R.string.cloud_error_no_access
+    TranscriptionFallbackReason.PAYMENT_REQUIRED -> R.string.cloud_error_needs_credits
+    TranscriptionFallbackReason.RATE_LIMITED -> R.string.cloud_error_rate_limited
+    TranscriptionFallbackReason.INVALID_REQUEST -> R.string.cloud_error_request_rejected
+    TranscriptionFallbackReason.NETWORK_ERROR -> R.string.cloud_error_network
+}
+
+/** Compact local time for the diagnostics row: clock time today, date otherwise. */
+private fun cloudErrorTime(at: java.time.Instant): String {
+    val zone = java.time.ZoneId.systemDefault()
+    val local = at.atZone(zone)
+    return if (local.toLocalDate() == java.time.LocalDate.now(zone)) {
+        local.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+    } else {
+        local.toLocalDate().toString()
     }
 }
 

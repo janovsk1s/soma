@@ -2,6 +2,8 @@ package com.soma.app
 
 import android.content.Context
 import com.soma.core.model.SupportedLanguage
+import com.soma.core.model.TranscriptionFallbackReason
+import java.time.Instant
 
 object SomaPrefs {
     private const val FILE = "soma_preferences"
@@ -18,6 +20,8 @@ object SomaPrefs {
     private const val KEY_CLOUD_TRANSCRIPTION = "cloud_transcription_enabled"
     private const val KEY_CLOUD_PROVIDER = "cloud_speech_provider"
     private const val KEY_GROQ_SPEECH_MODEL = "groq_speech_model"
+    private const val KEY_LAST_CLOUD_ERROR_REASON = "last_cloud_error_reason"
+    private const val KEY_LAST_CLOUD_ERROR_AT = "last_cloud_error_at"
     private const val KEY_CLOUD_WIFI_ONLY = "cloud_wifi_only"
     private const val KEY_AI_TODOS = "cloud_ai_todo_suggestions"
     private const val KEY_AI_AUTO_METADATA = "cloud_ai_auto_metadata"
@@ -170,4 +174,30 @@ object SomaPrefs {
 
     fun setLanguage(context: Context, language: SupportedLanguage) =
         values(context).edit().putString(KEY_LANGUAGE, language.languageTag).apply()
+
+    /**
+     * Most recent cloud failure category for the Developer diagnostics row.
+     * Only the safe category and time are stored — never provider responses,
+     * note text, or key material.
+     */
+    fun lastCloudError(context: Context): LastCloudError? {
+        val stored = values(context).getString(KEY_LAST_CLOUD_ERROR_REASON, null) ?: return null
+        val reason = runCatching { TranscriptionFallbackReason.valueOf(stored) }.getOrNull()
+            ?: return null
+        val at = values(context).getLong(KEY_LAST_CLOUD_ERROR_AT, 0L)
+        if (at <= 0L) return null
+        return LastCloudError(reason, Instant.ofEpochMilli(at))
+    }
+
+    fun setLastCloudError(context: Context, reason: TranscriptionFallbackReason, at: Instant) =
+        values(context).edit()
+            .putString(KEY_LAST_CLOUD_ERROR_REASON, reason.name)
+            .putLong(KEY_LAST_CLOUD_ERROR_AT, at.toEpochMilli())
+            .apply()
+
+    fun clearLastCloudError(context: Context) =
+        values(context).edit()
+            .remove(KEY_LAST_CLOUD_ERROR_REASON)
+            .remove(KEY_LAST_CLOUD_ERROR_AT)
+            .apply()
 }

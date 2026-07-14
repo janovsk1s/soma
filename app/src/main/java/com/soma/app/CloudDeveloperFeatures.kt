@@ -172,6 +172,17 @@ data class CloudDeveloperSettings(
     val aiTrackingSuggestions: Boolean,
     val hasGroqKey: Boolean,
     val hasElevenLabsKey: Boolean,
+    val lastCloudError: LastCloudError? = null,
+)
+
+/**
+ * The most recent cloud failure, shown as a quiet Developer diagnostics row so
+ * an inert BYOK setup (rejected key, missing credits, rate limit) is
+ * discoverable without exposing provider responses or note content.
+ */
+data class LastCloudError(
+    val reason: TranscriptionFallbackReason,
+    val at: java.time.Instant,
 )
 
 /**

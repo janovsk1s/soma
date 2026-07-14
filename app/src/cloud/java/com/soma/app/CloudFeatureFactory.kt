@@ -20,6 +20,7 @@ import java.io.DataOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.time.Instant
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.security.KeyStore
@@ -51,6 +52,7 @@ private class AndroidCloudFeatureController(private val context: Context) : Clou
         aiTrackingSuggestions = SomaPrefs.aiTrackingSuggestions(context),
         hasGroqKey = secrets.read(CloudSpeechProvider.GROQ) != null,
         hasElevenLabsKey = secrets.read(CloudSpeechProvider.ELEVENLABS) != null,
+        lastCloudError = SomaPrefs.lastCloudError(context),
     )
 
     override fun setTranscriptionEnabled(enabled: Boolean) = SomaPrefs.setCloudTranscription(context, enabled)
@@ -97,20 +99,28 @@ private class AndroidCloudFeatureController(private val context: Context) : Clou
             ),
             vocabulary = TranscriptionVocabularyStore(context).read(),
             localFactory = localFactory,
+            failureListener = ::recordCloudFailure,
         )
     }
 
     override suspend fun extractTodoCandidates(text: String): List<String> {
         if (!SomaPrefs.aiTodoSuggestions(context) || text.isBlank()) return emptyList()
         val wifiOnly = SomaPrefs.cloudWifiOnly(context)
-        if (!cloudNetworkAllowed(wifiOnly, context.isOnWifi())) return emptyList()
-        val key = secrets.read(CloudSpeechProvider.GROQ) ?: return emptyList()
+        if (!cloudNetworkAllowed(wifiOnly, context.isOnWifi())) {
+            recordCloudFailure(TranscriptionFallbackReason.WIFI_REQUIRED)
+            return emptyList()
+        }
+        val key = secrets.read(CloudSpeechProvider.GROQ)
+            ?: return emptyList<String>().also {
+                recordCloudFailure(TranscriptionFallbackReason.API_KEY_MISSING)
+            }
         val connectionOpener = CloudConnectionOpener { url -> context.openCloudConnection(url, wifiOnly) }
         return try {
             CloudHttp.extractTodos(key, text, connectionOpener)
         } catch (error: CancellationException) {
             throw error
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            recordCloudFailure(error)
             emptyList()
         }
     }
@@ -121,14 +131,19 @@ private class AndroidCloudFeatureController(private val context: Context) : Clou
     ): CloudMetadataResult? {
         if (!SomaPrefs.aiAutoMetadata(context) || text.isBlank()) return null
         val wifiOnly = SomaPrefs.cloudWifiOnly(context)
-        if (!cloudNetworkAllowed(wifiOnly, context.isOnWifi())) return null
-        val key = secrets.read(CloudSpeechProvider.GROQ) ?: return null
+        if (!cloudNetworkAllowed(wifiOnly, context.isOnWifi())) {
+            recordCloudFailure(TranscriptionFallbackReason.WIFI_REQUIRED)
+            return null
+        }
+        val key = secrets.read(CloudSpeechProvider.GROQ)
+            ?: return null.also { recordCloudFailure(TranscriptionFallbackReason.API_KEY_MISSING) }
         val connectionOpener = CloudConnectionOpener { url -> context.openCloudConnection(url, wifiOnly) }
         return try {
             CloudHttp.deriveMetadata(key, text, languages, connectionOpener)
         } catch (error: CancellationException) {
             throw error
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            recordCloudFailure(error)
             null
         }
     }
@@ -159,17 +174,33 @@ private class AndroidCloudFeatureController(private val context: Context) : Clou
         if (text.isBlank() && imageJpeg == null) return null
         if (imageJpeg != null && imageJpeg.size > MAX_VISION_IMAGE_BYTES) return null
         val wifiOnly = SomaPrefs.cloudWifiOnly(context)
-        if (!cloudNetworkAllowed(wifiOnly, context.isOnWifi())) return null
-        val key = secrets.read(CloudSpeechProvider.GROQ) ?: return null
+        if (!cloudNetworkAllowed(wifiOnly, context.isOnWifi())) {
+            recordCloudFailure(TranscriptionFallbackReason.WIFI_REQUIRED)
+            return null
+        }
+        val key = secrets.read(CloudSpeechProvider.GROQ)
+            ?: return null.also { recordCloudFailure(TranscriptionFallbackReason.API_KEY_MISSING) }
         val connectionOpener = CloudConnectionOpener { url -> context.openCloudConnection(url, wifiOnly) }
         return try {
             CloudHttp.extractTrackingText(key, kind, text, imageJpeg, connectionOpener)
         } catch (error: CancellationException) {
             throw error
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            recordCloudFailure(error)
             null
         }
     }
+
+    private fun recordCloudFailure(error: Exception) = recordCloudFailure(
+        when (error) {
+            is CloudProviderException -> error.fallbackReason
+            is IOException -> TranscriptionFallbackReason.NETWORK_ERROR
+            else -> TranscriptionFallbackReason.PROVIDER_ERROR
+        },
+    )
+
+    private fun recordCloudFailure(reason: TranscriptionFallbackReason) =
+        SomaPrefs.setLastCloudError(context, reason, Instant.now())
 }
 
 internal class FallbackCloudTranscriber(
@@ -183,6 +214,7 @@ internal class FallbackCloudTranscriber(
     private val connectionOpener: CloudConnectionOpener,
     private val localFactory: () -> Transcriber,
     private val vad: VoiceActivityDetector = VoiceActivityDetector(),
+    private val failureListener: (TranscriptionFallbackReason) -> Unit = {},
 ) : Transcriber {
     private var local: Transcriber? = null
 
@@ -286,9 +318,12 @@ internal class FallbackCloudTranscriber(
         samples: FloatArray,
         sampleRate: Int,
         reason: TranscriptionFallbackReason,
-    ): TranscriptionResult = local().transcribe(samples, sampleRate).copy(
-        provenance = cloudFallbackProvenance(provider, reason, groqModel),
-    )
+    ): TranscriptionResult {
+        runCatching { failureListener(reason) }
+        return local().transcribe(samples, sampleRate).copy(
+            provenance = cloudFallbackProvenance(provider, reason, groqModel),
+        )
+    }
 
     private fun local(): Transcriber = local ?: localFactory().also { local = it }
 

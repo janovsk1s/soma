@@ -303,6 +303,17 @@
     <string name="suggesting_with_groq">asking Groq…</string>
     <string name="tracking_suggestion_failed">No proposal returned. Your original entry is unchanged.</string>
     <string name="developer_cloud_data">cloud data &amp; privacy</string>
+    <string name="developer_last_cloud_error">last cloud error</string>
+    <string name="cloud_error_none">none</string>
+    <string name="cloud_error_key_missing">key missing</string>
+    <string name="cloud_error_key_rejected">key rejected</string>
+    <string name="cloud_error_needs_credits">needs credits</string>
+    <string name="cloud_error_no_access">no access</string>
+    <string name="cloud_error_rate_limited">rate limited</string>
+    <string name="cloud_error_request_rejected">request rejected</string>
+    <string name="cloud_error_network">network unreachable</string>
+    <string name="cloud_error_wifi_required">Wi-Fi required</string>
+    <string name="cloud_error_provider">provider failed</string>
     <string name="developer_enabled">Developer options enabled</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">Latviešu</string>

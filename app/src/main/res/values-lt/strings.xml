@@ -207,6 +207,17 @@
     <string name="developer_key_missing">trūksta</string>
     <string name="developer_cloud_privacy">Naudok savo paslaugos raktą; Soma neturi paskyros ar serverio, o paslaugos teikėjas apmokestina tavo paskyrą. Pagal nutylėjimą išjungta. Transkripcija siunčia garsą ir žodyną pasirinktai paslaugai. Svarbaus pasiūlymai ir žymos siunčia įrašo tekstą Groq. Valgio, treniruotės ir kvito pasiūlymai siunčia pasirinktą tekstą ir tik jei yra – nuotrauką Groq. Groq apdorojimas ir saugomi kliento duomenys yra JAV; Groq įjunk Zero Data Retention. ElevenLabs nuliniam saugojimui reikia Enterprise. Užklausos gali naudoti mobilųjį ryšį, jei neįjungtas tik Wi-Fi.</string>
     <string name="developer_cloud_data">debesų duomenys ir privatumas</string>
+    <string name="developer_last_cloud_error">paskutinė debesijos klaida</string>
+    <string name="cloud_error_none">nėra</string>
+    <string name="cloud_error_key_missing">trūksta rakto</string>
+    <string name="cloud_error_key_rejected">raktas atmestas</string>
+    <string name="cloud_error_needs_credits">reikia kredito</string>
+    <string name="cloud_error_no_access">nėra prieigos</string>
+    <string name="cloud_error_rate_limited">užklausos apribotos</string>
+    <string name="cloud_error_request_rejected">užklausa atmesta</string>
+    <string name="cloud_error_network">tinklas nepasiekiamas</string>
+    <string name="cloud_error_wifi_required">reikia Wi-Fi</string>
+    <string name="cloud_error_provider">paslaugos klaida</string>
     <string name="developer_enabled">Kūrėjo parinktys įjungtos</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">latviešu</string>

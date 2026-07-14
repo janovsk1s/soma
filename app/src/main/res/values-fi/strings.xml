@@ -207,6 +207,17 @@
     <string name="developer_key_missing">puuttuu</string>
     <string name="developer_cloud_privacy">Käytä omaa palveluavaintasi; Somalla ei ole tiliä tai palvelinta, ja palveluntarjoaja laskuttaa tiliäsi. Oletuksena pois. Litterointi lähettää äänen ja sanaston valitulle palvelulle. Tärkeä-ehdotukset ja tunnisteet lähettävät merkinnän tekstin Groqille. Ateria-, harjoitus- ja kuittiehdotukset lähettävät valitun tekstin ja vain kuvan ollessa mukana myös kuvan Groqille. Groqin käsittely ja säilytettävät asiakastiedot ovat Yhdysvalloissa; ota Groqin Zero Data Retention käyttöön. ElevenLabs vaatii Enterprise-tilin nollasäilytykseen. Pyynnöt voivat käyttää mobiiliverkkoa, ellei vain Wi-Fi ole päällä.</string>
     <string name="developer_cloud_data">pilvidata ja yksityisyys</string>
+    <string name="developer_last_cloud_error">viimeisin pilvivirhe</string>
+    <string name="cloud_error_none">ei mitään</string>
+    <string name="cloud_error_key_missing">avain puuttuu</string>
+    <string name="cloud_error_key_rejected">avain hylättiin</string>
+    <string name="cloud_error_needs_credits">tarvitsee saldoa</string>
+    <string name="cloud_error_no_access">ei käyttöoikeutta</string>
+    <string name="cloud_error_rate_limited">pyyntöjä rajoitettu</string>
+    <string name="cloud_error_request_rejected">pyyntö hylättiin</string>
+    <string name="cloud_error_network">verkko ei tavoitettavissa</string>
+    <string name="cloud_error_wifi_required">vaatii Wi-Fin</string>
+    <string name="cloud_error_provider">palveluvirhe</string>
     <string name="developer_enabled">Kehittäjäasetukset käytössä</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">latviešu</string>
