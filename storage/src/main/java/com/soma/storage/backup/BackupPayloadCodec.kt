@@ -138,6 +138,8 @@ internal object BackupPayloadCodec {
         output.writeBooleanByte(entry.returnLater)
         output.writeNullable(entry.audio, ::writeAudioAttachment)
         output.writeNullable(entry.transcription, ::writeTranscriptionInfo)
+        output.writeNullable(entry.deletedAt) { target, value -> target.writeInstant(value) }
+        output.writeNullable(entry.audioDeletedAt) { target, value -> target.writeInstant(value) }
     }
 
     private fun readEntry(input: DataInput, noteDate: LocalDate, payloadVersion: Int): NoteEntry = NoteEntry(
@@ -151,6 +153,8 @@ internal object BackupPayloadCodec {
         returnLater = input.readBooleanByte(),
         audio = input.readNullable(::readAudioAttachment),
         transcription = input.readNullable { source -> readTranscriptionInfo(source, payloadVersion) },
+        deletedAt = if (payloadVersion >= 7) input.readNullable { it.readInstant() } else null,
+        audioDeletedAt = if (payloadVersion >= 7) input.readNullable { it.readInstant() } else null,
     )
 
     private fun writeEntryRevision(output: DataOutput, revision: EntryRevision) {

@@ -211,7 +211,7 @@ private fun EntryFlowBlock(
                 fontWeight = FontWeight.Light,
                 maxLines = 1,
             )
-            if (entry.audio != null) VoiceMark()
+            if (entry.activeAudio != null) VoiceMark()
         }
         Text(
             block.text,

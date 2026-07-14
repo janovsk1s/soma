@@ -97,7 +97,7 @@ data class BackupSnapshot(
     }
 
     companion object {
-        const val CURRENT_PAYLOAD_VERSION: Int = 6
+        const val CURRENT_PAYLOAD_VERSION: Int = 7
         val SUPPORTED_PAYLOAD_VERSIONS: IntRange = 1..CURRENT_PAYLOAD_VERSION
     }
 }

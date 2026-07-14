@@ -46,6 +46,29 @@ class DomainModelTest {
     }
 
     @Test
+    fun `audio and entry tombstones keep the recoverable attachment`() {
+        val audioDeletedAt = now.plusSeconds(10)
+        val deletedAt = now.plusSeconds(20)
+        val entry = NoteEntry.voice(
+            id = "voice-1",
+            noteDate = date,
+            position = 0,
+            audio = audio(),
+            createdAt = now,
+            transcriptionEnabled = false,
+        ).copy(audioDeletedAt = audioDeletedAt)
+
+        assertNull(entry.activeAudio)
+        assertEquals(audio(), entry.audio)
+        assertFalse(entry.isDeleted)
+
+        val deleted = entry.copy(deletedAt = deletedAt)
+        assertTrue(deleted.isDeleted)
+        assertEquals(now, deleted.createdAt)
+        assertEquals(audio(), deleted.audio)
+    }
+
+    @Test
     fun `daily note accepts only ordered entries from its date`() {
         val first = NoteEntry.text("one", date, 1, "One", now)
         val second = NoteEntry.text("two", date, 2, "Two", now)

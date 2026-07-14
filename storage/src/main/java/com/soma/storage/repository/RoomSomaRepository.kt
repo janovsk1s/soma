@@ -99,6 +99,7 @@ class RoomSomaRepository(
                     date = LocalDate.ofEpochDay(note.epochDay),
                     createdAt = Instant.ofEpochMilli(note.createdAtMillis),
                     entries = entryDao.listForNote(note.id)
+                        .filter { it.deletedAtMillis == null }
                         .sortedBy(EntryEntity::position)
                         .map { mapper.entryFromEntity(it, LocalDate.ofEpochDay(note.epochDay)) },
                 )
@@ -108,8 +109,14 @@ class RoomSomaRepository(
 
     override suspend fun getEntry(entryId: String) = database.withTransaction {
         val entity = entryDao.getById(entryId) ?: return@withTransaction null
+        if (entity.deletedAtMillis != null) return@withTransaction null
         val note = noteDao.getById(entity.noteId) ?: return@withTransaction null
         mapper.entryFromEntity(entity, LocalDate.ofEpochDay(note.epochDay))
+    }
+
+    override suspend fun nextEntryPosition(date: LocalDate): Int = database.withTransaction {
+        val note = noteDao.getByEpochDay(date.toEpochDay()) ?: return@withTransaction 0
+        entryDao.nextPosition(note.id)
     }
 
     override suspend fun insertEntry(entry: com.soma.core.model.NoteEntry): Boolean =
@@ -144,6 +151,7 @@ class RoomSomaRepository(
         val existing = entryDao.getById(entryId) ?: return@withTransaction null
         val note = noteDao.getById(existing.noteId) ?: return@withTransaction null
         val previous = mapper.entryFromEntity(existing, LocalDate.ofEpochDay(note.epochDay))
+        if (previous.isDeleted) return@withTransaction null
         if (previous.text == text) return@withTransaction EntryMutationResult(previous, previous)
         val at = maxOf(previous.updatedAt, editedAt)
         val current = previous.copy(text = text, updatedAt = at, lastUserEditedAt = at)
@@ -195,6 +203,16 @@ class RoomSomaRepository(
     }
 
     override fun observeReturnLater() = entryDao.observeReturnLater().map { entries ->
+        database.withTransaction {
+            entries.mapNotNull { entry ->
+                noteDao.getById(entry.noteId)?.let { note ->
+                    mapper.entryFromEntity(entry, LocalDate.ofEpochDay(note.epochDay))
+                }
+            }
+        }
+    }
+
+    override fun observeDeleted() = entryDao.observeDeleted().map { entries ->
         database.withTransaction {
             entries.mapNotNull { entry ->
                 noteDao.getById(entry.noteId)?.let { note ->
@@ -658,6 +676,7 @@ class RoomSomaRepository(
             date = date,
             createdAt = Instant.ofEpochMilli(aggregate.note.createdAtMillis),
             entries = aggregate.entries
+                .filter { it.deletedAtMillis == null }
                 .sortedBy(EntryEntity::position)
                 .map { mapper.entryFromEntity(it, date) },
         )

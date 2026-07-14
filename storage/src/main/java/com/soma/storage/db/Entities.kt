@@ -63,6 +63,8 @@ data class EntryEntity(
     @ColumnInfo(name = "updated_at_millis") val updatedAtMillis: Long,
     @ColumnInfo(name = "last_user_edited_at_millis") val lastUserEditedAtMillis: Long?,
     @ColumnInfo(name = "revision") val revision: Long,
+    @ColumnInfo(name = "deleted_at_millis") val deletedAtMillis: Long? = null,
+    @ColumnInfo(name = "audio_deleted_at_millis") val audioDeletedAtMillis: Long? = null,
 )
 
 @Entity(

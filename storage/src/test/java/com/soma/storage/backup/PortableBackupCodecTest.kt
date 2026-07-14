@@ -137,7 +137,11 @@ class PortableBackupCodecTest {
             position = 0,
             text = "Jāatceras piezvanīt Annai",
             createdAt = START,
-        ).copy(returnLater = true, updatedAt = START.plusNanos(10))
+        ).copy(
+            returnLater = true,
+            updatedAt = START.plusNanos(10),
+            deletedAt = START.plusSeconds(40),
+        )
         private val VOICE_ENTRY = NoteEntry.voice(
             id = "voice-1",
             noteDate = DATE,
@@ -158,6 +162,7 @@ class PortableBackupCodecTest {
                 ),
                 updatedAt = START.plusSeconds(3),
             ),
+            audioDeletedAt = START.plusSeconds(50),
         )
         private val SNAPSHOT = BackupSnapshot(
             exportedAt = START.plusSeconds(600),

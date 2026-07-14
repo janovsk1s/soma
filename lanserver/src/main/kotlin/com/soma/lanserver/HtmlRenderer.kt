@@ -94,6 +94,24 @@ internal object HtmlRenderer {
                     if (entry.markedForReturn) {
                         append("<small class=\"quiet\">return to this</small>")
                     }
+                    val previousVersions = entry.history.filterNot(BrowserEntryVersion::isCurrent)
+                    if (previousVersions.isNotEmpty()) {
+                        append("<details class=\"history\"><summary>Edit history · ")
+                        append(entry.history.size)
+                        append(" versions</summary><ol>")
+                        previousVersions.forEach { version ->
+                            append("<li><small>")
+                            append(if (version.number == 1) "Original" else "Version ${version.number}")
+                            append(" · <time datetime=\"")
+                            append(Html.escape(version.becameCurrentAt.toString()))
+                            append("\">")
+                            append(Html.escape(version.becameCurrentAt.toString()))
+                            append("</time></small><p>")
+                            append(Html.escape(version.text))
+                            append("</p></li>")
+                        }
+                        append("</ol></details>")
+                    }
                     append("</article></li>")
                 }
                 append("</ol>")
@@ -243,6 +261,7 @@ internal object HtmlRenderer {
         .row,.entry{display:flex;width:100%;min-height:92px;padding:18px 0;justify-content:space-between;gap:24px;align-items:center}
         .row{text-decoration:none}.row small{display:block;margin-top:5px}.count{font-variant-numeric:tabular-nums}
         .entry{display:block}.entry p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}.entry small{display:block;margin-top:10px}
+        .history{margin-top:18px}.history summary{cursor:pointer;color:var(--dim)}.history ol{margin:14px 0 0;padding-left:24px}.history li{padding:10px 0}.history li p{margin-top:5px}
         audio{display:block;width:100%;margin-top:14px}.empty{padding:36px 0}
         .pager{display:grid;grid-template-columns:1fr auto 1fr;gap:20px;padding:28px 0;align-items:center}.pager>*:last-child{text-align:right}
         .tabs{display:flex;gap:24px;margin-bottom:20px}.tabs [aria-current=page]{font-weight:bold;text-decoration-thickness:2px}

@@ -67,6 +67,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     private val mutablePromptedTodos = MutableStateFlow<Set<String>>(emptySet())
     private val mutableRecordingEntryId = MutableStateFlow<String?>(null)
     private val mutableRecordingUiState = MutableStateFlow<RecordingUiState>(RecordingUiState.Idle)
+    private val mutableDeletionUndo = MutableStateFlow<DeletionUndo?>(null)
     private val draftStore = EditorDraftStore(app)
     private val mutableCaptureDraft = MutableStateFlow("")
     private val mutableImportantDraft = MutableStateFlow("")
@@ -98,10 +99,13 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(FLOW_STOP_TIMEOUT_MILLIS), emptyList())
     val returnLater = repositories.notes.observeReturnLater()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(FLOW_STOP_TIMEOUT_MILLIS), emptyList())
+    val deletedEntries = repositories.notes.observeDeleted()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(FLOW_STOP_TIMEOUT_MILLIS), emptyList())
     val suggestions: StateFlow<Map<String, TodoSuggestion>> = mutableSuggestions.asStateFlow()
     val promptedTodoIds: StateFlow<Set<String>> = mutablePromptedTodos.asStateFlow()
     val recordingEntryId: StateFlow<String?> = mutableRecordingEntryId.asStateFlow()
     internal val recordingUiState: StateFlow<RecordingUiState> = mutableRecordingUiState.asStateFlow()
+    internal val deletionUndo: StateFlow<DeletionUndo?> = mutableDeletionUndo.asStateFlow()
     val captureDraft: StateFlow<String> = mutableCaptureDraft.asStateFlow()
     val importantDraft: StateFlow<String> = mutableImportantDraft.asStateFlow()
     val playbackState: StateFlow<PlaybackState> = player.state
@@ -237,6 +241,12 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     suspend fun datesWithEntries(from: LocalDate, to: LocalDate): List<LocalDate> =
         repositories.notes.datesWithEntries(from, to)
 
+    internal suspend fun entryHistory(entry: NoteEntry): List<EntryHistoryVersion> {
+        val current = repositories.notes.getEntry(entry.id) ?: entry
+        val revisions = repositories.notes.listEntryRevisions(entry.id)
+        return buildEntryHistory(current, revisions)
+    }
+
     fun addText(text: String, onSaved: (Boolean) -> Unit = {}) {
         val clean = text.trim()
         if (clean.isEmpty()) {
@@ -248,11 +258,11 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                 entryAppendMutex.withLock {
                     val now = clock.instant()
                     val date = selectedDate.value
-                    val current = repositories.notes.getOrCreate(date, now)
+                    repositories.notes.getOrCreate(date, now)
                     val candidate = NoteEntry.text(
                         id = UUID.randomUUID().toString(),
                         noteDate = date,
-                        position = (current.entries.maxOfOrNull(NoteEntry::position) ?: -1) + 1,
+                        position = repositories.notes.nextEntryPosition(date),
                         text = clean,
                         createdAt = now,
                     )
@@ -304,9 +314,24 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteEntry(entry: NoteEntry) {
         if (recordingOperationEntryId == entry.id) return
         viewModelScope.launch {
-            val mutation = repositories.notes.mutateEntry(entry.id) { null }
-            if (mutation != null && !isDemo) {
-                mutation.previous.audio?.let { app.encryptedAudioFile(it.fileId).delete() }
+            val deletedAt = maxOf(entry.createdAt, clock.instant())
+            val mutation = repositories.notes.mutateEntry(entry.id) { current ->
+                if (current.isDeleted) current else current.copy(deletedAt = deletedAt)
+            }
+            if (
+                mutation != null && mutation.current != mutation.previous &&
+                mutation.current?.deletedAt != null
+            ) {
+                mutation.previous.activeAudio?.let { audio ->
+                    if ((playbackState.value as? PlaybackState.Playing)?.audioId == audio.fileId) {
+                        player.stop()
+                    }
+                }
+                mutableDeletionUndo.value = DeletionUndo(
+                    entryId = entry.id,
+                    previousDeletedAt = mutation.previous.deletedAt,
+                    previousAudioDeletedAt = mutation.previous.audioDeletedAt,
+                )
             }
         }
     }
@@ -314,24 +339,85 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteAudio(entry: NoteEntry) {
         if (recordingOperationEntryId == entry.id) return
         viewModelScope.launch {
+            val deletedAt = maxOf(entry.createdAt, clock.instant())
             val mutation = repositories.notes.mutateEntry(entry.id) { current ->
-                if (current.audio == null) {
+                if (current.activeAudio == null) {
                     current
                 } else if (current.text.isBlank()) {
-                    null
+                    current.copy(deletedAt = deletedAt)
                 } else {
-                    current.copy(
+                    current.copy(audioDeletedAt = deletedAt)
+                }
+            }
+            if (mutation != null && mutation.current != mutation.previous) {
+                mutation.previous.activeAudio?.let { audio ->
+                    if ((playbackState.value as? PlaybackState.Playing)?.audioId == audio.fileId) {
+                        player.stop()
+                    }
+                }
+                mutableDeletionUndo.value = DeletionUndo(
+                    entryId = entry.id,
+                    previousDeletedAt = mutation.previous.deletedAt,
+                    previousAudioDeletedAt = mutation.previous.audioDeletedAt,
+                )
+            }
+        }
+    }
+
+    fun undoLastDeletion() {
+        val undo = mutableDeletionUndo.value ?: return
+        viewModelScope.launch {
+            val mutation = repositories.notes.mutateEntry(undo.entryId) { current ->
+                current.copy(
+                    deletedAt = undo.previousDeletedAt,
+                    audioDeletedAt = undo.previousAudioDeletedAt,
+                )
+            }
+            if (mutation?.current != null && mutableDeletionUndo.value == undo) {
+                mutableDeletionUndo.value = null
+            }
+        }
+    }
+
+    fun restoreDeleted(entry: NoteEntry, onRestored: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val mutation = repositories.notes.mutateEntry(entry.id) { current ->
+                current.copy(deletedAt = null, audioDeletedAt = null)
+            }
+            val restored = mutation?.current?.let { !it.isDeleted && it.audioDeletedAt == null } == true
+            if (restored && mutableDeletionUndo.value?.entryId == entry.id) {
+                mutableDeletionUndo.value = null
+            }
+            onRestored(restored)
+        }
+    }
+
+    fun purgeDeleted(entry: NoteEntry, onPurged: (Boolean) -> Unit = {}) {
+        if (recordingOperationEntryId == entry.id) {
+            onPurged(false)
+            return
+        }
+        viewModelScope.launch {
+            val mutation = repositories.notes.mutateEntry(entry.id) { current ->
+                when {
+                    current.deletedAt != null -> null
+                    current.audioDeletedAt != null -> current.copy(
                         kind = EntryKind.TEXT,
                         audio = null,
                         transcription = null,
-                        updatedAt = maxOf(current.updatedAt, clock.instant()),
+                        audioDeletedAt = null,
                     )
+                    else -> current
                 }
             }
-            val previousAudio = mutation?.previous?.audio
-            if (previousAudio != null && !isDemo) {
-                app.encryptedAudioFile(previousAudio.fileId).delete()
+            val changed = mutation != null && mutation.current != mutation.previous
+            if (changed && !isDemo) {
+                mutation.previous.audio?.let { app.encryptedAudioFile(it.fileId).delete() }
             }
+            if (changed && mutableDeletionUndo.value?.entryId == entry.id) {
+                mutableDeletionUndo.value = null
+            }
+            onPurged(changed)
         }
     }
 
@@ -525,11 +611,11 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                         byteCount = 0,
                     )
                     val entry = entryAppendMutex.withLock {
-                        val current = repositories.notes.getOrCreate(date, now)
+                        repositories.notes.getOrCreate(date, now)
                         val candidate = NoteEntry.voice(
                             id = id,
                             noteDate = date,
-                            position = (current.entries.maxOfOrNull(NoteEntry::position) ?: -1) + 1,
+                            position = repositories.notes.nextEntryPosition(date),
                             audio = audio,
                             createdAt = now,
                             transcriptionEnabled = SomaPrefs.transcription(app),
@@ -605,7 +691,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun togglePlayback(entry: NoteEntry) {
-        val audio = entry.audio ?: return
+        val audio = entry.activeAudio ?: return
         if (isDemo) return
         viewModelScope.launch {
             val state = playbackState.value
@@ -618,11 +704,11 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun retryTranscription(entry: NoteEntry) {
-        if (isDemo || entry.audio == null) return
+        if (isDemo || entry.activeAudio == null) return
         SomaPrefs.setTranscription(app, true)
         viewModelScope.launch {
             val current = repositories.notes.getEntry(entry.id)
-            if (current?.audio == null) {
+            if (current?.activeAudio == null) {
                 messages.trySend(app.getString(R.string.transcription_retry_failed))
                 return@launch
             }
@@ -747,11 +833,11 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
             .let { if (it.isAfter(today())) today() else it }
         return entryAppendMutex.withLock {
             repositories.notes.getEntry(id)?.let { return@withLock it }
-            val note = repositories.notes.getOrCreate(recoveredDate, startedAt)
+            repositories.notes.getOrCreate(recoveredDate, startedAt)
             val candidate = NoteEntry.voice(
                 id = id,
                 noteDate = recoveredDate,
-                position = (note.entries.maxOfOrNull(NoteEntry::position) ?: -1) + 1,
+                position = repositories.notes.nextEntryPosition(recoveredDate),
                 audio = AudioAttachment(
                     fileId = id,
                     format = AudioFormat.WAV,

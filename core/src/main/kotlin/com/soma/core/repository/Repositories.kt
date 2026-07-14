@@ -39,6 +39,9 @@ interface DailyNoteRepository {
 
     suspend fun getEntry(entryId: String): NoteEntry?
 
+    /** Allocates after visible and tombstoned positions so soft deletion cannot cause a collision. */
+    suspend fun nextEntryPosition(date: LocalDate): Int
+
     /** Returns false on a duplicate id or position; never replaces an existing entry. */
     suspend fun insertEntry(entry: NoteEntry): Boolean
 
@@ -57,11 +60,14 @@ interface DailyNoteRepository {
         transform: (NoteEntry) -> NoteEntry?,
     ): EntryMutationResult?
 
-    /** Deletes metadata only. Audio cleanup remains an explicit storage transaction. */
+    /** Permanently purges metadata. Normal user deletion must use a tombstone via [mutateEntry]. */
     suspend fun deleteEntry(entryId: String): Boolean
 
     /** Marked entries oldest-first, then by their position within a day. */
     fun observeReturnLater(): Flow<List<NoteEntry>>
+
+    /** Soft-deleted entries or attachments, newest deletion first. */
+    fun observeDeleted(): Flow<List<NoteEntry>>
 
     /** Dates within [from]..[to] whose note holds at least one entry, ascending. */
     suspend fun datesWithEntries(from: LocalDate, to: LocalDate): List<LocalDate>

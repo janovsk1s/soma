@@ -141,12 +141,25 @@ private sealed interface AppRoute {
     data object Calendar : AppRoute
     data object SpeechLanguages : AppRoute
     data object TranscriptionVocabulary : AppRoute
+    data object Deleted : AppRoute
     data class ReadEntry(val entry: NoteEntry, val fromTodos: Boolean = false) : AppRoute
     data class EntryOptions(
         val entry: NoteEntry,
         val returnToRead: Boolean = false,
         val fromTodos: Boolean = false,
     ) : AppRoute
+    data class EntryHistory(
+        val entry: NoteEntry,
+        val returnToRead: Boolean,
+        val fromTodos: Boolean,
+    ) : AppRoute
+    data class EntryHistoryVersion(
+        val entry: NoteEntry,
+        val version: com.soma.app.EntryHistoryVersion,
+        val returnToRead: Boolean,
+        val fromTodos: Boolean,
+    ) : AppRoute
+    data class DeletedOptions(val entry: NoteEntry) : AppRoute
     data class EditEntry(val entry: NoteEntry, val fromTodos: Boolean = false) : AppRoute
     data class SelectImportant(val entry: NoteEntry, val fromTodos: Boolean = false) : AppRoute
     data class TodoOptions(val todo: Todo) : AppRoute
@@ -227,14 +240,57 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             },
             onBack = { route = AppRoute.Home },
         )
-        AppRoute.Settings -> SettingsScreen(
-            onSpeechLanguages = { route = AppRoute.SpeechLanguages },
-            onTranscriptionVocabulary = { route = AppRoute.TranscriptionVocabulary },
-            onBackup = { route = AppRoute.Backup },
-            onBrowser = { route = AppRoute.Browser },
-            onAbout = { route = AppRoute.About },
-            onBack = { route = AppRoute.Home },
-        )
+        AppRoute.Settings -> {
+            val deleted by viewModel.deletedEntries.collectAsState()
+            SettingsScreen(
+                onSpeechLanguages = { route = AppRoute.SpeechLanguages },
+                onTranscriptionVocabulary = { route = AppRoute.TranscriptionVocabulary },
+                deletedCount = deleted.size,
+                onDeleted = { route = AppRoute.Deleted },
+                onBackup = { route = AppRoute.Backup },
+                onBrowser = { route = AppRoute.Browser },
+                onAbout = { route = AppRoute.About },
+                onBack = { route = AppRoute.Home },
+            )
+        }
+        AppRoute.Deleted -> {
+            val deleted by viewModel.deletedEntries.collectAsState()
+            DeletedItemsScreen(
+                entries = deleted,
+                onRestore = viewModel::restoreDeleted,
+                onOptions = { route = AppRoute.DeletedOptions(it) },
+                onBack = { route = AppRoute.Settings },
+            )
+        }
+        is AppRoute.DeletedOptions -> {
+            var busy by remember(current.entry.id) { mutableStateOf(false) }
+            var failed by remember(current.entry.id) { mutableStateOf(false) }
+            DeletedItemOptionsScreen(
+                busy = busy,
+                failed = failed,
+                onRestore = {
+                    if (!busy) {
+                        busy = true
+                        failed = false
+                        viewModel.restoreDeleted(current.entry) { restored ->
+                            busy = false
+                            if (restored) route = AppRoute.Deleted else failed = true
+                        }
+                    }
+                },
+                onPurge = {
+                    if (!busy) {
+                        busy = true
+                        failed = false
+                        viewModel.purgeDeleted(current.entry) { purged ->
+                            busy = false
+                            if (purged) route = AppRoute.Deleted else failed = true
+                        }
+                    }
+                },
+                onBack = { route = AppRoute.Deleted },
+            )
+        }
         AppRoute.SpeechLanguages -> SpeechLanguagesScreen { route = AppRoute.Settings }
         AppRoute.TranscriptionVocabulary -> {
             val store = remember { TranscriptionVocabularyStore(context) }
@@ -361,7 +417,7 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             val origin: AppRoute = if (current.fromTodos) AppRoute.Todos else AppRoute.Home
             EntryReadScreen(
                 entry = entry,
-                playing = (playback as? PlaybackState.Playing)?.audioId == entry.audio?.fileId,
+                playing = (playback as? PlaybackState.Playing)?.audioId == entry.activeAudio?.fileId,
                 onPlay = { viewModel.togglePlayback(entry) },
                 onOptions = {
                     route = AppRoute.EntryOptions(entry, returnToRead = true, fromTodos = current.fromTodos)
@@ -375,6 +431,9 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             EntryOptionsScreen(
                 entry = entry,
                 onEdit = { route = AppRoute.EditEntry(entry, fromTodos = current.fromTodos) },
+                onHistory = {
+                    route = AppRoute.EntryHistory(entry, current.returnToRead, current.fromTodos)
+                },
                 onMarkImportant = { route = AppRoute.SelectImportant(entry, current.fromTodos) },
                 onReturn = {
                     viewModel.toggleReturnLater(entry)
@@ -399,6 +458,56 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
                     } else {
                         origin
                     }
+                },
+            )
+        }
+        is AppRoute.EntryHistory -> {
+            val entry = rememberLiveEntry(viewModel, current.entry)
+            var versions by remember(entry.id, entry.text, entry.lastUserEditedAt) {
+                mutableStateOf<List<com.soma.app.EntryHistoryVersion>?>(null)
+            }
+            LaunchedEffect(entry.id, entry.text, entry.lastUserEditedAt) {
+                versions = viewModel.entryHistory(entry)
+            }
+            EntryHistoryScreen(
+                versions = versions,
+                onVersion = { version ->
+                    route = AppRoute.EntryHistoryVersion(
+                        entry,
+                        version,
+                        current.returnToRead,
+                        current.fromTodos,
+                    )
+                },
+                onBack = {
+                    route = AppRoute.EntryOptions(entry, current.returnToRead, current.fromTodos)
+                },
+            )
+        }
+        is AppRoute.EntryHistoryVersion -> {
+            val entry = rememberLiveEntry(viewModel, current.entry)
+            var restoring by remember(entry.id, current.version.number) { mutableStateOf(false) }
+            var restoreFailed by remember(entry.id, current.version.number) { mutableStateOf(false) }
+            EntryHistoryVersionScreen(
+                version = current.version,
+                restoring = restoring,
+                restoreFailed = restoreFailed,
+                onRestore = {
+                    if (!restoring) {
+                        restoring = true
+                        restoreFailed = false
+                        viewModel.editEntry(entry, current.version.text) { saved ->
+                            restoring = false
+                            if (saved) {
+                                route = AppRoute.ReadEntry(entry, current.fromTodos)
+                            } else {
+                                restoreFailed = true
+                            }
+                        }
+                    }
+                },
+                onBack = {
+                    route = AppRoute.EntryHistory(entry, current.returnToRead, current.fromTodos)
                 },
             )
         }
@@ -540,6 +649,7 @@ private val AppRouteSaver: Saver<AppRoute, String> = Saver(
             AppRoute.Calendar -> "calendar"
             AppRoute.SpeechLanguages -> "speechLanguages"
             AppRoute.TranscriptionVocabulary -> "transcriptionVocabulary"
+            AppRoute.Deleted -> "deleted"
             else -> "home"
         }
     },
@@ -559,6 +669,7 @@ private val AppRouteSaver: Saver<AppRoute, String> = Saver(
             "calendar" -> AppRoute.Calendar
             "speechLanguages" -> AppRoute.SpeechLanguages
             "transcriptionVocabulary" -> AppRoute.TranscriptionVocabulary
+            "deleted" -> AppRoute.Deleted
             else -> AppRoute.Home
         }
     },

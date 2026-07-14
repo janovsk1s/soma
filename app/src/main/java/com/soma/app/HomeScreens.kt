@@ -81,6 +81,7 @@ fun HomeScreen(
     val suggestions by viewModel.suggestions.collectAsState()
     val recordingEntryId by viewModel.recordingEntryId.collectAsState()
     val recordingUiState by viewModel.recordingUiState.collectAsState()
+    val deletionUndo by viewModel.deletionUndo.collectAsState()
     var stillOpenDismissed by remember(viewModel.today()) { mutableStateOf(false) }
     LaunchedEffect(viewModel.today()) {
         stillOpenDismissed = viewModel.isStillOpenDismissed()
@@ -156,6 +157,27 @@ fun HomeScreen(
                         onSuggestion = viewModel::acceptSuggestion,
                     )
                 }
+            }
+        }
+        if (deletionUndo != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth().height(44.dp)
+                    .then(tapModifier(viewModel::undoLastDeletion, stringResource(R.string.undo_removal))),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stringResource(R.string.removed),
+                    color = DimInk,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Light,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    stringResource(R.string.undo),
+                    color = Ink,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Normal,
+                )
             }
         }
         Row(
@@ -397,7 +419,7 @@ fun EntryReadScreen(
                 fontWeight = FontWeight.Normal,
             )
         }
-        if (entry.audio != null) {
+        if (entry.activeAudio != null) {
             Box(Modifier.fillMaxWidth().padding(bottom = 18.dp), contentAlignment = Alignment.Center) {
                 PlayButton(playing, onPlay)
             }
@@ -442,12 +464,104 @@ private fun transcriptionSourceLabel(provenance: TranscriptionProvenance?): Stri
 
 private val ENTRY_TIME_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
 
-private enum class EntryAction { EDIT, IMPORTANT, RETURN, PLAY, RETRANSCRIBE, DELETE_AUDIO, DELETE_ENTRY }
+@Composable
+internal fun EntryHistoryScreen(
+    versions: List<EntryHistoryVersion>?,
+    onVersion: (EntryHistoryVersion) -> Unit,
+    onBack: () -> Unit,
+) {
+    BackHandler(onBack = onBack)
+    Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding().padding(horizontal = 28.dp)) {
+        SimpleTopBar(stringResource(R.string.entry_history), onBack)
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            when {
+                versions == null -> EmptyHint(stringResource(R.string.entry_history_loading))
+                versions.isEmpty() -> EmptyHint(stringResource(R.string.entry_history_empty))
+                else -> PagedList(versions) { version ->
+                    SettingsItem(
+                        label = entryHistoryVersionLabel(version),
+                        trailing = version.becameCurrentAt.atZone(ZoneId.systemDefault())
+                            .format(ENTRY_TIME_FORMATTER),
+                        onClick = { onVersion(version) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun EntryHistoryVersionScreen(
+    version: EntryHistoryVersion,
+    restoring: Boolean,
+    restoreFailed: Boolean,
+    onRestore: () -> Unit,
+    onBack: () -> Unit,
+) {
+    BackHandler(onBack = onBack)
+    Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding().padding(horizontal = 28.dp)) {
+        SimpleTopBar(entryHistoryVersionLabel(version), onBack)
+        Text(
+            stringResource(
+                if (version.isOriginal) R.string.entry_added_at else R.string.entry_edited_at,
+                version.becameCurrentAt.atZone(ZoneId.systemDefault()).format(ENTRY_TIME_FORMATTER),
+            ),
+            color = DimInk,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Light,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        )
+        Box(
+            modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            Text(
+                version.text,
+                color = Ink,
+                fontSize = 26.sp,
+                lineHeight = 34.sp,
+                fontWeight = FontWeight.Normal,
+            )
+        }
+        if (!version.isCurrent) {
+            Box(Modifier.fillMaxWidth().height(86.dp)) {
+                SettingsItem(
+                    label = when {
+                        restoring -> stringResource(R.string.restoring_version)
+                        restoreFailed -> stringResource(R.string.restore_version_failed)
+                        else -> stringResource(R.string.restore_version)
+                    },
+                    onClick = if (restoring) null else onRestore,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun entryHistoryVersionLabel(version: EntryHistoryVersion): String = when {
+    version.isCurrent && version.isOriginal -> stringResource(R.string.original_current)
+    version.isOriginal -> stringResource(R.string.original)
+    version.isCurrent -> stringResource(R.string.current)
+    else -> stringResource(R.string.entry_version, version.number)
+}
+
+private enum class EntryAction {
+    EDIT,
+    HISTORY,
+    IMPORTANT,
+    RETURN,
+    PLAY,
+    RETRANSCRIBE,
+    DELETE_AUDIO,
+    DELETE_ENTRY,
+}
 
 @Composable
 fun EntryOptionsScreen(
     entry: NoteEntry,
     onEdit: () -> Unit,
+    onHistory: () -> Unit,
     onMarkImportant: () -> Unit,
     onReturn: () -> Unit,
     onPlay: () -> Unit,
@@ -465,9 +579,10 @@ fun EntryOptionsScreen(
         ) {
             add(EntryAction.EDIT)
         }
+        if (entry.lastUserEditedAt != null) add(EntryAction.HISTORY)
         if (entry.text.isNotBlank()) add(EntryAction.IMPORTANT)
         add(EntryAction.RETURN)
-        if (entry.audio != null) {
+        if (entry.activeAudio != null) {
             add(EntryAction.PLAY)
             if (entry.transcription?.state !in setOf(
                     EntryTranscriptionState.QUEUED,
@@ -487,6 +602,7 @@ fun EntryOptionsScreen(
                 SettingsItem(
                     label = when (action) {
                         EntryAction.EDIT -> stringResource(R.string.edit)
+                        EntryAction.HISTORY -> stringResource(R.string.entry_history)
                         EntryAction.IMPORTANT -> stringResource(R.string.mark_important)
                         EntryAction.RETURN -> stringResource(if (entry.returnLater) R.string.returned else R.string.return_later)
                         EntryAction.PLAY -> stringResource(R.string.play_original)
@@ -496,6 +612,7 @@ fun EntryOptionsScreen(
                     },
                     onClick = when (action) {
                         EntryAction.EDIT -> onEdit
+                        EntryAction.HISTORY -> onHistory
                         EntryAction.IMPORTANT -> onMarkImportant
                         EntryAction.RETURN -> onReturn
                         EntryAction.PLAY -> onPlay

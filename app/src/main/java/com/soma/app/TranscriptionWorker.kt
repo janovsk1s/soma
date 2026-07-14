@@ -78,7 +78,7 @@ class TranscriptionDrainWorker(
                     DEFAULT_TRANSCRIPTION_LEASE_DURATION,
                 ) ?: break
                 val entry = repositories.notes.getEntry(job.entryId)
-                val audio = entry?.audio
+                val audio = entry?.activeAudio
                 if (audio == null) {
                     repositories.transcriptionJobs.recordFailure(
                         job.id,

@@ -236,7 +236,7 @@ class BackupCoordinator(
                         text = entry.text.ifBlank { app.getString(R.string.voice_audio_not_in_backup) },
                         audio = null,
                         transcription = null,
-                        updatedAt = maxOf(entry.updatedAt, now),
+                        audioDeletedAt = null,
                     )
                 }
             })

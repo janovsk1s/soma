@@ -10,6 +10,7 @@ import com.soma.lanserver.AudioResource
 import com.soma.lanserver.BrowserDay
 import com.soma.lanserver.BrowserEntry
 import com.soma.lanserver.BrowserEntryKind
+import com.soma.lanserver.BrowserEntryVersion
 import com.soma.lanserver.BrowserTodo
 import com.soma.lanserver.BrowserTodoFilter
 import com.soma.lanserver.BrowserTodoState
@@ -29,6 +30,7 @@ import java.io.InputStream
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.NetworkInterface
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
@@ -69,6 +71,14 @@ data class BrowserViewEntry(
     val audioId: String?,
     val transcriptionPending: Boolean,
     val markedForReturn: Boolean,
+    val history: List<BrowserViewEntryVersion> = emptyList(),
+)
+
+data class BrowserViewEntryVersion(
+    val number: Int,
+    val text: String,
+    val becameCurrentAt: Instant,
+    val isCurrent: Boolean,
 )
 
 enum class BrowserViewTodoFilter {
@@ -184,7 +194,8 @@ class RepositoryBrowserViewDataSource(
         request: BrowserViewPageRequest,
     ): BrowserViewPage<BrowserViewEntry>? {
         val note = notes.get(date) ?: return null
-        return note.entries.drop(request.offset).take(request.limit + 1).toPage(request.limit) { entry ->
+        val entries = note.entries.drop(request.offset).take(request.limit + 1).map { entry ->
+            val history = buildEntryHistory(entry, notes.listEntryRevisions(entry.id))
             BrowserViewEntry(
                 id = entry.id,
                 text = entry.text,
@@ -193,11 +204,20 @@ class RepositoryBrowserViewDataSource(
                 } else {
                     BrowserViewEntryKind.TEXT
                 },
-                audioId = entry.audio?.fileId,
+                audioId = entry.activeAudio?.fileId,
                 transcriptionPending = entry.transcription?.state in PENDING_TRANSCRIPTION_STATES,
                 markedForReturn = entry.returnLater,
+                history = history.map { version ->
+                    BrowserViewEntryVersion(
+                        number = version.number,
+                        text = version.text,
+                        becameCurrentAt = version.becameCurrentAt,
+                        isCurrent = version.isCurrent,
+                    )
+                },
             )
         }
+        return entries.toPage(request.limit) { it }
     }
 
     override suspend fun listTodos(
@@ -475,6 +495,14 @@ private class LanDataSourceAdapter(
                 audioId = entry.audioId,
                 transcriptionPending = entry.transcriptionPending,
                 markedForReturn = entry.markedForReturn,
+                history = entry.history.map { version ->
+                    BrowserEntryVersion(
+                        number = version.number,
+                        text = version.text,
+                        becameCurrentAt = version.becameCurrentAt,
+                        isCurrent = version.isCurrent,
+                    )
+                },
             )
         }
     }

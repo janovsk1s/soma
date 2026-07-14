@@ -46,6 +46,7 @@ private enum class SettingsAction {
     TRANSCRIPTION,
     SPEECH_LANGUAGES,
     TRANSCRIPTION_VOCABULARY,
+    DELETED,
     BACKUP,
     BROWSER,
     ABOUT,
@@ -55,6 +56,8 @@ private enum class SettingsAction {
 fun SettingsScreen(
     onSpeechLanguages: () -> Unit,
     onTranscriptionVocabulary: () -> Unit,
+    deletedCount: Int,
+    onDeleted: () -> Unit,
     onBackup: () -> Unit,
     onBrowser: () -> Unit,
     onAbout: () -> Unit,
@@ -84,6 +87,7 @@ fun SettingsScreen(
                         SettingsAction.TRANSCRIPTION -> stringResource(R.string.settings_transcription)
                         SettingsAction.SPEECH_LANGUAGES -> stringResource(R.string.settings_speech_languages)
                         SettingsAction.TRANSCRIPTION_VOCABULARY -> stringResource(R.string.settings_transcription_vocabulary)
+                        SettingsAction.DELETED -> stringResource(R.string.deleted_items)
                         SettingsAction.BACKUP -> stringResource(R.string.settings_backup)
                         SettingsAction.BROWSER -> stringResource(R.string.settings_browser)
                         SettingsAction.ABOUT -> stringResource(R.string.settings_about)
@@ -100,6 +104,7 @@ fun SettingsScreen(
                                     .joinToString(" ") { it.languageTag }
                             }
                         SettingsAction.TRANSCRIPTION_VOCABULARY -> vocabularyCount.takeIf { it > 0 }?.toString()
+                        SettingsAction.DELETED -> deletedCount.takeIf { it > 0 }?.toString()
                         else -> null
                     },
                     onClick = {
@@ -126,6 +131,7 @@ fun SettingsScreen(
                             }
                             SettingsAction.SPEECH_LANGUAGES -> onSpeechLanguages()
                             SettingsAction.TRANSCRIPTION_VOCABULARY -> onTranscriptionVocabulary()
+                            SettingsAction.DELETED -> onDeleted()
                             SettingsAction.BACKUP -> onBackup()
                             SettingsAction.BROWSER -> onBrowser()
                             SettingsAction.ABOUT -> onAbout()

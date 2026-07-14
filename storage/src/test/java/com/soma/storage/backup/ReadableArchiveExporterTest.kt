@@ -50,11 +50,22 @@ class ReadableArchiveExporterTest {
                 updatedAt = edited,
             ),
             updatedAt = edited,
+            audioDeletedAt = edited.plusSeconds(1),
         )
+        val deleted = NoteEntry.text(
+            "entry-deleted",
+            date,
+            2,
+            "SHOULD-NOT-EXPORT",
+            created.plusSeconds(2),
+        ).copy(deletedAt = edited.plusSeconds(2))
         val snapshot = BackupSnapshot(
             exportedAt = Instant.parse("2026-07-13T11:00:00Z"),
-            notes = listOf(DailyNote(date, created, listOf(entry, voice))),
-            entryRevisions = listOf(EntryRevision(entry.id, 1, "buy milk", edited)),
+            notes = listOf(DailyNote(date, created, listOf(entry, voice, deleted))),
+            entryRevisions = listOf(
+                EntryRevision(entry.id, 1, "buy milk", edited),
+                EntryRevision(deleted.id, 1, "deleted original", edited),
+            ),
             todos = listOf(
                 Todo("todo-1", "call Ada", created, created, kind = ImportantKind.EXCERPT),
             ),
@@ -83,6 +94,10 @@ class ReadableArchiveExporterTest {
         assertTrue(files.getValue("data/notes.json").contains("2026-07-13T10:45:00Z"))
         assertTrue(files.getValue("data/notes.json").contains("elevenlabs_scribe_v2"))
         assertTrue(files.getValue("notes/2026-07-13.md").contains("ElevenLabs Scribe v2"))
+        assertTrue(files.getValue("notes/2026-07-13.md").contains("remember the milk"))
+        assertTrue(!files.getValue("notes/2026-07-13.md").contains("SHOULD-NOT-EXPORT"))
+        assertTrue(!files.getValue("notes/2026-07-13.md").contains("audio-voice-1"))
+        assertTrue(!files.getValue("data/history.jsonl").contains("deleted original"))
         assertEquals("Milchreis\nRīga\n", files.getValue("settings/transcription-vocabulary.txt"))
     }
 

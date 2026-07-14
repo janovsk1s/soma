@@ -98,24 +98,28 @@ class InMemorySomaRepository private constructor(
     private val revisions = mutableMapOf<String, MutableList<EntryRevision>>()
 
     override suspend fun getOrCreate(date: LocalDate, createdAt: Instant): DailyNote = mutex.withLock {
-        notes.value[date] ?: DailyNote(date, createdAt).also { created ->
+        (notes.value[date] ?: DailyNote(date, createdAt).also { created ->
             notes.value = notes.value + (date to created)
-        }
+        }).visible()
     }
 
-    override suspend fun get(date: LocalDate): DailyNote? = notes.value[date]
+    override suspend fun get(date: LocalDate): DailyNote? = notes.value[date]?.visible()
 
-    override fun observe(date: LocalDate): Flow<DailyNote?> = notes.map { it[date] }
+    override fun observe(date: LocalDate): Flow<DailyNote?> = notes.map { it[date]?.visible() }
 
     override suspend fun listBeforeOrOn(date: LocalDate, limit: Int, offset: Int): List<DailyNote> =
         notes.value.values.filter { !it.date.isAfter(date) }.sortedByDescending(DailyNote::date)
-            .drop(offset).take(limit)
+            .drop(offset).take(limit).map { it.visible() }
 
     override suspend fun getEntry(entryId: String): NoteEntry? =
-        notes.value.values.asSequence().flatMap { it.entries.asSequence() }.firstOrNull { it.id == entryId }
+        notes.value.values.asSequence().flatMap { it.entries.asSequence() }
+            .firstOrNull { it.id == entryId && !it.isDeleted }
+
+    override suspend fun nextEntryPosition(date: LocalDate): Int =
+        (notes.value[date]?.entries?.maxOfOrNull(NoteEntry::position) ?: -1) + 1
 
     override suspend fun insertEntry(entry: NoteEntry): Boolean = mutex.withLock {
-        if (getEntry(entry.id) != null) return@withLock false
+        if (notes.value.values.any { note -> note.entries.any { it.id == entry.id } }) return@withLock false
         val note = notes.value[entry.noteDate] ?: return@withLock false
         if (note.entries.any { it.position == entry.position }) return@withLock false
         notes.value = notes.value + (entry.noteDate to note.copy(entries = (note.entries + entry).sortedBy(NoteEntry::position)))
@@ -139,6 +143,7 @@ class InMemorySomaRepository private constructor(
         val note = notes.value.values.firstOrNull { candidate -> candidate.entries.any { it.id == entryId } }
             ?: return@withLock null
         val previous = note.entries.first { it.id == entryId }
+        if (previous.isDeleted) return@withLock null
         if (previous.text == text) return@withLock EntryMutationResult(previous, previous)
         val at = maxOf(previous.updatedAt, editedAt)
         val current = previous.copy(text = text, updatedAt = at, lastUserEditedAt = at)
@@ -190,15 +195,25 @@ class InMemorySomaRepository private constructor(
     }
 
     override fun observeReturnLater(): Flow<List<NoteEntry>> = notes.map { all ->
-        all.values.flatMap(DailyNote::entries).filter(NoteEntry::returnLater)
+        all.values.flatMap(DailyNote::entries).filter { it.returnLater && !it.isDeleted }
             .sortedWith(compareBy(NoteEntry::createdAt, NoteEntry::position))
+    }
+
+    override fun observeDeleted(): Flow<List<NoteEntry>> = notes.map { all ->
+        all.values.flatMap(DailyNote::entries)
+            .filter { it.deletedAt != null || it.audioDeletedAt != null }
+            .sortedByDescending { it.deletedAt ?: it.audioDeletedAt }
     }
 
     override suspend fun datesWithEntries(from: LocalDate, to: LocalDate): List<LocalDate> =
         notes.value.values
-            .filter { it.entries.isNotEmpty() && !it.date.isBefore(from) && !it.date.isAfter(to) }
+            .filter { note ->
+                note.entries.any { !it.isDeleted } && !note.date.isBefore(from) && !note.date.isAfter(to)
+            }
             .map(DailyNote::date)
             .sorted()
+
+    private fun DailyNote.visible(): DailyNote = copy(entries = entries.filterNot(NoteEntry::isDeleted))
 
     override suspend fun get(todoId: String): Todo? = todos.value[todoId]
 
@@ -272,7 +287,7 @@ class InMemorySomaRepository private constructor(
 
     override suspend fun restart(job: TranscriptionJob): Boolean = mutex.withLock {
         val entry = getEntry(job.entryId) ?: return@withLock false
-        if (entry.audio == null) return@withLock false
+        if (entry.activeAudio == null) return@withLock false
         jobs.value = jobs.value.filterValues { it.entryId != job.entryId } + (job.id to job)
         val note = notes.value[entry.noteDate] ?: return@withLock false
         val queuedEntry = entry.copy(
@@ -293,10 +308,14 @@ class InMemorySomaRepository private constructor(
             if (jobs.value.values.any { it.state == TranscriptionJobState.RUNNING && it.leaseExpiresAt?.isAfter(now) == true }) {
                 return@withLock null
             }
+            val transcribableEntryIds = notes.value.values.flatMap(DailyNote::entries)
+                .filter { !it.isDeleted && it.activeAudio != null }
+                .mapTo(hashSetOf(), NoteEntry::id)
             val queued = jobs.value.values.filter {
                 it.state == TranscriptionJobState.QUEUED &&
                     it.attemptCount < DEFAULT_TRANSCRIPTION_MAX_ATTEMPTS &&
-                    !it.availableAt.isAfter(now)
+                    !it.availableAt.isAfter(now) &&
+                    it.entryId in transcribableEntryIds
             }.minByOrNull(TranscriptionJob::availableAt) ?: return@withLock null
             val claimed = queued.copy(
                 state = TranscriptionJobState.RUNNING,

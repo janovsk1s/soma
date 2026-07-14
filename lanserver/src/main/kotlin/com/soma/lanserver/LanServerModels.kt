@@ -4,6 +4,7 @@ import java.io.InputStream
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 
 /**
@@ -122,7 +123,19 @@ data class BrowserEntry(
     val audioId: String? = null,
     val transcriptionPending: Boolean = false,
     val markedForReturn: Boolean = false,
+    val history: List<BrowserEntryVersion> = emptyList(),
 )
+
+data class BrowserEntryVersion(
+    val number: Int,
+    val text: String,
+    val becameCurrentAt: Instant,
+    val isCurrent: Boolean,
+) {
+    init {
+        require(number > 0) { "Entry history version numbers must be positive" }
+    }
+}
 
 enum class BrowserTodoState {
     OPEN,

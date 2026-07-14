@@ -209,6 +209,35 @@ class LanBrowserServerTest {
     }
 
     @Test
+    fun `day route exposes escaped previous wordings without script`() {
+        val date = LocalDate.of(2026, 7, 14)
+        val created = Instant.parse("2026-07-14T08:00:00Z")
+        val entries = listOf(
+            BrowserEntry(
+                id = "entry-history",
+                text = "current wording",
+                kind = BrowserEntryKind.TEXT,
+                history = listOf(
+                    BrowserEntryVersion(1, "<b>original</b>", created, isCurrent = false),
+                    BrowserEntryVersion(2, "current wording", created.plusSeconds(60), isCurrent = true),
+                ),
+            ),
+        )
+        val server = server(FakeDataSource(entries = entries))
+        val endpoint = server.start()
+        val cookie = authenticate(endpoint).cookie
+
+        val response = request(endpoint, "GET", "/day/$date", cookie = cookie)
+
+        assertEquals(200, response.status)
+        assertTrue(response.text.contains("Edit history · 2 versions"))
+        assertTrue(response.text.contains("Original"))
+        assertTrue(response.text.contains("&lt;b&gt;original&lt;/b&gt;"))
+        assertFalse(response.text.contains("<b>original</b>"))
+        assertFalse(response.text.contains("<script"))
+    }
+
+    @Test
     fun `audio is never opened before authentication and supports a single byte range`() {
         val audio = "0123456789".toByteArray()
         val data = FakeDataSource(audio = audio)

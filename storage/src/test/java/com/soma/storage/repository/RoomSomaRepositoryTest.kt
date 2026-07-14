@@ -105,6 +105,48 @@ class RoomSomaRepositoryTest {
     }
 
     @Test
+    fun `soft delete and undo preserve text audio history and authored timestamps`() = runBlocking {
+        repository.getOrCreate(date, start)
+        val editedAt = start.plusSeconds(30)
+        repository.insertEntry(NoteEntry.text("entry-1", date, 0, "original", start))
+        repository.editEntryText("entry-1", "current", editedAt)
+        val before = requireNotNull(repository.getEntry("entry-1"))
+        val deletedAt = start.plusSeconds(60)
+
+        val deleted = repository.mutateEntry("entry-1") { it.copy(deletedAt = deletedAt) }
+
+        assertEquals(before.createdAt, deleted?.current?.createdAt)
+        assertEquals(before.updatedAt, deleted?.current?.updatedAt)
+        assertEquals(before.lastUserEditedAt, deleted?.current?.lastUserEditedAt)
+        assertNull(repository.getEntry("entry-1"))
+        assertTrue(repository.get(date)?.entries?.isEmpty() == true)
+        assertEquals(1, repository.nextEntryPosition(date))
+        assertEquals("entry-1", repository.observeDeleted().first().single().id)
+        assertEquals("original", repository.listEntryRevisions("entry-1").single().text)
+
+        repository.mutateEntry("entry-1") { it.copy(deletedAt = null) }
+        val restored = requireNotNull(repository.getEntry("entry-1"))
+        assertEquals(before, restored)
+        assertTrue(repository.observeDeleted().first().isEmpty())
+    }
+
+    @Test
+    fun `audio tombstone hides playback but retains encrypted attachment metadata`() = runBlocking {
+        repository.getOrCreate(date, start)
+        val voice = voiceEntry("voice-1").copy(text = "kept transcript")
+        repository.insertEntry(voice)
+
+        repository.mutateEntry("voice-1") { it.copy(audioDeletedAt = start.plusSeconds(20)) }
+
+        val visible = requireNotNull(repository.getEntry("voice-1"))
+        assertNull(visible.activeAudio)
+        assertEquals("audio-voice-1", visible.audio?.fileId)
+        assertEquals(start, visible.createdAt)
+        assertEquals(start, visible.updatedAt)
+        assertEquals("voice-1", repository.observeDeleted().first().single().id)
+    }
+
+    @Test
     fun `suggestion acceptance creates todo and resolves suggestion atomically`() = runBlocking {
         repository.getOrCreate(date, start)
         repository.insertEntry(NoteEntry.text("entry-1", date, 0, "Need to call Anna", start))

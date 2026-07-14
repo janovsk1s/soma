@@ -21,24 +21,25 @@ import java.util.zip.ZipOutputStream
  */
 class ReadableArchiveExporter {
     fun encode(snapshot: BackupSnapshot): ByteArray {
+        val readable = snapshot.withoutDeletedContent()
         val output = ByteArrayOutputStream()
         ZipOutputStream(output, Charsets.UTF_8).use { zip ->
-            zip.putText("README.txt", readme(snapshot))
-            zip.putText("manifest.json", manifest(snapshot))
-            snapshot.notes.sortedBy { it.date }.forEach { note ->
+            zip.putText("README.txt", readme(readable))
+            zip.putText("manifest.json", manifest(readable))
+            readable.notes.sortedBy { it.date }.forEach { note ->
                 zip.putText("notes/${note.date}.md", noteMarkdown(note))
             }
-            zip.putText("todos.csv", todosCsv(snapshot))
-            zip.putText("data/notes.json", notesJson(snapshot))
-            zip.putText("data/history.jsonl", historyJsonl(snapshot))
+            zip.putText("todos.csv", todosCsv(readable))
+            zip.putText("data/notes.json", notesJson(readable))
+            zip.putText("data/history.jsonl", historyJsonl(readable))
             zip.putText(
                 "settings/transcription-vocabulary.txt",
-                snapshot.transcriptionVocabulary.joinToString(separator = "\n", postfix = "\n"),
+                readable.transcriptionVocabulary.joinToString(separator = "\n", postfix = "\n"),
             )
-            snapshot.audioContainers.sortedBy { it.fileId }.forEach { audio ->
-                val date = snapshot.notes.asSequence()
+            readable.audioContainers.sortedBy { it.fileId }.forEach { audio ->
+                val date = readable.notes.asSequence()
                     .flatMap { note -> note.entries.asSequence() }
-                    .firstOrNull { it.audio?.fileId == audio.fileId }
+                    .firstOrNull { it.activeAudio?.fileId == audio.fileId }
                     ?.noteDate
                     ?.toString()
                     ?: "unknown-date"
@@ -53,6 +54,28 @@ class ReadableArchiveExporter {
             }
         }
         return output.toByteArray()
+    }
+
+    private fun BackupSnapshot.withoutDeletedContent(): BackupSnapshot {
+        val visibleNotes = notes.map { note ->
+            note.copy(
+                entries = note.entries.filterNot(NoteEntry::isDeleted),
+            )
+        }
+        val entries = visibleNotes.flatMap(DailyNote::entries)
+        val entryIds = entries.mapTo(hashSetOf(), NoteEntry::id)
+        val audioIds = entries.mapNotNull { it.activeAudio?.fileId }.toSet()
+        val audioEntryIds = entries.filter { it.activeAudio != null }.mapTo(hashSetOf(), NoteEntry::id)
+        return copy(
+            notes = visibleNotes,
+            entryRevisions = entryRevisions.filter { it.entryId in entryIds },
+            todos = todos.map { todo ->
+                if (todo.source?.entryId in entryIds) todo else todo.copy(source = null)
+            },
+            suggestions = suggestions.filter { it.entryId in entryIds },
+            transcriptionJobs = transcriptionJobs.filter { it.entryId in audioEntryIds },
+            audioContainers = audioContainers.filter { it.fileId in audioIds },
+        )
     }
 
     private fun readme(snapshot: BackupSnapshot): String = buildString {
@@ -111,7 +134,7 @@ class ReadableArchiveExporter {
             entry.transcription?.provenance?.let {
                 appendLine("  _transcription: ${transcriptionLabel(it)}_")
             }
-            entry.audio?.let { appendLine("  _audio id: `${it.fileId}`_") }
+            entry.activeAudio?.let { appendLine("  _audio id: `${it.fileId}`_") }
             appendLine()
         }
     }
@@ -173,7 +196,7 @@ class ReadableArchiveExporter {
         appendNullableJson(entry.lastUserEditedAt?.toString())
         append(",\"returnLater\":${entry.returnLater}")
         append(",\"audio\":")
-        val audio = entry.audio
+        val audio = entry.activeAudio
         if (audio == null) {
             append("null")
         } else {
@@ -307,7 +330,7 @@ class ReadableArchiveExporter {
     }
 
     private companion object {
-        const val READABLE_FORMAT_VERSION = 5
+        const val READABLE_FORMAT_VERSION = 6
         val TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss 'UTC'").withZone(ZoneOffset.UTC)
     }
 }

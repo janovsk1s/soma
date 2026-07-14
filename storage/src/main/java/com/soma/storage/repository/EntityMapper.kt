@@ -71,6 +71,8 @@ internal class EntityMapper(
             updatedAtMillis = entry.updatedAt.toEpochMilli(),
             lastUserEditedAtMillis = entry.lastUserEditedAt?.toEpochMilli(),
             revision = revision,
+            deletedAtMillis = entry.deletedAt?.toEpochMilli(),
+            audioDeletedAtMillis = entry.audioDeletedAt?.toEpochMilli(),
         )
     }
 
@@ -131,6 +133,8 @@ internal class EntityMapper(
             returnLater = entity.returnLater,
             audio = audio,
             transcription = transcription,
+            deletedAt = entity.deletedAtMillis?.let(Instant::ofEpochMilli),
+            audioDeletedAt = entity.audioDeletedAtMillis?.let(Instant::ofEpochMilli),
         )
     }
 

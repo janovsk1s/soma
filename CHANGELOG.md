@@ -2,6 +2,40 @@
 
 Notable changes to Soma are documented here.
 
+## 0.1.0-preview.16 — 2026-07-14
+
+### Added
+
+- Edited entries now expose a five-per-page edit history on the phone. The
+  original wording, every intermediate wording, and the current wording remain
+  readable with the time each became current.
+- A previous wording can be restored without overwriting history: Soma records
+  the current wording as another encrypted revision first.
+- The LAN browser view exposes escaped previous wordings under each edited
+  entry without JavaScript or plaintext disk caching.
+- Settings now includes a persistent Deleted items screen. Tap restores an
+  entry or its audio; a deliberate long-press opens the permanent purge action.
+
+### Changed
+
+- Deleting an entry or recording now writes a tombstone instead of destroying
+  the Room row, revision history, or encrypted audio file. A one-tap Undo stays
+  visible on Home, and recovery remains available after an app restart through
+  Deleted items.
+- Readable exports and the LAN view omit tombstoned entries and audio. Encrypted
+  portable backups retain tombstones and recoverable encrypted media.
+- Soft delete, undo, and audio-only removal preserve `createdAt`, `updatedAt`,
+  `lastUserEditedAt`, position, and revision history exactly.
+- Database schema 6, encrypted backup payload 7, and readable archive format 6
+  add versioned tombstones with backward-compatible reads.
+
+### Fixed
+
+- New entries now allocate positions after hidden tombstones, preventing a
+  deleted final entry from blocking the next capture.
+- Transcription workers skip deleted entries and deleted audio without waking a
+  cloud or local engine.
+
 ## 0.1.0-preview.15 — 2026-07-14
 
 ### Changed

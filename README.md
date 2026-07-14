@@ -31,6 +31,12 @@ cloud API keys only when explicitly enabled in Developer settings.
 - Shows a quiet creation time on every entry. User edits keep the entry in its
   original position, record an encrypted revision, and expose the edit time when
   the entry is opened.
+- Makes that provenance visible: edit history lists the original, every prior
+  wording, and the current wording. Restoring an older version creates another
+  revision, so it never destroys the wording it replaces.
+- Soft-deletes entries and recordings with one-tap Undo. Deleted items remain
+  recoverable from Settings until the user deliberately chooses delete forever;
+  normal notes, transcription, LAN browsing, and readable exports ignore them.
 - Long-pressing the bottom input starts voice capture; the bar immediately shows
   starting, elapsed recording time, a square stop action, and encrypted-save
   completion instead of continuing to display the writing hint.
@@ -84,7 +90,7 @@ editable. The `browser` and `purist` builds never send audio or text elsewhere.
   audio stores.
 
 The Room database encrypts user-authored content, not every piece of metadata.
-Dates, ordering, states, timestamps, ids, relationships, and audio sizes remain
+Dates, ordering, states, deletion timestamps, ids, relationships, and audio sizes remain
 queryable and can be visible to someone who can read the private database. See
 the [threat model](docs/THREAT_MODEL.md) for the exact boundary.
 

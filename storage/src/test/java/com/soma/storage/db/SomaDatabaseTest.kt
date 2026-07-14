@@ -164,6 +164,44 @@ class SomaDatabaseTest {
     }
 
     @Test
+    fun `schema five migration adds empty entry and audio tombstones`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val databaseName = "soma-migration-${System.nanoTime()}.db"
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(databaseName)
+                .callback(
+                    object : SupportSQLiteOpenHelper.Callback(5) {
+                        override fun onCreate(db: SupportSQLiteDatabase) {
+                            db.execSQL("CREATE TABLE entries (id TEXT NOT NULL PRIMARY KEY)")
+                        }
+
+                        override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+                    },
+                )
+                .build(),
+        )
+        try {
+            val sqlite = helper.writableDatabase
+            sqlite.execSQL("INSERT INTO entries (id) VALUES ('existing-entry')")
+
+            SomaDatabase.MIGRATION_5_6.migrate(sqlite)
+
+            sqlite.query(
+                "SELECT deleted_at_millis, audio_deleted_at_millis FROM entries " +
+                    "WHERE id = 'existing-entry'",
+            ).use { cursor ->
+                cursor.moveToFirst()
+                assertTrue(cursor.isNull(0))
+                assertTrue(cursor.isNull(1))
+            }
+        } finally {
+            helper.close()
+            context.deleteDatabase(databaseName)
+        }
+    }
+
+    @Test
     fun `only one transcription job may be leased at a time`() = runBlocking {
         val note = note("note-1", 1)
         database.dailyNoteDao().insert(note)
@@ -214,6 +252,19 @@ class SomaDatabaseTest {
         )
 
         assertEquals("job-2", dao.claimNext("worker-b", 111, 211, 3)?.id)
+    }
+
+    @Test
+    fun `soft deleted audio is never claimed for transcription`() = runBlocking {
+        val note = note("note-1", 1)
+        database.dailyNoteDao().insert(note)
+        database.entryDao().insert(entry("entry-deleted", note.id, 0, null).copy(audioDeletedAtMillis = 50))
+        database.entryDao().insert(entry("entry-active", note.id, 1, null))
+        val dao = database.transcriptionJobDao()
+        dao.upsert(job("job-deleted", "entry-deleted", enqueuedAt = 10))
+        dao.upsert(job("job-active", "entry-active", enqueuedAt = 20))
+
+        assertEquals("job-active", dao.claimNext("worker", 100, 200, 3)?.id)
     }
 
     private fun note(id: String, epochDay: Long) = DailyNoteEntity(

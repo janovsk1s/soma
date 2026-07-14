@@ -7,7 +7,7 @@ are rejected rather than guessed.
 
 ## On-device Room database
 
-The Room database is `soma.db`, schema version 4, using write-ahead logging. Its
+The Room database is `soma.db`, schema version 6, using write-ahead logging. Its
 exported schemas are checked in under
 `storage/schemas/com.soma.storage.db.SomaDatabase/`.
 
@@ -24,7 +24,7 @@ The seven tables are:
 User-authored entry text, todo text, suggestion text and matched rule, and
 transcription failure diagnostics are stored as encrypted BLOBs. Structural
 metadata needed for queries—dates, ordering, states, ids, timestamps, language
-names, Important kinds, audio metadata, and relationships—is not encrypted. SQLite page layout,
+names, Important kinds, audio metadata, deletion tombstones, and relationships—is not encrypted. SQLite page layout,
 row counts, and timing therefore remain visible to an attacker who can read the
 app's private files. There is no full-text index in version 1; a later search
 migration can add one without changing the domain model.
@@ -138,7 +138,7 @@ so identical snapshots produce different files.
 | --- | --- |
 | Magic | 8 ASCII bytes: `SOMABACK` |
 | Container version | 32-bit integer, currently `1` |
-| Payload version | 32-bit integer, currently `5` |
+| Payload version | 32-bit integer, currently `7` |
 | KDF id | 32-bit length + ASCII `PBKDF2-HMAC-SHA256` |
 | PBKDF2 iterations | 32-bit integer, `600000` |
 | Derived key size | 32-bit integer, `256` bits |
@@ -154,7 +154,7 @@ authentication. Trailing bytes and truncated inputs are rejected. A wrong
 passphrase and authenticated-byte corruption intentionally report the same
 authentication error.
 
-### Plaintext payload, versions 1 through 5
+### Plaintext payload, versions 1 through 7
 
 The encrypted payload is a deterministic `DataOutputStream` serialization in
 this order:
@@ -169,7 +169,9 @@ this order:
 8. in payload version 2, encrypted-at-source user edit revisions;
 9. in payload version 3, the transcription engine and safe fallback category; and
 10. in payload version 4, the user-controlled transcription vocabulary; and
-11. in payload version 5, the Important kind for items and suggestions.
+11. in payload version 5, the Important kind for items and suggestions;
+12. in payload version 6, the optional Important resurface date; and
+13. in payload version 7, entry and audio soft-delete tombstones.
 
 Each list begins with a 32-bit count. Strings use a 32-bit byte length followed
 by strict UTF-8, not Java modified UTF. Instants use epoch seconds plus
@@ -203,6 +205,9 @@ unencrypted ZIP intended for long-term independence from Soma. It contains:
 
 Structured timestamps are ISO-8601 UTC instants. The archive can be consumed by
 ordinary text, spreadsheet, JSON, and audio tools without an app-specific codec.
+Readable archive format 6 excludes soft-deleted entries and audio while keeping
+the editable transcript and its transcription provenance. The encrypted
+portable backup retains tombstones so deleted content can still be restored.
 Because it is not encrypted, exporting it moves plaintext outside Soma's trust
 boundary. It is not accepted by the restore flow; use `.soma` for restoration.
 

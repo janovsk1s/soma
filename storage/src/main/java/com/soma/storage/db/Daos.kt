@@ -40,6 +40,7 @@ interface DailyNoteDao {
         SELECT DISTINCT daily_notes.epoch_day FROM daily_notes
         INNER JOIN entries ON entries.note_id = daily_notes.id
         WHERE daily_notes.epoch_day BETWEEN :fromEpochDay AND :toEpochDay
+          AND entries.deleted_at_millis IS NULL
         ORDER BY daily_notes.epoch_day ASC
         """,
     )
@@ -81,6 +82,7 @@ interface EntryDao {
         SELECT e.* FROM entries e
         LEFT JOIN transcription_jobs j ON j.entry_id = e.id
         WHERE e.type = 'VOICE' AND e.audio_file_id IS NOT NULL
+          AND e.deleted_at_millis IS NULL AND e.audio_deleted_at_millis IS NULL
           AND (
             e.audio_duration_millis = 0 OR e.audio_byte_count = 0 OR
             (e.transcription_state = 'QUEUED' AND j.id IS NULL)
@@ -96,8 +98,20 @@ interface EntryDao {
     @Query("SELECT COALESCE(MAX(position), -1) + 1 FROM entries WHERE note_id = :noteId")
     suspend fun nextPosition(noteId: String): Int
 
-    @Query("SELECT * FROM entries WHERE return_later = 1 ORDER BY created_at_millis ASC")
+    @Query(
+        "SELECT * FROM entries WHERE return_later = 1 AND deleted_at_millis IS NULL " +
+            "ORDER BY created_at_millis ASC",
+    )
     fun observeReturnLater(): Flow<List<EntryEntity>>
+
+    @Query(
+        """
+        SELECT * FROM entries
+        WHERE deleted_at_millis IS NOT NULL OR audio_deleted_at_millis IS NOT NULL
+        ORDER BY COALESCE(deleted_at_millis, audio_deleted_at_millis) DESC, id ASC
+        """,
+    )
+    fun observeDeleted(): Flow<List<EntryEntity>>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(entry: EntryEntity): Long
@@ -316,10 +330,14 @@ abstract class TranscriptionJobDao {
 
     @Query(
         """
-        SELECT * FROM transcription_jobs
-        WHERE state = 'QUEUED' AND not_before_millis <= :nowMillis
-          AND attempt_count < :maxAttempts
-        ORDER BY enqueued_at_millis ASC, id ASC
+        SELECT transcription_jobs.* FROM transcription_jobs
+        INNER JOIN entries ON entries.id = transcription_jobs.entry_id
+        WHERE transcription_jobs.state = 'QUEUED'
+          AND transcription_jobs.not_before_millis <= :nowMillis
+          AND transcription_jobs.attempt_count < :maxAttempts
+          AND entries.deleted_at_millis IS NULL
+          AND entries.audio_deleted_at_millis IS NULL
+        ORDER BY transcription_jobs.enqueued_at_millis ASC, transcription_jobs.id ASC
         LIMIT 1
         """,
     )

@@ -87,6 +87,10 @@ data class NoteEntry(
     val returnLater: Boolean = false,
     val audio: AudioAttachment? = null,
     val transcription: TranscriptionInfo? = null,
+    /** Soft-delete tombstone. It never changes authored or edit timestamps. */
+    val deletedAt: Instant? = null,
+    /** Audio-only tombstone; the encrypted attachment remains recoverable until purge. */
+    val audioDeletedAt: Instant? = null,
 ) {
     init {
         require(id.isNotBlank()) { "Entry id must not be blank" }
@@ -100,10 +104,26 @@ data class NoteEntry(
             "Text entries cannot have transcription state"
         }
         require(kind != EntryKind.VOICE || audio != null) { "Voice entries require audio" }
+        require(deletedAt == null || !deletedAt.isBefore(createdAt)) {
+            "Entry deletion cannot precede creation"
+        }
+        require(audioDeletedAt == null || audio != null) {
+            "An audio tombstone requires an audio attachment"
+        }
+        require(audioDeletedAt == null || !audioDeletedAt.isBefore(createdAt)) {
+            "Audio deletion cannot precede creation"
+        }
     }
 
     val hasTranscript: Boolean
         get() = kind == EntryKind.VOICE && text.isNotBlank()
+
+    val isDeleted: Boolean
+        get() = deletedAt != null
+
+    /** User-visible/playable audio. [audio] itself remains the recoverable source of truth. */
+    val activeAudio: AudioAttachment?
+        get() = audio.takeIf { audioDeletedAt == null && deletedAt == null }
 
     companion object {
         fun text(
