@@ -192,7 +192,7 @@ authentication. Trailing bytes and truncated inputs are rejected. A wrong
 passphrase and authenticated-byte corruption intentionally report the same
 authentication error.
 
-### Plaintext payload, versions 1 through 10
+### Plaintext payload, versions 1 through 11
 
 The encrypted payload is a deterministic `DataOutputStream` serialization in
 this order:
@@ -237,6 +237,12 @@ plain-text placeholder.
 The codec clears mutable passphrase copies, derived keys, plaintext serialization
 buffers, and temporary byte arrays where the JVM permits. Domain strings are
 immutable and cannot be reliably erased from managed memory.
+
+A committed restore fixture pins this format across releases:
+`storage/src/test/resources/fixtures/portable-backup-v11.somabackup` decodes in
+`PortableBackupFixtureTest` with the passphrase documented there. When the
+payload version advances, keep the old fixture and add a new one so
+`SUPPORTED_PAYLOAD_VERSIONS` remains an enforced promise rather than a comment.
 
 ## Readable archive
 
