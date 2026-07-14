@@ -185,13 +185,14 @@
     <string name="developer_provider">Sprachanbieter</string>
     <string name="developer_wifi_only">nur WLAN</string>
     <string name="developer_ai_todos">KI-Vorschläge für Wichtiges</string>
+    <string name="developer_ai_metadata">automatische KI-Tags &amp; Links</string>
     <string name="developer_groq_key">Groq-API-Schlüssel</string>
     <string name="developer_elevenlabs_key">ElevenLabs-API-Schlüssel</string>
     <string name="developer_api_key_hint">Schlüssel einfügen</string>
     <string name="developer_key_storage">Der Schlüssel wird mit Android Keystore verschlüsselt und nie exportiert. Ein leerer Wert entfernt ihn.</string>
     <string name="developer_key_saved">gespeichert</string>
     <string name="developer_key_missing">fehlt</string>
-    <string name="developer_cloud_privacy">Standardmäßig aus. Cloud-Transkription sendet Audio an den gewählten Anbieter. ElevenLabs ist für Somas Sprachen die auf Genauigkeit ausgerichtete Voreinstellung. KI-Aufgabenvorschläge senden nur den neuen oder bearbeiteten Eintrag an Groq. Für geringere Speicherung aktiviere Zero Data Retention bei Groq; bei ElevenLabs erfordert dies Enterprise. Anfragen nutzen deine aktive Verbindung, auch Mobilfunk, sofern du nicht „nur WLAN“ aktivierst.</string>
+    <string name="developer_cloud_privacy">Standardmäßig aus. Cloud-Transkription sendet Audio an den gewählten Anbieter. ElevenLabs ist für Somas Sprachen die auf Genauigkeit ausgerichtete Voreinstellung. KI-Vorschläge und automatische Tags/Links senden nur den neuen oder bearbeiteten Eintrag an Groq. Für geringere Speicherung aktiviere Zero Data Retention bei Groq; bei ElevenLabs erfordert dies Enterprise. Anfragen nutzen deine aktive Verbindung, auch Mobilfunk, sofern du nicht „nur WLAN“ aktivierst.</string>
     <string name="developer_enabled">Entwickleroptionen aktiviert</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">latviešu</string>

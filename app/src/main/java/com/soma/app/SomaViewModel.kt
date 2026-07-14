@@ -12,6 +12,7 @@ import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.ImportantKind
 import com.soma.core.model.ImageAttachment
 import com.soma.core.model.ImageFormat
+import com.soma.core.model.MetadataSource
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.SupportedLanguage
@@ -39,6 +40,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -278,7 +280,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }.getOrNull()
             onSaved(entry != null)
-            if (entry != null) runCatching { detectSuggestions(entry) }
+            if (entry != null) processEntryAfterSave(entry)
         }
     }
 
@@ -361,8 +363,11 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
             val updated = mutation?.current
             onSaved(updated != null)
             if (mutation != null && updated != null && updated.text == clean && mutation.previous.text != clean) {
+                // AI metadata described the previous wording. Invalidate only
+                // that replaceable layer; manual organization stays intact.
+                repositories.metadata.delete(entry.id, MetadataSource.AI)
                 dismissPendingSuggestions(entry.id)
-                runCatching { detectSuggestions(updated) }
+                processEntryAfterSave(updated)
             }
         }
     }
@@ -915,6 +920,31 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         refreshSuggestions(listOf(entry))
+    }
+
+    private suspend fun processEntryAfterSave(entry: NoteEntry) {
+        try {
+            detectSuggestions(entry)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            // The authored entry is already durable; optional suggestions must
+            // never turn a successful capture into a visible failure.
+        }
+        try {
+            deriveAndPersistAiMetadata(
+                app = app,
+                repositories = repositories,
+                entry = entry,
+                languages = SomaPrefs.speechLanguages(app),
+                clock = clock,
+            )
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            // Metadata is additive and best-effort. A later edit or explicit
+            // backfill can derive it again without touching the original.
+        }
     }
 
     private suspend fun dismissPendingSuggestions(entryId: String) {

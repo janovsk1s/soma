@@ -18,6 +18,7 @@ object SomaPrefs {
     private const val KEY_CLOUD_PROVIDER = "cloud_speech_provider"
     private const val KEY_CLOUD_WIFI_ONLY = "cloud_wifi_only"
     private const val KEY_AI_TODOS = "cloud_ai_todo_suggestions"
+    private const val KEY_AI_AUTO_METADATA = "cloud_ai_auto_metadata"
 
     private fun values(context: Context) = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
@@ -81,6 +82,11 @@ object SomaPrefs {
 
     fun setAiTodoSuggestions(context: Context, enabled: Boolean) =
         values(context).edit().putBoolean(KEY_AI_TODOS, enabled).apply()
+
+    fun aiAutoMetadata(context: Context): Boolean = values(context).getBoolean(KEY_AI_AUTO_METADATA, false)
+
+    fun setAiAutoMetadata(context: Context, enabled: Boolean) =
+        values(context).edit().putBoolean(KEY_AI_AUTO_METADATA, enabled).apply()
 
     fun language(context: Context): SupportedLanguage {
         val stored = values(context).getString(KEY_LANGUAGE, null)

@@ -185,13 +185,14 @@
     <string name="developer_provider">kõneteenus</string>
     <string name="developer_wifi_only">ainult Wi-Fi</string>
     <string name="developer_ai_todos">AI oluliste kirjete soovitused</string>
+    <string name="developer_ai_metadata">automaatsed AI-sildid ja lingid</string>
     <string name="developer_groq_key">Groqi API võti</string>
     <string name="developer_elevenlabs_key">ElevenLabsi API võti</string>
     <string name="developer_api_key_hint">kleebi võti</string>
     <string name="developer_key_storage">Võti krüptitakse Android Keystore’iga ja seda ei ekspordita. Tühja väärtuse salvestamine eemaldab võtme.</string>
     <string name="developer_key_saved">salvestatud</string>
     <string name="developer_key_missing">puudub</string>
-    <string name="developer_cloud_privacy">Vaikimisi väljas. Pilvetranskriptsioon saadab heli valitud teenusele. Soma keelte jaoks on ElevenLabs täpsusele suunatud vaikevalik. AI ülesandesoovitused saadavad Groqi ainult uue või muudetud sissekande. Väiksema säilitamise jaoks lülita Groqis sisse Zero Data Retention; ElevenLabsis nõuab see Enterprise’i. Päringud kasutavad sinu aktiivset ühendust, sealhulgas mobiilsidet, kui sa ei lülita sisse valikut ainult Wi-Fi.</string>
+    <string name="developer_cloud_privacy">Vaikimisi väljas. Pilvetranskriptsioon saadab heli valitud teenusele. Soma keelte jaoks on ElevenLabs täpsusele suunatud vaikevalik. AI soovitused ning automaatsed sildid/lingid saadavad Groqi ainult uue või muudetud sissekande. Väiksema säilitamise jaoks lülita Groqis sisse Zero Data Retention; ElevenLabsis nõuab see Enterprise’i. Päringud kasutavad sinu aktiivset ühendust, sealhulgas mobiilsidet, kui sa ei lülita sisse valikut ainult Wi-Fi.</string>
     <string name="developer_enabled">Arendaja valikud on lubatud</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">latviešu</string>

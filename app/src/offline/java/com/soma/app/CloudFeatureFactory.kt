@@ -13,6 +13,7 @@ private class OfflineCloudFeatureController(private val context: Context) : Clou
         provider = SomaPrefs.cloudSpeechProvider(context),
         wifiOnly = SomaPrefs.cloudWifiOnly(context),
         aiTodoSuggestions = false,
+        aiAutoMetadata = false,
         hasGroqKey = false,
         hasElevenLabsKey = false,
     )
@@ -25,9 +26,16 @@ private class OfflineCloudFeatureController(private val context: Context) : Clou
 
     override fun setAiTodoSuggestions(enabled: Boolean) = Unit
 
+    override fun setAiAutoMetadata(enabled: Boolean) = Unit
+
     override fun setApiKey(provider: CloudSpeechProvider, value: CharArray) = value.fill('\u0000')
 
     override fun createTranscriber(localFactory: () -> Transcriber): Transcriber = localFactory()
 
     override suspend fun extractTodoCandidates(text: String): List<String> = emptyList()
+
+    override suspend fun deriveEntryMetadata(
+        text: String,
+        languages: Set<com.soma.core.model.SupportedLanguage>,
+    ): CloudMetadataResult? = null
 }

@@ -61,6 +61,17 @@ class SomaSpeechLanguagePreferenceTest {
     }
 
     @Test
+    fun `automatic cloud analysis is separately opt in`() {
+        assertFalse(SomaPrefs.aiTodoSuggestions(context))
+        assertFalse(SomaPrefs.aiAutoMetadata(context))
+
+        SomaPrefs.setAiAutoMetadata(context, true)
+
+        assertTrue(SomaPrefs.aiAutoMetadata(context))
+        assertFalse(SomaPrefs.aiTodoSuggestions(context))
+    }
+
+    @Test
     fun `an empty selection safely restores every supported language`() {
         SomaPrefs.setSpeechLanguages(context, emptySet())
 

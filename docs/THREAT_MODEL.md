@@ -138,6 +138,9 @@ default route from carrying them. Audio is split locally on silence
 for Groq requests; ElevenLabs receives the complete recording so Scribe v2 can
 retain language context across pauses. AI Important extraction sends only the new or
 edited entry and still creates a suggestion requiring a tap, never an item.
+The independent automatic-metadata toggle sends the same bounded entry text to
+Groq `openai/gpt-oss-20b` and accepts only normalized topic tags and explicit
+ISO date links. Both analysis features are off by default.
 
 Unfinished Capture and Important-editor drafts are kept out of Android saved
 instance state. They are encrypted under the separate non-exportable Keystore
@@ -221,7 +224,14 @@ Entry metadata is additive and cannot update `NoteEntry.text`, `createdAt`,
 `updatedAt`, or `lastUserEditedAt`. Manual and AI layers use separate primary
 keys; replacing an AI result therefore cannot overwrite manual organization.
 The metadata layer's source and derivation timestamp remain visible in Room,
-while its tags, targets, and relation labels are encrypted.
+while its tags, targets, and relation labels are encrypted. Before an automatic
+result is written, the repository-facing coordinator rereads the entry and
+rejects the result if its text changed or it was deleted during the request.
+Disabling the toggle before completion also prevents persistence. A deliberate
+edit or successful retranscription invalidates only the prior AI layer before
+rederivation, preventing stale tags while retaining manual metadata. On unchanged
+text, provider/network failure leaves the prior AI layer untouched; a successful
+empty result removes only that AI layer.
 
 ## Data loss and recovery
 

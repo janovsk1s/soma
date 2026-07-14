@@ -342,7 +342,15 @@ fun DeveloperScreen(
     }
 }
 
-private enum class CloudDeveloperAction { TRANSCRIPTION, PROVIDER, WIFI_ONLY, AI_TODOS, GROQ_KEY, ELEVENLABS_KEY }
+private enum class CloudDeveloperAction {
+    TRANSCRIPTION,
+    PROVIDER,
+    WIFI_ONLY,
+    AI_TODOS,
+    AI_METADATA,
+    GROQ_KEY,
+    ELEVENLABS_KEY,
+}
 
 @Composable
 fun CloudDeveloperScreen(onBack: () -> Unit) {
@@ -426,6 +434,7 @@ fun CloudDeveloperScreen(onBack: () -> Unit) {
                         CloudDeveloperAction.PROVIDER -> stringResource(R.string.developer_provider)
                         CloudDeveloperAction.WIFI_ONLY -> stringResource(R.string.developer_wifi_only)
                         CloudDeveloperAction.AI_TODOS -> stringResource(R.string.developer_ai_todos)
+                        CloudDeveloperAction.AI_METADATA -> stringResource(R.string.developer_ai_metadata)
                         CloudDeveloperAction.GROQ_KEY -> stringResource(R.string.developer_groq_key)
                         CloudDeveloperAction.ELEVENLABS_KEY -> stringResource(R.string.developer_elevenlabs_key)
                     },
@@ -437,6 +446,7 @@ fun CloudDeveloperScreen(onBack: () -> Unit) {
                         }
                         CloudDeveloperAction.WIFI_ONLY -> stringResource(if (settings.wifiOnly) R.string.on else R.string.off)
                         CloudDeveloperAction.AI_TODOS -> stringResource(if (settings.aiTodoSuggestions) R.string.on else R.string.off)
+                        CloudDeveloperAction.AI_METADATA -> stringResource(if (settings.aiAutoMetadata) R.string.on else R.string.off)
                         CloudDeveloperAction.GROQ_KEY -> stringResource(if (settings.hasGroqKey) R.string.developer_key_saved else R.string.developer_key_missing)
                         CloudDeveloperAction.ELEVENLABS_KEY -> stringResource(if (settings.hasElevenLabsKey) R.string.developer_key_saved else R.string.developer_key_missing)
                     },
@@ -458,6 +468,7 @@ fun CloudDeveloperScreen(onBack: () -> Unit) {
                             )
                             CloudDeveloperAction.WIFI_ONLY -> controller.setWifiOnly(!settings.wifiOnly)
                             CloudDeveloperAction.AI_TODOS -> controller.setAiTodoSuggestions(!settings.aiTodoSuggestions)
+                            CloudDeveloperAction.AI_METADATA -> controller.setAiAutoMetadata(!settings.aiAutoMetadata)
                             CloudDeveloperAction.GROQ_KEY -> editingKey = CloudSpeechProvider.GROQ
                             CloudDeveloperAction.ELEVENLABS_KEY -> editingKey = CloudSpeechProvider.ELEVENLABS
                         }

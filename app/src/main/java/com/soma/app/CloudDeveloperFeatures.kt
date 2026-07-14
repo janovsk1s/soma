@@ -1,10 +1,13 @@
 package com.soma.app
 
 import android.content.Context
+import com.soma.core.model.EntryLink
+import com.soma.core.model.EntryLinkKind
 import com.soma.core.model.SupportedLanguage
 import com.soma.core.model.TranscriptionEngine
 import com.soma.core.model.TranscriptionFallbackReason
 import com.soma.core.model.TranscriptionProvenance
+import com.soma.core.model.normalizeMetadataTag
 import com.soma.whisper.Transcriber
 import java.util.Locale
 
@@ -109,6 +112,39 @@ private val CLOUD_INVALID_REQUEST_CODES = setOf(
 )
 
 internal const val CLOUD_AI_TODO_MODEL = "openai/gpt-oss-20b"
+internal const val CLOUD_AI_METADATA_MODEL = CLOUD_AI_TODO_MODEL
+
+data class CloudMetadataResult(
+    val tags: List<String>,
+    val links: List<EntryLink>,
+)
+
+/** Reduces provider output to the small, portable subset Soma can safely persist. */
+internal fun normalizeCloudMetadata(
+    rawTags: List<String>,
+    rawDateLinks: List<Pair<String, String?>>,
+): CloudMetadataResult {
+    val tags = rawTags.asSequence()
+        .mapNotNull(::normalizeMetadataTag)
+        .distinct()
+        .take(MAX_AI_METADATA_TAGS)
+        .toList()
+    val links = rawDateLinks.asSequence()
+        .mapNotNull { (rawDate, rawRelation) ->
+            val relation = rawRelation?.let(::normalizeMetadataTag)
+            runCatching {
+                EntryLink(
+                    kind = EntryLinkKind.DATE,
+                    target = rawDate.trim(),
+                    relation = relation,
+                )
+            }.getOrNull()
+        }
+        .distinct()
+        .take(MAX_AI_METADATA_LINKS)
+        .toList()
+    return CloudMetadataResult(tags, links)
+}
 
 data class CloudDeveloperSettings(
     val available: Boolean,
@@ -116,6 +152,7 @@ data class CloudDeveloperSettings(
     val provider: CloudSpeechProvider,
     val wifiOnly: Boolean,
     val aiTodoSuggestions: Boolean,
+    val aiAutoMetadata: Boolean,
     val hasGroqKey: Boolean,
     val hasElevenLabsKey: Boolean,
 )
@@ -210,6 +247,8 @@ interface CloudFeatureController {
 
     fun setAiTodoSuggestions(enabled: Boolean)
 
+    fun setAiAutoMetadata(enabled: Boolean)
+
     /** Empty text deletes the provider key. Keys are Keystore-encrypted at rest. */
     fun setApiKey(provider: CloudSpeechProvider, value: CharArray)
 
@@ -217,6 +256,15 @@ interface CloudFeatureController {
 
     /** Suggestions only. Callers still require an explicit user tap before creating a todo. */
     suspend fun extractTodoCandidates(text: String): List<String>
+
+    /** Null means unavailable/failed; an empty successful result means stale AI metadata can be removed. */
+    suspend fun deriveEntryMetadata(
+        text: String,
+        languages: Set<SupportedLanguage>,
+    ): CloudMetadataResult?
 }
 
 internal fun cloudFeatures(context: Context): CloudFeatureController = createCloudFeatureController(context)
+
+private const val MAX_AI_METADATA_TAGS = 8
+private const val MAX_AI_METADATA_LINKS = 8

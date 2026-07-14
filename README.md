@@ -43,6 +43,9 @@ cloud API keys only when explicitly enabled in Developer settings.
 - Keeps tags and entry/date relationships in a separate additive metadata
   layer, never inside or on top of authored text. Manual and AI-derived layers
   remain independent and export as portable JSON, Markdown tags, and wikilinks.
+- In the experimental cloud build, an independent Developer toggle can derive
+  bounded topic tags and explicit date links from each new/edited entry with the
+  user's Groq key. It is off by default and never rewrites note text.
 - Soft-deletes entries, recordings, and photos with one-tap Undo. Deleted items remain
   recoverable from Settings until the user deliberately chooses delete forever;
   normal notes, transcription, LAN browsing, and readable exports ignore them.
@@ -207,6 +210,8 @@ separate `cloud` source set uses the Android platform HTTPS connection API; API
 keys are AES-GCM encrypted under a dedicated Android Keystore key and are never
 exported. Transcription vocabulary uses a different Keystore key and is included
 in portable and readable exports. Local Whisper remains the failure fallback.
+Groq `openai/gpt-oss-20b` performs optional structured Important and metadata
+extraction; each feature has its own off-by-default Developer toggle.
 
 ## Building and verification
 

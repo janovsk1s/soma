@@ -2,6 +2,36 @@
 
 Notable changes to Soma are documented here.
 
+## 0.1.0-preview.21 — 2026-07-14
+
+### Added
+
+- The experimental cloud build has a separate, off-by-default Developer toggle
+  for automatic entry metadata. With the user's Groq key, a newly saved or
+  edited entry can receive up to eight normalized topic tags and explicit date
+  links through `openai/gpt-oss-20b`.
+- Automatic metadata also runs after a transcript completes. Tags and links use
+  the encrypted AI layer added in preview.20 and therefore appear in readable
+  JSON and Markdown-vault exports without changing the daily note.
+
+### Security
+
+- Browser and purist builds compile only a no-op implementation. The HTTPS path
+  remains in the cloud source set, uses the existing BYOK/cellular-or-Wi-Fi
+  policy, sends only the new or edited entry, and is disabled by default.
+- Provider output is bounded and validated locally. Relative or invalid dates
+  are discarded, a delayed response is rejected if the entry changed meanwhile,
+  and disabling the toggle before completion prevents the result from saving.
+- A deliberate edit or successful retranscription invalidates only metadata
+  derived from the prior wording. Manual organization is preserved, and a
+  provider failure cannot leave stale AI tags attached to changed text.
+
+### Performance
+
+- Capture and transcription completion are committed before optional metadata
+  work starts. There is no polling or retry loop, and the original entry row and
+  user timestamps are never rewritten.
+
 ## 0.1.0-preview.20 — 2026-07-14
 
 ### Added

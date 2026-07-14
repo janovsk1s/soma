@@ -10,6 +10,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.soma.core.model.DEFAULT_TRANSCRIPTION_LEASE_DURATION
+import com.soma.core.model.MetadataSource
 import com.soma.core.model.SupportedLanguage
 import com.soma.core.model.TodoSuggestion
 import com.soma.core.model.TodoSuggestionState
@@ -131,7 +132,27 @@ class TranscriptionDrainWorker(
                         provenance = native.provenance,
                     )
                     if (repositories.transcriptionJobs.complete(job.id, workerId, result, clock.instant())) {
+                        // A successful replacement transcript invalidates only
+                        // metadata derived from the previous wording.
+                        repositories.metadata.delete(job.entryId, MetadataSource.AI)
                         persistSuggestions(app, job.entryId, result)
+                        val completedEntry = repositories.notes.getEntry(job.entryId)
+                        if (completedEntry != null) {
+                            try {
+                                deriveAndPersistAiMetadata(
+                                    app = app,
+                                    repositories = repositories,
+                                    entry = completedEntry,
+                                    languages = result.detectedLanguages.toSet(),
+                                    clock = clock,
+                                )
+                            } catch (error: CancellationException) {
+                                throw error
+                            } catch (_: Exception) {
+                                // Transcription is already complete. Optional
+                                // metadata failure cannot change that outcome.
+                            }
+                        }
                     }
                 } catch (error: Throwable) {
                     if (error is CancellationException) throw error

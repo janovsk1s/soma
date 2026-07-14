@@ -196,13 +196,14 @@
     <string name="developer_provider">speech provider</string>
     <string name="developer_wifi_only">Wi-Fi only</string>
     <string name="developer_ai_todos">AI Important suggestions</string>
+    <string name="developer_ai_metadata">automatic AI tags &amp; links</string>
     <string name="developer_groq_key">Groq API key</string>
     <string name="developer_elevenlabs_key">ElevenLabs API key</string>
     <string name="developer_api_key_hint">paste key</string>
     <string name="developer_key_storage">The key is encrypted with Android Keystore and never included in exports. Save an empty value to remove it.</string>
     <string name="developer_key_saved">saved</string>
     <string name="developer_key_missing">missing</string>
-    <string name="developer_cloud_privacy">Bring your own provider key; Soma has no account or server, and the provider bills your account directly. Off by default. Cloud transcription sends audio and any transcription vocabulary to the selected provider. AI todo suggestions send only the new or edited entry to Groq. For lower retention, enable Zero Data Retention in Groq; ElevenLabs zero retention requires Enterprise. Requests use your active connection, including cellular, unless you turn on Wi-Fi only.</string>
+    <string name="developer_cloud_privacy">Bring your own provider key; Soma has no account or server, and the provider bills your account directly. Off by default. Cloud transcription sends audio and any transcription vocabulary to the selected provider. AI Important suggestions and automatic tags/links send only the new or edited entry to Groq. For lower retention, enable Zero Data Retention in Groq; ElevenLabs zero retention requires Enterprise. Requests use your active connection, including cellular, unless you turn on Wi-Fi only.</string>
     <string name="developer_enabled">Developer options enabled</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">Latviešu</string>
