@@ -213,4 +213,14 @@
     <string name="add_entry">Uus sissekanne</string>
     <string name="calendar_title">Kalender</string>
     <string name="settings_speech_languages">kõnekeeled</string>
+    <string name="settings_transcription_vocabulary">transkriptsiooni sõnavara</string>
+    <string name="transcription_vocabulary_help" formatted="false">Lisa nimed, kohad ja lühifraasid, mida transkriptsioon sageli valesti tuvastab. Whisper ja Groq ei lisa kulu; ElevenLabsi võtmesõnad maksavad 20% rohkem.</string>
+    <string name="transcription_vocabulary_empty">Sõnavara pole veel lisatud.</string>
+    <string name="transcription_vocabulary_add">lisa sõna või fraas…</string>
+    <string name="transcription_vocabulary_manage_hint">Puuduta muutmiseks · hoia eemaldamiseks</string>
+    <string name="transcription_vocabulary_count">%1$d / %2$d</string>
+    <string name="transcription_vocabulary_invalid">Kuni 5 sõna ja 49 tähemärki.</string>
+    <string name="transcription_vocabulary_duplicate">See on juba loendis.</string>
+    <string name="transcription_vocabulary_editing">Muutmine · salvestamiseks vajuta + või Valmis</string>
+    <string name="transcription_vocabulary_remove">eemalda sõnavarast</string>
 </resources>

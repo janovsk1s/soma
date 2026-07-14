@@ -547,32 +547,7 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             )
         }
         AppRoute.SpeechLanguages -> SpeechLanguagesScreen { route = AppRoute.Settings }
-        AppRoute.TranscriptionVocabulary -> {
-            val store = remember { TranscriptionVocabularyStore(context) }
-            val initial = remember { com.soma.core.model.TranscriptionVocabulary.asEditableText(store.read()) }
-            var saving by remember { mutableStateOf(false) }
-            var saveFailed by remember { mutableStateOf(false) }
-            TextEditorScreen(
-                title = stringResourceCompat(R.string.settings_transcription_vocabulary),
-                initialText = initial,
-                saving = saving,
-                saveFailed = saveFailed,
-                allowBlank = true,
-                supportingText = stringResourceCompat(R.string.transcription_vocabulary_help),
-                onSave = { text ->
-                    if (!saving) {
-                        saving = true
-                        saveFailed = false
-                        val characters = text.toCharArray()
-                        val saved = runCatching { store.write(characters) }.isSuccess
-                        characters.fill('\u0000')
-                        saving = false
-                        if (saved) route = AppRoute.Settings else saveFailed = true
-                    }
-                },
-                onBack = { route = AppRoute.Settings },
-            )
-        }
+        AppRoute.TranscriptionVocabulary -> TranscriptionVocabularyScreen { route = AppRoute.Settings }
         AppRoute.Backup -> BackupScreen(viewModel) { route = AppRoute.Settings }
         AppRoute.Browser -> BrowserScreen { route = AppRoute.Settings }
         AppRoute.About -> AboutScreen(

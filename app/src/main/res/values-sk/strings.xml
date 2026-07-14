@@ -213,4 +213,14 @@
     <string name="add_entry">Nový záznam</string>
     <string name="calendar_title">Kalendár</string>
     <string name="settings_speech_languages">hovorené jazyky</string>
+    <string name="settings_transcription_vocabulary">slovník prepisu</string>
+    <string name="transcription_vocabulary_help" formatted="false">Pridaj mená, miesta a krátke frázy, ktoré prepis často rozpozná nesprávne. Whisper a Groq nič navyše nestoja; kľúčové slová ElevenLabs stoja o 20% viac.</string>
+    <string name="transcription_vocabulary_empty">Slovník zatiaľ neobsahuje žiadne položky.</string>
+    <string name="transcription_vocabulary_add">pridať slovo alebo frázu…</string>
+    <string name="transcription_vocabulary_manage_hint">Ťukni pre úpravu · podrž pre odstránenie</string>
+    <string name="transcription_vocabulary_count">%1$d / %2$d</string>
+    <string name="transcription_vocabulary_invalid">Najviac 5 slov a 49 znakov.</string>
+    <string name="transcription_vocabulary_duplicate">Táto položka už je v zozname.</string>
+    <string name="transcription_vocabulary_editing">Úprava · ulož stlačením + alebo Hotovo</string>
+    <string name="transcription_vocabulary_remove">odstrániť zo slovníka</string>
 </resources>

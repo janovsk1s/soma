@@ -213,4 +213,14 @@
     <string name="add_entry">Neuer Eintrag</string>
     <string name="calendar_title">Kalender</string>
     <string name="settings_speech_languages">Sprechsprachen</string>
+    <string name="settings_transcription_vocabulary">Transkriptionswörterbuch</string>
+    <string name="transcription_vocabulary_help" formatted="false">Füge Namen, Orte und kurze Ausdrücke hinzu, die die Transkription oft falsch versteht. Whisper und Groq kosten nichts extra; ElevenLabs-Schlüsselwörter kosten 20% mehr.</string>
+    <string name="transcription_vocabulary_empty">Noch kein Wörterbuch hinzugefügt.</string>
+    <string name="transcription_vocabulary_add">Wort oder Ausdruck hinzufügen…</string>
+    <string name="transcription_vocabulary_manage_hint">Tippen zum Bearbeiten · halten zum Entfernen</string>
+    <string name="transcription_vocabulary_count">%1$d / %2$d</string>
+    <string name="transcription_vocabulary_invalid">Höchstens 5 Wörter und 49 Zeichen.</string>
+    <string name="transcription_vocabulary_duplicate">Dieser Eintrag ist bereits vorhanden.</string>
+    <string name="transcription_vocabulary_editing">Bearbeiten · zum Speichern + oder Fertig drücken</string>
+    <string name="transcription_vocabulary_remove">aus dem Wörterbuch entfernen</string>
 </resources>

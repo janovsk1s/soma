@@ -33,6 +33,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.intl.LocaleList
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.PI
@@ -49,8 +52,11 @@ fun LineInput(
     singleLine: Boolean = true,
     password: Boolean = false,
     keyboardType: KeyboardType = if (password) KeyboardType.Password else KeyboardType.Text,
+    imeAction: ImeAction = if (singleLine) ImeAction.Done else ImeAction.Default,
+    onNext: () -> Unit = {},
     onDone: () -> Unit = {},
 ) {
+    val languageTag = SomaPrefs.language(LocalContext.current).languageTag
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
@@ -58,7 +64,8 @@ fun LineInput(
             .drawBehind {
                 drawLine(DimInk, Offset(0f, size.height - 1.dp.toPx()), Offset(size.width, size.height - 1.dp.toPx()), 1.dp.toPx())
             }
-            .padding(horizontal = 2.dp, vertical = 10.dp),
+            .padding(horizontal = 2.dp, vertical = 10.dp)
+            .semantics { contentDescription = placeholder },
         textStyle = TextStyle(
             color = Ink,
             fontSize = if (singleLine) 20.sp else 22.sp,
@@ -67,11 +74,20 @@ fun LineInput(
         cursorBrush = SolidColor(Ink),
         singleLine = singleLine,
         keyboardOptions = KeyboardOptions(
-            capitalization = if (password) KeyboardCapitalization.None else KeyboardCapitalization.Sentences,
-            imeAction = if (singleLine) ImeAction.Done else ImeAction.Default,
+            capitalization = if (password || keyboardType != KeyboardType.Text) {
+                KeyboardCapitalization.None
+            } else {
+                KeyboardCapitalization.Sentences
+            },
+            autoCorrectEnabled = !password && keyboardType == KeyboardType.Text,
+            imeAction = imeAction,
             keyboardType = keyboardType,
+            hintLocales = LocaleList(languageTag),
         ),
-        keyboardActions = KeyboardActions(onDone = { onDone() }),
+        keyboardActions = KeyboardActions(
+            onNext = { onNext() },
+            onDone = { onDone() },
+        ),
         visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
         decorationBox = { inner ->
             Box(contentAlignment = Alignment.CenterStart) {

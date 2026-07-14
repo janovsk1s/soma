@@ -2,6 +2,27 @@
 
 Notable changes to Soma are documented here.
 
+## 0.1.0-preview.28 — 2026-07-14
+
+### Fixed
+
+- Transcription vocabulary is now a visible five-per-page list. Tap a saved term
+  to edit it, or deliberately long-press it to open the remove action; additions
+  and removals persist immediately and the current count is always visible.
+- Text fields now tell Android's keyboard the active Soma language. Latvian meal,
+  recipe, workout, and vocabulary entry therefore keep Latvian input behavior
+  instead of allowing the IME to fall back to English.
+- Soma now declares all eight supported application locales to Android and has a
+  regression test for the Latvian meal-editor and vocabulary resources.
+
+### Changed
+
+- Manual workout fields follow one consistent Exercise → Sets → Repetitions →
+  Kilograms focus sequence. The keyboard's Next and Done actions work, the form
+  scrolls above the IME, and Done submits a valid entry just like the save row.
+- Every supported language now includes vocabulary-list management, validation,
+  removal, and provider-cost copy.
+
 ## 0.1.0-preview.27 — 2026-07-14
 
 ### Added

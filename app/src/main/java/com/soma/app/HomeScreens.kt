@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -43,6 +44,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.intl.LocaleList
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -726,6 +728,7 @@ fun TextEditorScreen(
     val canSave = !saving && if (allowBlank) text != initialText else text.isNotBlank()
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
+    val languageTag = SomaPrefs.language(LocalContext.current).languageTag
     val navigateBack = { if (!saving) onBack() }
     BackHandler(onBack = navigateBack)
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
@@ -762,6 +765,7 @@ fun TextEditorScreen(
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Sentences,
                     imeAction = ImeAction.Default,
+                    hintLocales = LocaleList(languageTag),
                 ),
                 modifier = Modifier
                     .fillMaxSize()

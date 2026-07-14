@@ -213,4 +213,14 @@
     <string name="add_entry">Ny anteckning</string>
     <string name="calendar_title">Kalender</string>
     <string name="settings_speech_languages">talade språk</string>
+    <string name="settings_transcription_vocabulary">transkriptionsordlista</string>
+    <string name="transcription_vocabulary_help" formatted="false">Lägg till namn, platser och korta fraser som transkriberingen ofta missar. Whisper och Groq kostar inget extra; ElevenLabs nyckelord kostar 20% mer.</string>
+    <string name="transcription_vocabulary_empty">Ingen ordlista har lagts till ännu.</string>
+    <string name="transcription_vocabulary_add">lägg till ett ord eller en fras…</string>
+    <string name="transcription_vocabulary_manage_hint">Tryck för att redigera · håll för att ta bort</string>
+    <string name="transcription_vocabulary_count">%1$d / %2$d</string>
+    <string name="transcription_vocabulary_invalid">Högst 5 ord och 49 tecken.</string>
+    <string name="transcription_vocabulary_duplicate">Det finns redan i listan.</string>
+    <string name="transcription_vocabulary_editing">Redigerar · tryck + eller Klar för att spara</string>
+    <string name="transcription_vocabulary_remove">ta bort från ordlistan</string>
 </resources>

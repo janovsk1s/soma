@@ -213,4 +213,14 @@
     <string name="add_entry">Naujas įrašas</string>
     <string name="calendar_title">Kalendorius</string>
     <string name="settings_speech_languages">šnekamosios kalbos</string>
+    <string name="settings_transcription_vocabulary">transkripcijos žodynas</string>
+    <string name="transcription_vocabulary_help" formatted="false">Pridėk vardus, vietas ir trumpas frazes, kurias transkripcija dažnai supranta neteisingai. Whisper ir Groq papildomai nekainuoja; ElevenLabs raktažodžiai kainuoja 20% daugiau.</string>
+    <string name="transcription_vocabulary_empty">Žodynas dar tuščias.</string>
+    <string name="transcription_vocabulary_add">pridėti žodį ar frazę…</string>
+    <string name="transcription_vocabulary_manage_hint">Paliesk taisyti · palaikyk pašalinti</string>
+    <string name="transcription_vocabulary_count">%1$d / %2$d</string>
+    <string name="transcription_vocabulary_invalid">Ne daugiau kaip 5 žodžiai ir 49 simboliai.</string>
+    <string name="transcription_vocabulary_duplicate">Tai jau yra sąraše.</string>
+    <string name="transcription_vocabulary_editing">Taisoma · spausk + arba Atlikta, kad išsaugotum</string>
+    <string name="transcription_vocabulary_remove">pašalinti iš žodyno</string>
 </resources>

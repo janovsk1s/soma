@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -24,8 +25,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -181,6 +186,12 @@ fun WorkoutQuickAddScreen(
     var kilograms by remember { mutableStateOf("") }
     var choosingExercise by remember { mutableStateOf(false) }
     var exerciseQuery by remember { mutableStateOf("") }
+    var focusSetsAfterChoice by remember { mutableStateOf(false) }
+    val exerciseFocus = remember { FocusRequester() }
+    val setsFocus = remember { FocusRequester() }
+    val repetitionsFocus = remember { FocusRequester() }
+    val kilogramsFocus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
     BackHandler(onBack = { if (choosingExercise) choosingExercise = false else onBack() })
     if (choosingExercise) {
         val results = remember(exerciseQuery) {
@@ -204,6 +215,7 @@ fun WorkoutQuickAddScreen(
                             label = result,
                             onClick = {
                                 exercise = result
+                                focusSetsAfterChoice = true
                                 choosingExercise = false
                             },
                         )
@@ -220,11 +232,48 @@ fun WorkoutQuickAddScreen(
         setCount in 1..WorkoutExercise.MAX_SETS && repCount in 1..WorkoutSet.MAX_REPETITIONS
     val validWeight = kilograms.isBlank() || weight != null && weight in 0.0..WorkoutSet.MAX_WEIGHT_KILOGRAMS
     val canSave = !saving && exercise.isNotBlank() && pairedCounts && validWeight
-    Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding().padding(horizontal = 28.dp)) {
+
+    fun submit() {
+        if (!canSave) return
+        keyboard?.hide()
+        val text = if (setCount != null && repCount != null) {
+            buildString {
+                append(exercise.trim()).append(' ').append(setCount).append('×').append(repCount)
+                weight?.let { append(' ').append(formatNumber(it)).append(" kg") }
+            }
+        } else {
+            exercise.trim()
+        }
+        onSave(text)
+    }
+
+    LaunchedEffect(choosingExercise, focusSetsAfterChoice) {
+        if (!choosingExercise) {
+            if (focusSetsAfterChoice) {
+                focusSetsAfterChoice = false
+                setsFocus.requestFocus()
+            } else if (exercise.isBlank()) {
+                exerciseFocus.requestFocus()
+            }
+        }
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(Paper)
+            .systemBarsPadding()
+            .imePadding()
+            .padding(horizontal = 28.dp),
+    ) {
         SimpleTopBar(stringResource(R.string.add_workout), onBack)
         Column(
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            verticalArrangement = Arrangement.SpaceEvenly,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(top = 12.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             SettingsItem(
                 label = stringResource(R.string.choose_exercise),
@@ -235,28 +284,36 @@ fun WorkoutQuickAddScreen(
                 value = exercise,
                 onValueChange = { exercise = it },
                 placeholder = stringResource(R.string.workout_exercise_hint),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().focusRequester(exerciseFocus),
+                imeAction = ImeAction.Next,
+                onNext = { setsFocus.requestFocus() },
             )
             LineInput(
                 value = sets,
                 onValueChange = { sets = it.filter(Char::isDigit).take(3) },
                 placeholder = stringResource(R.string.workout_sets_hint),
                 keyboardType = KeyboardType.Number,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().focusRequester(setsFocus),
+                imeAction = ImeAction.Next,
+                onNext = { repetitionsFocus.requestFocus() },
             )
             LineInput(
                 value = repetitions,
                 onValueChange = { repetitions = it.filter(Char::isDigit).take(5) },
                 placeholder = stringResource(R.string.workout_repetitions_hint),
                 keyboardType = KeyboardType.Number,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().focusRequester(repetitionsFocus),
+                imeAction = ImeAction.Next,
+                onNext = { kilogramsFocus.requestFocus() },
             )
             LineInput(
                 value = kilograms,
                 onValueChange = { value -> kilograms = value.filter { it.isDigit() || it == ',' || it == '.' }.take(8) },
                 placeholder = stringResource(R.string.workout_weight_hint),
                 keyboardType = KeyboardType.Decimal,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().focusRequester(kilogramsFocus),
+                imeAction = ImeAction.Done,
+                onDone = ::submit,
             )
         }
         if (saveFailed) {
@@ -268,17 +325,7 @@ fun WorkoutQuickAddScreen(
                 .then(
                     if (canSave) {
                         tapModifier(
-                            {
-                                val text = if (setCount != null && repCount != null) {
-                                    buildString {
-                                        append(exercise.trim()).append(' ').append(setCount).append('×').append(repCount)
-                                        weight?.let { append(' ').append(formatNumber(it)).append(" kg") }
-                                    }
-                                } else {
-                                    exercise.trim()
-                                }
-                                onSave(text)
-                            },
+                            ::submit,
                             stringResource(R.string.save),
                         )
                     } else {
