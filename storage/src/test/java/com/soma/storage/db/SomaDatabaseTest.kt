@@ -264,6 +264,55 @@ class SomaDatabaseTest {
     }
 
     @Test
+    fun `schema eight migration adds encrypted revisioned tracking tables`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val databaseName = "soma-migration-${System.nanoTime()}.db"
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(databaseName)
+                .callback(
+                    object : SupportSQLiteOpenHelper.Callback(8) {
+                        override fun onCreate(db: SupportSQLiteDatabase) = Unit
+
+                        override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+                    },
+                )
+                .build(),
+        )
+        try {
+            val sqlite = helper.writableDatabase
+
+            SomaDatabase.MIGRATION_8_9.migrate(sqlite)
+
+            sqlite.execSQL(
+                "INSERT INTO tracking_logs " +
+                    "(id, kind, occurred_at_millis, created_at_millis, updated_at_millis, " +
+                    "source_note_epoch_day, source_entry_id, revision, archived_at_millis, " +
+                    "payload_ciphertext, crypto_version) " +
+                    "VALUES ('meal-1', 'MEAL', 1000, 1000, 1000, NULL, NULL, 0, NULL, X'01', 1)",
+            )
+            sqlite.execSQL(
+                "INSERT INTO tracking_log_revisions " +
+                    "(log_id, revision, edited_at_millis, payload_ciphertext, crypto_version) " +
+                    "VALUES ('meal-1', 0, 2000, X'02', 1)",
+            )
+            sqlite.query("SELECT kind, revision FROM tracking_logs WHERE id = 'meal-1'").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals("MEAL", cursor.getString(0))
+                assertEquals(0L, cursor.getLong(1))
+            }
+            sqlite.query("SELECT log_id, revision FROM tracking_log_revisions").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals("meal-1", cursor.getString(0))
+                assertEquals(0L, cursor.getLong(1))
+            }
+        } finally {
+            helper.close()
+            context.deleteDatabase(databaseName)
+        }
+    }
+
+    @Test
     fun `only one transcription job may be leased at a time`() = runBlocking {
         val note = note("note-1", 1)
         database.dailyNoteDao().insert(note)

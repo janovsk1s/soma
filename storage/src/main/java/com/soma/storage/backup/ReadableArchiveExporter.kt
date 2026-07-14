@@ -3,7 +3,10 @@ package com.soma.storage.backup
 import com.soma.core.model.DailyNote
 import com.soma.core.model.EntryKind
 import com.soma.core.model.EntryMetadata
+import com.soma.core.model.FoodItem
+import com.soma.core.model.LogRecord
 import com.soma.core.model.NoteEntry
+import com.soma.core.model.NutritionEstimate
 import com.soma.core.model.TranscriptionEngine
 import com.soma.core.model.TranscriptionFallbackReason
 import com.soma.core.model.TranscriptionProvenance
@@ -38,9 +41,12 @@ class ReadableArchiveExporter {
                 zip.putText("notes/${note.date}.md", noteMarkdown(note, imagePaths, metadata))
             }
             zip.putText("todos.csv", todosCsv(readable))
+            zip.putText("logs.csv", trackingLogsCsv(readable))
             zip.putText("data/notes.json", notesJson(readable))
             zip.putText("data/history.jsonl", historyJsonl(readable))
             zip.putText("data/metadata.json", metadataJson(readable))
+            zip.putText("data/logs.json", trackingLogsJson(readable))
+            zip.putText("data/log-history.jsonl", trackingLogHistoryJsonl(readable))
             zip.putText(
                 "settings/transcription-vocabulary.txt",
                 readable.transcriptionVocabulary.joinToString(separator = "\n", postfix = "\n"),
@@ -85,9 +91,12 @@ class ReadableArchiveExporter {
         appendLine()
         appendLine("notes/ contains one human-readable Markdown file per day.")
         appendLine("todos.csv contains every Important item and opens in spreadsheet applications.")
+        appendLine("logs.csv contains every meal, recipe, and workout in a spreadsheet-friendly form.")
         appendLine("data/notes.json preserves complete structured note data.")
         appendLine("data/history.jsonl preserves previous text after user edits.")
         appendLine("data/metadata.json preserves additive manual and AI tags and links.")
+        appendLine("data/logs.json preserves complete structured food, nutrition, and workout data.")
+        appendLine("data/log-history.jsonl preserves every earlier version of a structured log.")
         appendLine("settings/transcription-vocabulary.txt preserves user-provided speech spellings.")
         appendLine("audio/ contains standard 16 kHz mono WAV files when included.")
         appendLine("images/ contains standard JPEG originals when included.")
@@ -109,6 +118,10 @@ class ReadableArchiveExporter {
         jsonNumberField("entryCount", snapshot.notes.sumOf { it.entries.size })
         append(',')
         jsonNumberField("todoCount", snapshot.todos.size)
+        append(',')
+        jsonNumberField("logCount", snapshot.trackingLogs.size)
+        append(',')
+        jsonNumberField("logRevisionCount", snapshot.trackingLogRevisions.size)
         append(',')
         jsonNumberField("revisionCount", snapshot.entryRevisions.size)
         append(',')
@@ -185,6 +198,139 @@ class ReadableArchiveExporter {
                 ).joinToString(",", transform = ::csv),
             )
         }
+    }
+
+    private fun trackingLogsCsv(snapshot: BackupSnapshot): String = buildString {
+        appendLine("id,type,title,note,occurred_at,created_at,updated_at,revision,archived_at,source_date,source_entry_id,foods,exercises")
+        snapshot.trackingLogs.sortedWith(compareBy(LogRecord::occurredAt, LogRecord::id)).forEach { log ->
+            val foods = log.foods.joinToString(" | ") { food ->
+                buildString {
+                    append(food.name)
+                    food.quantity?.let { append(" ${plainNumber(it)} ${food.unit?.name?.lowercase()}") }
+                    food.nutrition?.let { nutrition ->
+                        append(" [${nutrition.basis.name.lowercase()}/${nutrition.source.name.lowercase()}")
+                        nutrition.energyKcal?.let { append("; ${plainNumber(it)} kcal") }
+                        nutrition.energyKcalMin?.let { minimum ->
+                            append("; ${plainNumber(minimum)}-${plainNumber(nutrition.energyKcalMax ?: minimum)} kcal")
+                        }
+                        append(']')
+                    }
+                }
+            }
+            val exercises = log.exercises.joinToString(" | ") { exercise ->
+                val sets = exercise.sets.joinToString("; ") { set ->
+                    listOfNotNull(
+                        set.repetitions?.let { "$it reps" },
+                        set.weightKilograms?.let { "${plainNumber(it)} kg" },
+                        set.durationSeconds?.let { "$it sec" },
+                    ).joinToString(" ")
+                }
+                "${exercise.name}${exercise.machine?.let { " ($it)" }.orEmpty()}${sets.takeIf(String::isNotBlank)?.let { ": $it" }.orEmpty()}"
+            }
+            appendLine(
+                listOf(
+                    log.id,
+                    log.kind.name.lowercase(),
+                    log.title,
+                    log.note,
+                    log.occurredAt.toString(),
+                    log.createdAt.toString(),
+                    log.updatedAt.toString(),
+                    log.revision.toString(),
+                    log.archivedAt?.toString().orEmpty(),
+                    log.source?.noteDate?.toString().orEmpty(),
+                    log.source?.entryId.orEmpty(),
+                    foods,
+                    exercises,
+                ).joinToString(",", transform = ::csv),
+            )
+        }
+    }
+
+    private fun trackingLogsJson(snapshot: BackupSnapshot): String = buildString {
+        append("{\"format\":\"soma-structured-logs\",\"version\":1,\"exportedAt\":")
+        appendJson(snapshot.exportedAt.toString())
+        append(",\"logs\":[")
+        snapshot.trackingLogs.sortedWith(compareBy(LogRecord::occurredAt, LogRecord::id))
+            .forEachIndexed { index, log ->
+                if (index > 0) append(',')
+                appendTrackingLogJson(log)
+            }
+        append("]}\n")
+    }
+
+    private fun trackingLogHistoryJsonl(snapshot: BackupSnapshot): String = buildString {
+        snapshot.trackingLogRevisions.sortedWith(compareBy({ it.logId }, { it.revision })).forEach { revision ->
+            append("{\"logId\":")
+            appendJson(revision.logId)
+            append(",\"revision\":${revision.revision},\"editedAt\":")
+            appendJson(revision.editedAt.toString())
+            append(",\"snapshot\":")
+            appendTrackingLogJson(revision.snapshot)
+            appendLine('}')
+        }
+    }
+
+    private fun StringBuilder.appendTrackingLogJson(log: LogRecord) {
+        append('{')
+        jsonField("id", log.id)
+        append(','); jsonField("type", log.kind.name.lowercase())
+        append(','); jsonField("title", log.title)
+        append(','); jsonField("note", log.note)
+        append(','); jsonField("occurredAt", log.occurredAt.toString())
+        append(','); jsonField("createdAt", log.createdAt.toString())
+        append(','); jsonField("updatedAt", log.updatedAt.toString())
+        append(','); jsonNumberField("revision", log.revision)
+        append(",\"archivedAt\":"); appendNullableJson(log.archivedAt?.toString())
+        append(",\"source\":")
+        log.source?.let { source ->
+            append('{'); jsonField("date", source.noteDate.toString()); append(',')
+            jsonField("entryId", source.entryId); append('}')
+        } ?: append("null")
+        append(",\"foods\":[")
+        log.foods.forEachIndexed { index, food ->
+            if (index > 0) append(',')
+            appendFoodJson(food)
+        }
+        append("],\"exercises\":[")
+        log.exercises.forEachIndexed { index, exercise ->
+            if (index > 0) append(',')
+            append('{'); jsonField("name", exercise.name)
+            append(",\"machine\":"); appendNullableJson(exercise.machine)
+            append(",\"sets\":[")
+            exercise.sets.forEachIndexed { setIndex, set ->
+                if (setIndex > 0) append(',')
+                append("{\"repetitions\":"); appendNullableNumber(set.repetitions)
+                append(",\"weightKilograms\":"); appendNullableNumber(set.weightKilograms)
+                append(",\"durationSeconds\":"); appendNullableNumber(set.durationSeconds)
+                append('}')
+            }
+            append("]}")
+        }
+        append("]}")
+    }
+
+    private fun StringBuilder.appendFoodJson(food: FoodItem) {
+        append('{'); jsonField("name", food.name)
+        append(",\"quantity\":"); appendNullableNumber(food.quantity)
+        append(",\"unit\":"); appendNullableJson(food.unit?.name?.lowercase())
+        append(",\"gramWeight\":"); appendNullableNumber(food.gramWeight)
+        append(",\"nutrition\":")
+        food.nutrition?.let { appendNutritionJson(it) } ?: append("null")
+        append('}')
+    }
+
+    private fun StringBuilder.appendNutritionJson(nutrition: NutritionEstimate) {
+        append('{'); jsonField("basis", nutrition.basis.name.lowercase())
+        append(','); jsonField("source", nutrition.source.name.lowercase())
+        append(",\"energyKcal\":"); appendNullableNumber(nutrition.energyKcal)
+        append(",\"energyKcalMin\":"); appendNullableNumber(nutrition.energyKcalMin)
+        append(",\"energyKcalMax\":"); appendNullableNumber(nutrition.energyKcalMax)
+        append(",\"proteinGrams\":"); appendNullableNumber(nutrition.proteinGrams)
+        append(",\"carbohydrateGrams\":"); appendNullableNumber(nutrition.carbohydrateGrams)
+        append(",\"fatGrams\":"); appendNullableNumber(nutrition.fatGrams)
+        append(",\"reference\":"); appendNullableJson(nutrition.reference)
+        append('}')
     }
 
     private fun notesJson(snapshot: BackupSnapshot): String = buildString {
@@ -316,6 +462,7 @@ class ReadableArchiveExporter {
     private fun engineLabel(engine: TranscriptionEngine): String = when (engine) {
         TranscriptionEngine.LOCAL_WHISPER_TINY -> "local Whisper tiny"
         TranscriptionEngine.ELEVENLABS_SCRIBE_V2 -> "ElevenLabs Scribe v2"
+        TranscriptionEngine.GROQ_WHISPER_LARGE_V3_TURBO -> "Groq Whisper Large v3 Turbo"
         TranscriptionEngine.GROQ_WHISPER_LARGE_V3 -> "Groq Whisper Large v3"
     }
 
@@ -385,6 +532,16 @@ class ReadableArchiveExporter {
         if (value == null) append("null") else appendJson(value)
     }
 
+    private fun StringBuilder.appendNullableNumber(value: Number?) {
+        if (value == null) append("null") else append(value)
+    }
+
+    private fun plainNumber(value: Double): String = if (value % 1.0 == 0.0) {
+        value.toLong().toString()
+    } else {
+        value.toString()
+    }
+
     private fun StringBuilder.appendJson(value: String) {
         append('"')
         value.forEach { character ->
@@ -409,7 +566,7 @@ class ReadableArchiveExporter {
     }
 
     private companion object {
-        const val READABLE_FORMAT_VERSION = 8
+        const val READABLE_FORMAT_VERSION = 9
         val TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss 'UTC'").withZone(ZoneOffset.UTC)
     }
 }

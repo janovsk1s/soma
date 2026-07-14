@@ -11,6 +11,8 @@ import com.soma.core.model.EntrySource
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.ImportantKind
 import com.soma.core.model.MetadataSource
+import com.soma.core.model.LogRecord
+import com.soma.core.model.LogRevision
 import com.soma.core.model.ImageAttachment
 import com.soma.core.model.ImageFormat
 import com.soma.core.model.NoteEntry
@@ -33,6 +35,8 @@ import com.soma.storage.crypto.TextCipher
 import com.soma.storage.db.EntryEntity
 import com.soma.storage.db.EntryMetadataEntity
 import com.soma.storage.db.EntryRevisionEntity
+import com.soma.storage.db.TrackingLogEntity
+import com.soma.storage.db.TrackingLogRevisionEntity
 import com.soma.storage.db.TodoEntity
 import com.soma.storage.db.TodoSuggestionEntity
 import com.soma.storage.db.TranscriptionJobEntity
@@ -351,6 +355,81 @@ internal class EntityMapper(
         )
     }
 
+    fun trackingLogToEntity(log: LogRecord): TrackingLogEntity = TrackingLogEntity(
+        id = log.id,
+        kind = log.kind.name,
+        payloadCiphertext = encrypt(log.id, TRACKING_LOG_PAYLOAD, TrackingPayloadCodec.encode(log)),
+        cryptoVersion = CRYPTO_VERSION,
+        occurredAtMillis = log.occurredAt.toEpochMilli(),
+        createdAtMillis = log.createdAt.toEpochMilli(),
+        updatedAtMillis = log.updatedAt.toEpochMilli(),
+        sourceNoteEpochDay = log.source?.noteDate?.toEpochDay(),
+        sourceEntryId = log.source?.entryId,
+        revision = log.revision,
+        archivedAtMillis = log.archivedAt?.toEpochMilli(),
+    )
+
+    fun trackingLogFromEntity(entity: TrackingLogEntity): LogRecord {
+        val log = TrackingPayloadCodec.decode(
+            decrypt(entity.id, TRACKING_LOG_PAYLOAD, entity.cryptoVersion, entity.payloadCiphertext),
+        )
+        require(log.id == entity.id) { "Tracking payload id does not match its row" }
+        require(log.kind.name == entity.kind) { "Tracking payload kind does not match its row" }
+        require(log.occurredAt.toEpochMilli() == entity.occurredAtMillis) {
+            "Tracking payload occurrence does not match its row"
+        }
+        require(log.createdAt.toEpochMilli() == entity.createdAtMillis) {
+            "Tracking payload creation does not match its row"
+        }
+        require(log.updatedAt.toEpochMilli() == entity.updatedAtMillis) {
+            "Tracking payload update does not match its row"
+        }
+        require(log.source?.noteDate?.toEpochDay() == entity.sourceNoteEpochDay) {
+            "Tracking payload source day does not match its row"
+        }
+        require(log.source?.entryId == entity.sourceEntryId) {
+            "Tracking payload source entry does not match its row"
+        }
+        require(log.revision == entity.revision) { "Tracking payload revision does not match its row" }
+        require(log.archivedAt?.toEpochMilli() == entity.archivedAtMillis) {
+            "Tracking payload archive does not match its row"
+        }
+        return log
+    }
+
+    fun trackingRevisionToEntity(revision: LogRevision): TrackingLogRevisionEntity {
+        val id = trackingRevisionId(revision.logId, revision.revision)
+        return TrackingLogRevisionEntity(
+            logId = revision.logId,
+            revision = revision.revision,
+            payloadCiphertext = encrypt(
+                id,
+                TRACKING_LOG_REVISION_PAYLOAD,
+                TrackingPayloadCodec.encode(revision.snapshot),
+            ),
+            cryptoVersion = CRYPTO_VERSION,
+            editedAtMillis = revision.editedAt.toEpochMilli(),
+        )
+    }
+
+    fun trackingRevisionFromEntity(entity: TrackingLogRevisionEntity): LogRevision {
+        val id = trackingRevisionId(entity.logId, entity.revision)
+        val snapshot = TrackingPayloadCodec.decode(
+            decrypt(
+                id,
+                TRACKING_LOG_REVISION_PAYLOAD,
+                entity.cryptoVersion,
+                entity.payloadCiphertext,
+            ),
+        )
+        return LogRevision(
+            logId = entity.logId,
+            revision = entity.revision,
+            snapshot = snapshot,
+            editedAt = Instant.ofEpochMilli(entity.editedAtMillis),
+        )
+    }
+
     fun encryptEntryFailure(entryId: String, diagnostic: String): ByteArray =
         encrypt(entryId, ENTRY_TRANSCRIPTION_FAILURE, diagnostic)
 
@@ -373,6 +452,8 @@ internal class EntityMapper(
 
     private fun metadataId(entryId: String, source: MetadataSource): String = "$entryId:${source.name}"
 
+    private fun trackingRevisionId(logId: String, revision: Long): String = "$logId:$revision"
+
     companion object {
         const val CRYPTO_VERSION = 1
         private const val ENTRY_TEXT = "entry.text"
@@ -380,6 +461,8 @@ internal class EntityMapper(
         private const val ENTRY_TRANSCRIPTION_FAILURE = "entry.transcriptionFailure"
         private const val ENTRY_METADATA_TAGS = "entryMetadata.tags"
         private const val ENTRY_METADATA_LINKS = "entryMetadata.links"
+        private const val TRACKING_LOG_PAYLOAD = "trackingLog.payload"
+        private const val TRACKING_LOG_REVISION_PAYLOAD = "trackingLogRevision.payload"
         private const val TODO_TEXT = "todo.text"
         private const val SUGGESTION_TEXT = "suggestion.text"
         private const val SUGGESTION_MATCHED_RULE = "suggestion.matchedRule"

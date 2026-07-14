@@ -31,6 +31,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.soma.core.model.NoteEntry
+import com.soma.core.model.LogKind
+import com.soma.core.model.LogRecord
+import com.soma.core.model.LogRevision
 import com.soma.core.model.SupportedLanguage
 import com.soma.core.model.Todo
 import com.soma.voice.PlaybackState
@@ -128,6 +131,7 @@ fun Context.setExternalFlowActive(active: Boolean) {
 private sealed interface AppRoute {
     data object Home : AppRoute
     data object Todos : AppRoute
+    data object Logs : AppRoute
     data object Settings : AppRoute
     data object Backup : AppRoute
     data object Browser : AppRoute
@@ -143,6 +147,18 @@ private sealed interface AppRoute {
     data object SpeechLanguages : AppRoute
     data object TranscriptionVocabulary : AppRoute
     data object Deleted : AppRoute
+    data class ChooseLogKind(val sourceEntry: NoteEntry? = null) : AppRoute
+    data class AddLog(
+        val kind: LogKind,
+        val sourceEntry: NoteEntry? = null,
+        val structuredWorkout: Boolean = false,
+    ) : AppRoute
+    data class LogDetail(val log: LogRecord) : AppRoute
+    data class LogOptions(val log: LogRecord) : AppRoute
+    data class EditLog(val log: LogRecord) : AppRoute
+    data class LogHistory(val log: LogRecord) : AppRoute
+    data class LogHistoryVersion(val log: LogRecord, val revision: LogRevision) : AppRoute
+    data class FoodLookup(val log: LogRecord, val foodIndex: Int) : AppRoute
     data class ReadEntry(val entry: NoteEntry, val fromTodos: Boolean = false) : AppRoute
     data class EntryOptions(
         val entry: NoteEntry,
@@ -236,6 +252,11 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
                 viewModel.clearPhotoCommentPrompt()
                 route = AppRoute.Todos
             },
+            onLogs = {
+                viewModel.stopRecording()
+                viewModel.clearPhotoCommentPrompt()
+                route = AppRoute.Logs
+            },
             onResurfacedImportant = { route = AppRoute.TodoOptions(it) },
             onSettings = {
                 viewModel.stopRecording()
@@ -284,6 +305,197 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             },
             onBack = { route = AppRoute.Home },
         )
+        AppRoute.Logs -> TrackingLogsScreen(
+            viewModel = viewModel,
+            onAdd = { kind ->
+                route = kind?.let { AppRoute.AddLog(it, structuredWorkout = it == LogKind.WORKOUT) }
+                    ?: AppRoute.ChooseLogKind()
+            },
+            onDetail = { route = AppRoute.LogDetail(it) },
+            onOptions = { route = AppRoute.LogOptions(it) },
+            onBack = { route = AppRoute.Home },
+        )
+        is AppRoute.ChooseLogKind -> LogKindScreen(
+            onSelect = { route = AppRoute.AddLog(it, current.sourceEntry) },
+            onBack = {
+                route = current.sourceEntry?.let { AppRoute.EntryOptions(it, returnToRead = true) }
+                    ?: AppRoute.Logs
+            },
+        )
+        is AppRoute.AddLog -> {
+            var saving by remember(current.kind, current.sourceEntry?.id) { mutableStateOf(false) }
+            var saveFailed by remember(current.kind, current.sourceEntry?.id) { mutableStateOf(false) }
+            var editorText by remember(current.kind, current.sourceEntry?.id) {
+                mutableStateOf(current.sourceEntry?.text.orEmpty())
+            }
+            var suggesting by remember(current.kind, current.sourceEntry?.id) { mutableStateOf(false) }
+            var suggestionFailed by remember(current.kind, current.sourceEntry?.id) { mutableStateOf(false) }
+            if (current.structuredWorkout && current.sourceEntry == null) {
+                WorkoutQuickAddScreen(
+                    saving = saving,
+                    saveFailed = saveFailed,
+                    onSave = { text ->
+                        if (!saving) {
+                            saving = true
+                            saveFailed = false
+                            viewModel.addTrackingLog(current.kind, text) { saved ->
+                                saving = false
+                                if (saved) route = AppRoute.Logs else saveFailed = true
+                            }
+                        }
+                    },
+                    onBack = { route = AppRoute.Logs },
+                )
+            } else TextEditorScreen(
+                title = logEditorTitle(current.kind),
+                initialText = editorText,
+                saving = saving,
+                saveFailed = saveFailed,
+                supportingText = buildString {
+                    append(logEditorHelp(current.kind))
+                    if (suggestionFailed) append("\n").append(stringResourceCompat(R.string.tracking_suggestion_failed))
+                },
+                secondaryActionLabel = if (current.sourceEntry != null && viewModel.trackingSuggestionAvailable) {
+                    stringResourceCompat(R.string.suggest_with_groq)
+                } else {
+                    null
+                },
+                secondaryActionRunning = suggesting,
+                onSecondaryAction = current.sourceEntry?.let { source ->
+                    {
+                        if (!suggesting) {
+                            suggesting = true
+                            suggestionFailed = false
+                            viewModel.suggestTrackingText(current.kind, source) { proposal ->
+                                suggesting = false
+                                if (proposal == null) {
+                                    suggestionFailed = true
+                                } else {
+                                    editorText = proposal
+                                }
+                            }
+                        }
+                    }
+                },
+                onSave = { text ->
+                    if (!saving) {
+                        saving = true
+                        saveFailed = false
+                        viewModel.addTrackingLog(current.kind, text, current.sourceEntry) { saved ->
+                            saving = false
+                            if (saved) route = AppRoute.Logs else saveFailed = true
+                        }
+                    }
+                },
+                onBack = {
+                    route = if (current.sourceEntry != null) {
+                        AppRoute.ChooseLogKind(current.sourceEntry)
+                    } else {
+                        AppRoute.Logs
+                    }
+                },
+            )
+        }
+        is AppRoute.LogDetail -> {
+            val log = rememberLiveLog(viewModel, current.log)
+            var historyCount by remember(log.id, log.revision) { mutableStateOf<Int?>(null) }
+            LaunchedEffect(log.id, log.revision) {
+                historyCount = viewModel.trackingLogHistory(log.id).size
+            }
+            TrackingLogDetailScreen(
+                log = log,
+                historyCount = historyCount,
+                onHistory = if (log.revision > 0) ({ route = AppRoute.LogHistory(log) }) else null,
+                onSource = log.source?.let { source ->
+                    {
+                        viewModel.showDay(source.noteDate)
+                        viewModel.findEntry(source.entryId) { route = AppRoute.ReadEntry(it) }
+                    }
+                },
+                onFood = { index -> route = AppRoute.FoodLookup(log, index) },
+                onBack = { route = AppRoute.Logs },
+            )
+        }
+        is AppRoute.LogOptions -> {
+            val log = rememberLiveLog(viewModel, current.log)
+            TrackingLogOptionsScreen(
+                log = log,
+                onEdit = { route = AppRoute.EditLog(log) },
+                onHistory = { route = AppRoute.LogHistory(log) },
+                onArchive = {
+                    viewModel.archiveTrackingLog(log) { saved ->
+                        if (saved) route = AppRoute.Logs
+                    }
+                },
+                onBack = { route = AppRoute.Logs },
+            )
+        }
+        is AppRoute.EditLog -> {
+            val log = rememberLiveLog(viewModel, current.log)
+            var saving by remember(log.id) { mutableStateOf(false) }
+            var saveFailed by remember(log.id) { mutableStateOf(false) }
+            TextEditorScreen(
+                title = stringResourceCompat(R.string.edit),
+                initialText = log.note.ifBlank { log.title },
+                saving = saving,
+                saveFailed = saveFailed,
+                supportingText = logEditorHelp(log.kind),
+                onSave = { text ->
+                    if (!saving) {
+                        saving = true
+                        saveFailed = false
+                        viewModel.editTrackingLog(log, text) { saved ->
+                            saving = false
+                            if (saved) route = AppRoute.LogDetail(log) else saveFailed = true
+                        }
+                    }
+                },
+                onBack = { route = AppRoute.LogOptions(log) },
+            )
+        }
+        is AppRoute.LogHistory -> {
+            val log = rememberLiveLog(viewModel, current.log)
+            var revisions by remember(log.id, log.revision) { mutableStateOf<List<LogRevision>?>(null) }
+            LaunchedEffect(log.id, log.revision) {
+                revisions = viewModel.trackingLogHistory(log.id)
+            }
+            TrackingLogHistoryScreen(
+                revisions = revisions,
+                onRevision = { route = AppRoute.LogHistoryVersion(log, it) },
+                onBack = { route = AppRoute.LogOptions(log) },
+            )
+        }
+        is AppRoute.LogHistoryVersion -> TrackingLogDetailScreen(
+            log = current.revision.snapshot,
+            historyCount = null,
+            onHistory = null,
+            onSource = current.revision.snapshot.source?.let { source ->
+                {
+                    viewModel.showDay(source.noteDate)
+                    viewModel.findEntry(source.entryId) { route = AppRoute.ReadEntry(it) }
+                }
+            },
+            onFood = null,
+            onBack = { route = AppRoute.LogHistory(current.log) },
+        )
+        is AppRoute.FoodLookup -> {
+            val log = rememberLiveLog(viewModel, current.log)
+            val food = log.foods.getOrNull(current.foodIndex)
+            if (food == null) {
+                LaunchedEffect(log.id, current.foodIndex) { route = AppRoute.LogDetail(log) }
+            } else {
+                EuropeanFoodSearchScreen(
+                    viewModel = viewModel,
+                    initialQuery = food.name,
+                    onSelect = { reference ->
+                        viewModel.applyEuropeanFood(log, current.foodIndex, reference) { saved ->
+                            if (saved) route = AppRoute.LogDetail(log)
+                        }
+                    },
+                    onBack = { route = AppRoute.LogDetail(log) },
+                )
+            }
+        }
         AppRoute.Settings -> {
             val deleted by viewModel.deletedEntries.collectAsState()
             SettingsScreen(
@@ -493,6 +705,7 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
                     route = AppRoute.EntryHistory(entry, current.returnToRead, current.fromTodos)
                 },
                 onMarkImportant = { route = AppRoute.SelectImportant(entry, current.fromTodos) },
+                onLog = { route = AppRoute.ChooseLogKind(entry) },
                 onReturn = {
                     viewModel.toggleReturnLater(entry)
                     route = origin
@@ -703,6 +916,30 @@ private fun rememberLiveEntry(viewModel: SomaViewModel, initial: NoteEntry): Not
     return liveNote?.entries?.firstOrNull { it.id == initial.id } ?: initial
 }
 
+@Composable
+private fun rememberLiveLog(viewModel: SomaViewModel, initial: LogRecord): LogRecord {
+    val logs by viewModel.trackingLogs.collectAsState()
+    return logs.firstOrNull { it.id == initial.id } ?: initial
+}
+
+@Composable
+private fun logEditorTitle(kind: LogKind): String = stringResourceCompat(
+    when (kind) {
+        LogKind.MEAL -> R.string.add_meal
+        LogKind.RECIPE -> R.string.add_recipe
+        LogKind.WORKOUT -> R.string.add_workout
+    },
+)
+
+@Composable
+private fun logEditorHelp(kind: LogKind): String = stringResourceCompat(
+    when (kind) {
+        LogKind.MEAL -> R.string.log_meal_help
+        LogKind.RECIPE -> R.string.log_recipe_help
+        LogKind.WORKOUT -> R.string.log_workout_help
+    },
+)
+
 /**
  * Persists navigation across process death for routes that carry no in-memory
  * payload — notably the Capture and add-Important editors. Their text lives in
@@ -715,6 +952,7 @@ private val AppRouteSaver: Saver<AppRoute, String> = Saver(
         when (route) {
             AppRoute.Home -> "home"
             AppRoute.Todos -> "todos"
+            AppRoute.Logs -> "logs"
             AppRoute.Settings -> "settings"
             AppRoute.Backup -> "backup"
             AppRoute.Browser -> "browser"
@@ -736,6 +974,7 @@ private val AppRouteSaver: Saver<AppRoute, String> = Saver(
     restore = { key ->
         when (key) {
             "todos" -> AppRoute.Todos
+            "logs" -> AppRoute.Logs
             "settings" -> AppRoute.Settings
             "backup" -> AppRoute.Backup
             "browser" -> AppRoute.Browser

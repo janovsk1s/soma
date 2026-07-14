@@ -11,9 +11,11 @@ import com.soma.core.model.EntryRevision
 import com.soma.core.model.EntrySource
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.ImportantKind
-import com.soma.core.model.MetadataSource
 import com.soma.core.model.ImageAttachment
 import com.soma.core.model.ImageFormat
+import com.soma.core.model.LogRecord
+import com.soma.core.model.LogRevision
+import com.soma.core.model.MetadataSource
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.SupportedLanguage
@@ -30,6 +32,7 @@ import com.soma.core.model.TranscriptionInfo
 import com.soma.core.model.TranscriptionJob
 import com.soma.core.model.TranscriptionJobState
 import com.soma.core.model.TranscriptionProvenance
+import com.soma.storage.repository.TrackingPayloadCodec
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInput
@@ -64,6 +67,8 @@ internal object BackupPayloadCodec {
                 output.writeList(snapshot.transcriptionVocabulary) { target, term -> target.writeString(term) }
                 output.writeList(snapshot.imageContainers, ::writeImageContainer)
                 output.writeList(snapshot.entryMetadata, ::writeMetadata)
+                output.writeList(snapshot.trackingLogs, ::writeTrackingLog)
+                output.writeList(snapshot.trackingLogRevisions, ::writeTrackingRevision)
             }
             buffer.copyBytes()
         } finally {
@@ -89,6 +94,12 @@ internal object BackupPayloadCodec {
         val transcriptionVocabulary = if (payloadVersion >= 4) input.readList { it.readString() } else emptyList()
         val images = if (payloadVersion >= 8) input.readList(::readImageContainer) else emptyList()
         val metadata = if (payloadVersion >= 9) input.readList(::readMetadata) else emptyList()
+        val trackingLogs = if (payloadVersion >= 10) input.readList(::readTrackingLog) else emptyList()
+        val trackingRevisions = if (payloadVersion >= 10) {
+            input.readList(::readTrackingRevision)
+        } else {
+            emptyList()
+        }
         val lastEdits = revisions.groupBy(EntryRevision::entryId)
             .mapValues { (_, values) -> values.maxBy(EntryRevision::editedAt).editedAt }
         val notes = rawNotes.map { note ->
@@ -102,6 +113,8 @@ internal object BackupPayloadCodec {
             notes = notes,
             entryRevisions = revisions,
             entryMetadata = metadata,
+            trackingLogs = trackingLogs,
+            trackingLogRevisions = trackingRevisions,
             todos = todos,
             suggestions = suggestions,
             stillOpenDismissals = dismissals,
@@ -231,6 +244,27 @@ internal object BackupPayloadCodec {
         kind = input.readEnum<EntryLinkKind>(),
         target = input.readString(),
         relation = input.readNullable { it.readString() },
+    )
+
+    private fun writeTrackingLog(output: DataOutput, log: LogRecord) {
+        output.writeString(TrackingPayloadCodec.encode(log))
+    }
+
+    private fun readTrackingLog(input: DataInput): LogRecord =
+        TrackingPayloadCodec.decode(input.readString())
+
+    private fun writeTrackingRevision(output: DataOutput, revision: LogRevision) {
+        output.writeString(revision.logId)
+        output.writeLong(revision.revision)
+        output.writeInstant(revision.editedAt)
+        output.writeString(TrackingPayloadCodec.encode(revision.snapshot))
+    }
+
+    private fun readTrackingRevision(input: DataInput): LogRevision = LogRevision(
+        logId = input.readString(),
+        revision = input.readLong(),
+        editedAt = input.readInstant(),
+        snapshot = TrackingPayloadCodec.decode(input.readString()),
     )
 
     private fun writeAudioAttachment(output: DataOutput, audio: AudioAttachment) {

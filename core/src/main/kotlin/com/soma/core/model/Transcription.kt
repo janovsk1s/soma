@@ -15,6 +15,7 @@ enum class TranscriptionFailureCode {
 enum class TranscriptionEngine {
     LOCAL_WHISPER_TINY,
     ELEVENLABS_SCRIBE_V2,
+    GROQ_WHISPER_LARGE_V3_TURBO,
     GROQ_WHISPER_LARGE_V3,
 }
 

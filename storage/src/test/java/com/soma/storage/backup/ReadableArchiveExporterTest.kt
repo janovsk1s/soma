@@ -9,7 +9,15 @@ import com.soma.core.model.EntryLink
 import com.soma.core.model.EntryLinkKind
 import com.soma.core.model.EntryMetadata
 import com.soma.core.model.ImportantKind
+import com.soma.core.model.FoodItem
+import com.soma.core.model.FoodQuantityUnit
+import com.soma.core.model.LogKind
+import com.soma.core.model.LogRecord
+import com.soma.core.model.LogRevision
 import com.soma.core.model.MetadataSource
+import com.soma.core.model.NutritionBasis
+import com.soma.core.model.NutritionEstimate
+import com.soma.core.model.NutritionSource
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.SupportedLanguage
 import com.soma.core.model.Todo
@@ -63,6 +71,32 @@ class ReadableArchiveExporterTest {
             "SHOULD-NOT-EXPORT",
             created.plusSeconds(2),
         ).copy(deletedAt = edited.plusSeconds(2))
+        val originalLog = LogRecord(
+            id = "meal-1",
+            kind = LogKind.MEAL,
+            title = "Milchreis",
+            occurredAt = created,
+            createdAt = created,
+            updatedAt = created,
+            foods = listOf(FoodItem("rice", 100.0, FoodQuantityUnit.GRAM, 100.0)),
+        )
+        val currentLog = originalLog.revise(
+            foods = listOf(
+                FoodItem(
+                    name = "rice",
+                    quantity = 100.0,
+                    unit = FoodQuantityUnit.GRAM,
+                    gramWeight = 100.0,
+                    nutrition = NutritionEstimate(
+                        basis = NutritionBasis.OFFICIAL_AVERAGE,
+                        source = NutritionSource.FINELI,
+                        energyKcal = 130.0,
+                        reference = "Fineli / THL · 123",
+                    ),
+                ),
+            ),
+            at = edited,
+        )
         val snapshot = BackupSnapshot(
             exportedAt = Instant.parse("2026-07-13T11:00:00Z"),
             notes = listOf(DailyNote(date, created, listOf(entry, voice, deleted))),
@@ -86,6 +120,8 @@ class ReadableArchiveExporterTest {
                     source = MetadataSource.AI,
                 ),
             ),
+            trackingLogs = listOf(currentLog),
+            trackingLogRevisions = listOf(LogRevision(originalLog.id, 0, originalLog, edited)),
             todos = listOf(
                 Todo("todo-1", "call Ada", created, created, kind = ImportantKind.EXCERPT),
             ),
@@ -101,9 +137,12 @@ class ReadableArchiveExporterTest {
                 "manifest.json",
                 "notes/2026-07-13.md",
                 "todos.csv",
+                "logs.csv",
                 "data/notes.json",
                 "data/history.jsonl",
                 "data/metadata.json",
+                "data/logs.json",
+                "data/log-history.jsonl",
                 "settings/transcription-vocabulary.txt",
             ),
             files.keys,
@@ -114,6 +153,10 @@ class ReadableArchiveExporterTest {
         assertTrue(!files.getValue("data/metadata.json").contains("deleted-tag"))
         assertTrue(files.getValue("todos.csv").contains("call Ada"))
         assertTrue(files.getValue("todos.csv").contains("excerpt"))
+        assertTrue(files.getValue("logs.csv").contains("Milchreis"))
+        assertTrue(files.getValue("data/logs.json").contains("official_average"))
+        assertTrue(files.getValue("data/logs.json").contains("Fineli / THL"))
+        assertTrue(files.getValue("data/log-history.jsonl").contains("\"revision\":0"))
         assertTrue(files.getValue("data/history.jsonl").contains("buy milk"))
         assertTrue(files.getValue("data/notes.json").contains("2026-07-13T10:45:00Z"))
         assertTrue(files.getValue("data/notes.json").contains("elevenlabs_scribe_v2"))

@@ -7,11 +7,11 @@ are rejected rather than guessed.
 
 ## On-device Room database
 
-The Room database is `soma.db`, schema version 8, using write-ahead logging. Its
+The Room database is `soma.db`, schema version 9, using write-ahead logging. Its
 exported schemas are checked in under
 `storage/schemas/com.soma.storage.db.SomaDatabase/`.
 
-The eight tables are:
+The ten tables are:
 
 - `daily_notes`, with one unique `epoch_day` per note;
 - `entries`, ordered by the unique pair `(note_id, position)`;
@@ -21,7 +21,11 @@ The eight tables are:
 - `transcription_jobs`, including retry and lease state; and
 - `entry_revisions`, containing encrypted previous text for deliberate user edits; and
 - `entry_metadata`, containing independently replaceable manual or AI layers
-  whose tags and links are encrypted.
+  whose tags and links are encrypted;
+- `tracking_logs`, containing queryable type/time/source fields and one encrypted
+  structured payload for each meal, recipe, or workout; and
+- `tracking_log_revisions`, containing encrypted full snapshots of every prior
+  structured-log version.
 
 User-authored entry text, todo text, suggestion text and matched rule,
 transcription failure diagnostics, and entry-metadata tags/link values are
@@ -59,7 +63,8 @@ crypto_version
 
 Version 1 field names are `entry.text`, `entry.transcriptionFailure`,
 `entryRevision.text`, `entryMetadata.tags`, `entryMetadata.links`, `todo.text`,
-`suggestion.text`, `suggestion.matchedRule`, and `transcription.lastFailure`.
+`suggestion.text`, `suggestion.matchedRule`, `transcription.lastFailure`,
+`trackingLog.payload`, and `trackingLogRevision.payload`.
 Moving a ciphertext to another row or protected
 field fails GCM authentication.
 
@@ -171,7 +176,7 @@ so identical snapshots produce different files.
 | --- | --- |
 | Magic | 8 ASCII bytes: `SOMABACK` |
 | Container version | 32-bit integer, currently `1` |
-| Payload version | 32-bit integer, currently `9` |
+| Payload version | 32-bit integer, currently `10` |
 | KDF id | 32-bit length + ASCII `PBKDF2-HMAC-SHA256` |
 | PBKDF2 iterations | 32-bit integer, `600000` |
 | Derived key size | 32-bit integer, `256` bits |
@@ -187,7 +192,7 @@ authentication. Trailing bytes and truncated inputs are rejected. A wrong
 passphrase and authenticated-byte corruption intentionally report the same
 authentication error.
 
-### Plaintext payload, versions 1 through 9
+### Plaintext payload, versions 1 through 10
 
 The encrypted payload is a deterministic `DataOutputStream` serialization in
 this order:
@@ -209,7 +214,9 @@ this order:
 14. in payload version 8, image attachments, image tombstones, and optional
     portable JPEG byte sequences; and
 15. in payload version 9, additive entry metadata layers with normalized tags
-    and typed entry, date, or tag links.
+    and typed entry, date, or tag links; and
+16. in payload version 10, current meal, recipe, and workout logs plus every
+    prior log snapshot.
 
 Each list begins with a 32-bit count. Strings use a 32-bit byte length followed
 by strict UTF-8, not Java modified UTF. Instants use epoch seconds plus
@@ -237,15 +244,18 @@ unencrypted ZIP intended for long-term independence from Soma. It contains:
 - `README.txt` and `manifest.json`;
 - one `notes/YYYY-MM-DD.md` file per daily note;
 - `todos.csv`, including the portable `action`, `list`, or `excerpt` kind;
+- `logs.csv`, with spreadsheet-friendly meal, recipe, and workout rows;
 - `data/notes.json` with exact ids, order, types, timestamps, text, and media metadata;
 - `data/history.jsonl` with every preserved user edit revision; and
 - `data/metadata.json` with manual and AI metadata layers, tags, and typed links;
+- `data/logs.json` with complete food quantities, nutrition provenance, and workout sets;
+- `data/log-history.jsonl` with every earlier structured-log snapshot;
 - `settings/transcription-vocabulary.txt` with user-provided speech spellings; and
 - optional standard 16 kHz mono `audio/*.wav` and `images/*.jpg` files.
 
 Structured timestamps are ISO-8601 UTC instants. The archive can be consumed by
 ordinary text, spreadsheet, JSON, image, and audio tools without an app-specific codec.
-Readable archive format 8 excludes soft-deleted entries and media while keeping
+Readable archive format 9 excludes soft-deleted entries and media while keeping
 the editable transcript and its transcription provenance. The encrypted
 portable backup retains tombstones so deleted content can still be restored.
 Because it is not encrypted, exporting it moves plaintext outside Soma's trust
@@ -255,14 +265,16 @@ boundary. It is not accepted by the restore flow; use `.soma` for restoration.
 
 The optional `Soma-vault-YYYY-MM-DD.zip` export is a standard, deliberately
 unencrypted, one-way Markdown vault. It is intended for Obsidian, Logseq, plain
-text editors, and long-term use without Soma. Format version 3 contains:
+text editors, and long-term use without Soma. Format version 4 contains:
 
 - `README.md` with the portability, privacy, and one-way-export contract;
 - `.soma/manifest.json` with format version, export instant, time zone, and
   record counts;
 - one root-level `YYYY-MM-DD.md` file per daily note;
 - `Important.md`, with open, done, and let-go items as Markdown checklists;
+- `Logs.md`, with meals, recipes, workouts, quantities, nutrition sources, and sets;
 - one `history/YYYY-MM-DD-<token>.md` file for each edited entry; and
+- one `history/log-<token>.md` file for each edited structured log; and
 - optional standard WAV and JPEG files under `media/`, embedded from the owning day.
 
 Daily-file YAML frontmatter contains `date`, `created`, `last_edited`, `tags`,
@@ -278,7 +290,7 @@ history file. File paths and anchors use a truncated SHA-256 token rather than
 the raw entry id, so legacy or imported ids cannot inject paths. ZIP members are
 written in deterministic order with fixed member timestamps.
 
-Format version 3 excludes entry and media tombstones. It retains current text,
+Format version 4 excludes entry and media tombstones. It retains current text,
 editable voice transcripts, all earlier wordings, Important state/kind/source,
 show-again dates, entry metadata, and optional playable audio and viewable
 photos. No API keys or encrypted

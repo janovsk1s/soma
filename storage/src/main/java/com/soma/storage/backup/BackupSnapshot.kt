@@ -6,6 +6,8 @@ import com.soma.core.model.EntryKind
 import com.soma.core.model.EntryMetadata
 import com.soma.core.model.EntryRevision
 import com.soma.core.model.ImageAttachment
+import com.soma.core.model.LogRecord
+import com.soma.core.model.LogRevision
 import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.Todo
 import com.soma.core.model.TodoSuggestion
@@ -26,6 +28,8 @@ data class BackupSnapshot(
     val notes: List<DailyNote>,
     val entryRevisions: List<EntryRevision> = emptyList(),
     val entryMetadata: List<EntryMetadata> = emptyList(),
+    val trackingLogs: List<LogRecord> = emptyList(),
+    val trackingLogRevisions: List<LogRevision> = emptyList(),
     val todos: List<Todo>,
     val suggestions: List<TodoSuggestion>,
     val stillOpenDismissals: List<StillOpenDismissal> = emptyList(),
@@ -81,6 +85,17 @@ data class BackupSnapshot(
         require(entryMetadata.map { it.entryId to it.source }.distinct().size == entryMetadata.size) {
             "A backup cannot contain duplicate metadata layers"
         }
+        require(trackingLogs.map(LogRecord::id).distinct().size == trackingLogs.size) {
+            "A backup cannot contain duplicate tracking log ids"
+        }
+        val logsById = trackingLogs.associateBy(LogRecord::id)
+        require(trackingLogRevisions.all { revision -> revision.logId in logsById }) {
+            "A backup tracking revision references a missing log"
+        }
+        require(
+            trackingLogRevisions.map { it.logId to it.revision }.distinct().size ==
+                trackingLogRevisions.size,
+        ) { "A backup cannot contain duplicate tracking log revisions" }
         val attachmentIds = entriesById.values.mapNotNull { it.audio?.fileId }
         require(attachmentIds.distinct().size == attachmentIds.size) {
             "Each audio attachment must own a distinct file"
@@ -118,10 +133,18 @@ data class BackupSnapshot(
                 }
             }
         }
+        trackingLogs.forEach { log ->
+            log.source?.let { source ->
+                val entry = entriesById[source.entryId]
+                require(entry != null && entry.noteDate == source.noteDate) {
+                    "A tracking log source must reference its entry's note"
+                }
+            }
+        }
     }
 
     companion object {
-        const val CURRENT_PAYLOAD_VERSION: Int = 9
+        const val CURRENT_PAYLOAD_VERSION: Int = 10
         val SUPPORTED_PAYLOAD_VERSIONS: IntRange = 1..CURRENT_PAYLOAD_VERSION
     }
 }

@@ -1,0 +1,29 @@
+<resources>
+    <string name="transcription_engine_groq_turbo">Groq · Whisper Large v3 Turbo</string>
+    <string name="logs">Záznamy</string><string name="logs_all">všetky</string><string name="logs_empty">Zatiaľ žiadne jedlá, recepty ani tréningy.</string>
+    <string name="meal">jedlo</string><string name="meals">jedlá</string><string name="recipe">recept</string><string name="recipes">recepty</string>
+    <string name="workout">tréning</string><string name="workouts">tréningy</string><string name="add_log">pridať záznam</string>
+    <string name="add_meal">pridať jedlo…</string><string name="add_recipe">pridať recept…</string><string name="add_workout">pridať tréning…</string>
+    <string name="log_meal_help">Jedna potravina na riadok. Ak poznáš množstvo, pridaj ho, napríklad „mliečna ryža 300 g“. Soma si kalórie nevymýšľa.</string>
+    <string name="log_recipe_help">Jedna prísada na riadok, napríklad „ryža 100 g“. Množstvá aj výživové údaje možno upraviť.</string>
+    <string name="log_workout_help">Rýchly tvar: „leg press 3×10 80 kg“. Ďalší cvik napíš na nový riadok.</string>
+    <string name="log_from_entry">zaznamenať jedlo, recept alebo tréning</string><string name="archive_log">archivovať záznam</string>
+    <string name="log_earlier_versions">%1$d starších verzií</string><string name="source_entry">zdrojový záznam</string>
+    <string name="nutrition_package_label">údaj na obale</string><string name="nutrition_official_average">oficiálny európsky priemer</string>
+    <string name="nutrition_estimated">odhad</string><string name="nutrition_unquantified">bez určeného množstva</string>
+    <string name="nutrition_kcal">približne %1$s kcal</string><string name="nutrition_kcal_range">približne %1$s–%2$s kcal</string>
+    <string name="nutrition_kcal_per_100g">%1$s kcal / 100 g</string><string name="match_food">priradiť oficiálnu potravinu</string>
+    <string name="food_search_hint">Nájsť potravinu…</string><string name="food_search_loading">načítavajú sa európske potraviny…</string>
+    <string name="food_search_empty">Žiadna miestna zhoda. Nechaj bez množstva.</string><string name="lookup_barcode_online">vyhľadať čiarový kód online</string>
+    <string name="open_food_facts">Open Food Facts</string><string name="food_piece">kus</string><string name="food_serving">porcia</string>
+    <string name="workout_unquantified">série, opakovania alebo hmotnosť neboli zaznamenané</string><string name="workout_set">séria %1$d · %2$s</string>
+    <string name="workout_reps">%1$d opakovaní</string><string name="workout_kg">%1$s kg</string><string name="workout_seconds">%1$d s</string>
+    <string name="workout_exercise_hint">cvik alebo stroj…</string><string name="workout_sets_hint">série…</string>
+    <string name="workout_repetitions_hint">opakovania…</string><string name="workout_weight_hint">kilogramy…</string>
+    <string name="workout_detailed_entry">napísať podrobný tréning</string><string name="choose_exercise">vybrať cvik</string>
+    <string name="exercise_search_hint">Nájsť cvik alebo stroj…</string><string name="exercise_search_empty">Žiadna miestna zhoda. Napíš vlastný názov.</string>
+    <string name="developer_light_gear">ozubené koleso Light</string><string name="developer_groq_model">model reči Groq</string>
+    <string name="developer_groq_turbo">Turbo · lacnejší</string><string name="developer_groq_accuracy">Large v3 · presnosť</string>
+    <string name="developer_ai_tracking">návrhy jedál a tréningov pomocou AI</string><string name="suggest_with_groq">navrhnúť zo záznamu cez Groq</string>
+    <string name="suggesting_with_groq">pýta sa Groq…</string><string name="tracking_suggestion_failed">Návrh nebol prijatý. Pôvodný záznam sa nezmenil.</string>
+</resources>

@@ -8,6 +8,9 @@ import com.soma.core.model.EntryKind
 import com.soma.core.model.EntryMetadata
 import com.soma.core.model.EntryRevision
 import com.soma.core.model.EntryTranscriptionState
+import com.soma.core.model.LogKind
+import com.soma.core.model.LogRecord
+import com.soma.core.model.LogRevision
 import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.MetadataSource
 import com.soma.core.model.Todo
@@ -23,6 +26,7 @@ import com.soma.core.repository.DailyNoteRepository
 import com.soma.core.repository.EntryMutationResult
 import com.soma.core.repository.EntryMetadataRepository
 import com.soma.core.repository.StillOpenRepository
+import com.soma.core.repository.TrackingLogRepository
 import com.soma.core.repository.TodoRepository
 import com.soma.core.repository.TodoSuggestionRepository
 import com.soma.core.repository.TranscriptionJobRepository
@@ -56,6 +60,7 @@ class RoomSomaRepository(
     TodoRepository,
     TodoSuggestionRepository,
     EntryMetadataRepository,
+    TrackingLogRepository,
     StillOpenRepository,
     TranscriptionJobRepository {
     private val mapper = EntityMapper(textCipher)
@@ -63,6 +68,8 @@ class RoomSomaRepository(
     private val entryDao = database.entryDao()
     private val revisionDao = database.entryRevisionDao()
     private val metadataDao = database.entryMetadataDao()
+    private val trackingLogDao = database.trackingLogDao()
+    private val trackingRevisionDao = database.trackingLogRevisionDao()
     private val todoDao = database.todoDao()
     private val suggestionDao = database.todoSuggestionDao()
     private val dismissalDao = database.stillOpenDismissalDao()
@@ -248,6 +255,50 @@ class RoomSomaRepository(
 
     override suspend fun datesWithEntries(from: LocalDate, to: LocalDate): List<LocalDate> =
         noteDao.notedDaysBetween(from.toEpochDay(), to.toEpochDay()).map(LocalDate::ofEpochDay)
+
+    override suspend fun getLog(logId: String): LogRecord? =
+        trackingLogDao.getById(logId)?.let(mapper::trackingLogFromEntity)
+
+    override fun observe(kind: LogKind?): Flow<List<LogRecord>> =
+        trackingLogDao.observeActive(kind?.name).map { entities ->
+            entities.map(mapper::trackingLogFromEntity)
+        }
+
+    override suspend fun listAllLogs(): List<LogRecord> =
+        trackingLogDao.listAll().map(mapper::trackingLogFromEntity)
+
+    override suspend fun insert(log: LogRecord): Boolean = database.withTransaction {
+        require(log.revision == 0L) { "A new tracking log must start at revision zero" }
+        trackingLogDao.insert(mapper.trackingLogToEntity(log)) != INSERT_CONFLICT
+    }
+
+    override suspend fun update(log: LogRecord): Boolean = database.withTransaction {
+        val existingEntity = trackingLogDao.getById(log.id) ?: return@withTransaction false
+        val existing = mapper.trackingLogFromEntity(existingEntity)
+        require(log.kind == existing.kind) { "Tracking log kind is immutable" }
+        require(log.createdAt == existing.createdAt) { "Tracking log creation time is immutable" }
+        require(log.occurredAt == existing.occurredAt) { "Tracking log occurrence time is immutable" }
+        require(log.source == existing.source) { "Tracking log source is immutable" }
+        require(log.revision == existing.revision + 1) { "Tracking log revision must advance exactly once" }
+        require(!log.updatedAt.isBefore(existing.updatedAt)) { "Tracking log update cannot move backwards" }
+        trackingRevisionDao.insert(
+            mapper.trackingRevisionToEntity(
+                LogRevision(
+                    logId = existing.id,
+                    revision = existing.revision,
+                    snapshot = existing,
+                    editedAt = log.updatedAt,
+                ),
+            ),
+        )
+        check(trackingLogDao.update(mapper.trackingLogToEntity(log)) == 1) {
+            "Tracking log disappeared during update"
+        }
+        true
+    }
+
+    override suspend fun listRevisions(logId: String): List<LogRevision> =
+        trackingRevisionDao.listForLog(logId).map(mapper::trackingRevisionFromEntity)
 
     override suspend fun get(todoId: String): Todo? =
         todoDao.getById(todoId)?.let(mapper::todoFromEntity)
@@ -590,6 +641,9 @@ class RoomSomaRepository(
         val jobs = jobDao.listAll().take(maximumRows).map(mapper::jobFromEntity)
         val revisions = revisionDao.listAll().take(maximumRows).map(mapper::revisionFromEntity)
         val metadata = metadataDao.listAll().take(maximumRows).map(mapper::metadataFromEntity)
+        val trackingLogs = trackingLogDao.listAll().take(maximumRows).map(mapper::trackingLogFromEntity)
+        val trackingRevisions = trackingRevisionDao.listAll().take(maximumRows)
+            .map(mapper::trackingRevisionFromEntity)
         check(noteEntities.size < maximumRows || noteDao.listBeforeOrOn(LocalDate.MAX.toEpochDay(), 1, maximumRows).isEmpty()) {
             "Backup row limit exceeded"
         }
@@ -603,11 +657,15 @@ class RoomSomaRepository(
         check(jobDao.listAll().size <= maximumRows) { "Backup row limit exceeded" }
         check(revisionDao.listAll().size <= maximumRows) { "Backup row limit exceeded" }
         check(metadataDao.listAll().size <= maximumRows) { "Backup row limit exceeded" }
+        check(trackingLogDao.listAll().size <= maximumRows) { "Backup row limit exceeded" }
+        check(trackingRevisionDao.listAll().size <= maximumRows) { "Backup row limit exceeded" }
         BackupSnapshot(
             exportedAt = exportedAt,
             notes = notes,
             entryRevisions = revisions,
             entryMetadata = metadata,
+            trackingLogs = trackingLogs,
+            trackingLogRevisions = trackingRevisions,
             todos = todos,
             suggestions = suggestions,
             stillOpenDismissals = dismissals,
@@ -619,6 +677,8 @@ class RoomSomaRepository(
     suspend fun replaceAll(snapshot: BackupSnapshot) = database.withTransaction {
         // Child-first order keeps foreign-key enforcement explicit.
         jobDao.clear()
+        trackingRevisionDao.clear()
+        trackingLogDao.clear()
         metadataDao.clear()
         suggestionDao.clear()
         todoDao.clear()
@@ -655,6 +715,14 @@ class RoomSomaRepository(
             .forEach { revisionDao.insert(mapper.revisionToEntity(it)) }
         snapshot.entryMetadata.sortedWith(compareBy(EntryMetadata::entryId, EntryMetadata::source))
             .forEach { metadataDao.upsert(mapper.metadataToEntity(it)) }
+        snapshot.trackingLogs.sortedBy(LogRecord::occurredAt).forEach { log ->
+            check(trackingLogDao.insert(mapper.trackingLogToEntity(log)) != INSERT_CONFLICT) {
+                "Duplicate tracking log in backup"
+            }
+        }
+        snapshot.trackingLogRevisions
+            .sortedWith(compareBy(LogRevision::logId, LogRevision::revision))
+            .forEach { trackingRevisionDao.insert(mapper.trackingRevisionToEntity(it)) }
         snapshot.todos.forEach { todo ->
             check(todoDao.insert(mapper.todoToEntity(todo)) != INSERT_CONFLICT) { "Duplicate todo in backup" }
         }

@@ -14,11 +14,14 @@ object SomaPrefs {
     private const val KEY_LANGUAGE = "language"
     private const val KEY_SPEECH_LANGUAGES = "speech_languages"
     private const val KEY_LIGHT_MODE = "light_mode"
+    private const val KEY_LIGHT_GEAR = "light_sdk_settings_gear"
     private const val KEY_CLOUD_TRANSCRIPTION = "cloud_transcription_enabled"
     private const val KEY_CLOUD_PROVIDER = "cloud_speech_provider"
+    private const val KEY_GROQ_SPEECH_MODEL = "groq_speech_model"
     private const val KEY_CLOUD_WIFI_ONLY = "cloud_wifi_only"
     private const val KEY_AI_TODOS = "cloud_ai_todo_suggestions"
     private const val KEY_AI_AUTO_METADATA = "cloud_ai_auto_metadata"
+    private const val KEY_AI_TRACKING = "cloud_ai_tracking_suggestions"
 
     private fun values(context: Context) = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
@@ -52,6 +55,11 @@ object SomaPrefs {
     fun setLightMode(context: Context, enabled: Boolean) =
         values(context).edit().putBoolean(KEY_LIGHT_MODE, enabled).apply()
 
+    /** Paka's exact LightOS-style settings asset; the drawn fallback remains a developer option. */
+    fun lightGear(context: Context): Boolean = values(context).getBoolean(KEY_LIGHT_GEAR, true)
+    fun setLightGear(context: Context, enabled: Boolean) =
+        values(context).edit().putBoolean(KEY_LIGHT_GEAR, enabled).apply()
+
     fun cloudTranscription(context: Context): Boolean =
         values(context).getBoolean(KEY_CLOUD_TRANSCRIPTION, false)
 
@@ -60,13 +68,23 @@ object SomaPrefs {
 
     fun cloudSpeechProvider(context: Context): CloudSpeechProvider = runCatching {
         CloudSpeechProvider.valueOf(
-            values(context).getString(KEY_CLOUD_PROVIDER, CloudSpeechProvider.ELEVENLABS.name)
-                ?: CloudSpeechProvider.ELEVENLABS.name,
+            values(context).getString(KEY_CLOUD_PROVIDER, CloudSpeechProvider.GROQ.name)
+                ?: CloudSpeechProvider.GROQ.name,
         )
-    }.getOrDefault(CloudSpeechProvider.ELEVENLABS)
+    }.getOrDefault(CloudSpeechProvider.GROQ)
 
     fun setCloudSpeechProvider(context: Context, provider: CloudSpeechProvider) =
         values(context).edit().putString(KEY_CLOUD_PROVIDER, provider.name).apply()
+
+    fun groqSpeechModel(context: Context): GroqSpeechModel = runCatching {
+        GroqSpeechModel.valueOf(
+            values(context).getString(KEY_GROQ_SPEECH_MODEL, GroqSpeechModel.TURBO.name)
+                ?: GroqSpeechModel.TURBO.name,
+        )
+    }.getOrDefault(GroqSpeechModel.TURBO)
+
+    fun setGroqSpeechModel(context: Context, model: GroqSpeechModel) =
+        values(context).edit().putString(KEY_GROQ_SPEECH_MODEL, model.name).apply()
 
     /**
      * Cloud features may use the phone's active internet connection by default,
@@ -87,6 +105,11 @@ object SomaPrefs {
 
     fun setAiAutoMetadata(context: Context, enabled: Boolean) =
         values(context).edit().putBoolean(KEY_AI_AUTO_METADATA, enabled).apply()
+
+    fun aiTrackingSuggestions(context: Context): Boolean = values(context).getBoolean(KEY_AI_TRACKING, false)
+
+    fun setAiTrackingSuggestions(context: Context, enabled: Boolean) =
+        values(context).edit().putBoolean(KEY_AI_TRACKING, enabled).apply()
 
     fun language(context: Context): SupportedLanguage {
         val stored = values(context).getString(KEY_LANGUAGE, null)

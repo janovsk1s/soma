@@ -13,7 +13,7 @@ the header is length-prefixed US-ASCII.
 | --- | --- |
 | Magic | 8 bytes: `SOMABACK` |
 | Container version | 32-bit integer, currently `1` |
-| Payload version | 32-bit integer, currently `9` |
+| Payload version | 32-bit integer, currently `10` |
 | KDF id | 32-bit byte length + `PBKDF2-HMAC-SHA256` |
 | PBKDF2 iterations | 32-bit integer, `600000` |
 | Derived key size | 32-bit integer, `256` bits |
@@ -37,7 +37,7 @@ Wrong passphrases and authenticated-byte corruption produce the same
 `BackupAuthenticationException`. This avoids exposing a password-verification
 oracle.
 
-## Plaintext payload, versions 1 through 9
+## Plaintext payload, versions 1 through 10
 
 The encrypted payload is deterministic for a given `BackupSnapshot`: values and
 lists are written in DTO order with `DataOutputStream` and read with
@@ -54,7 +54,9 @@ lists are written in DTO order with `DataOutputStream` and read with
 8. version-gated edit revisions, transcription provenance, vocabulary,
    Important kind/resurface state, and image attachments/JPEG bytes; and
 9. in payload version 9, manual and AI entry-metadata layers with tags and typed
-   links.
+   links; and
+10. in payload version 10, revisioned meal, recipe, and workout logs, including
+    source links, food quantities, nutrition basis/source, and exercise sets.
 
 Strings use a 32-bit UTF-8 byte length rather than Java modified UTF, so long note
 text and all supported languages round-trip exactly. Instants are stored as epoch

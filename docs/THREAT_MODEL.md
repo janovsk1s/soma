@@ -29,7 +29,7 @@ backup.
 
 The primary assets are note and transcript text, Important items and their source links,
 Important suggestions, additive metadata tags and links, voice recordings,
-photos, backup contents and passphrases, Android Keystore keys, and the temporary
+revisioned meal/recipe/workout logs, photos, backup contents and passphrases, Android Keystore keys, and the temporary
 browser access code and session token.
 
 Dates, record counts, ordering, ids, state transitions, languages, timestamps,
@@ -42,8 +42,8 @@ preferences, not secret material.
 
 1. Compose UI and background transcription handle plaintext inside the Soma
    process.
-2. The storage repository encrypts user-authored text and additive metadata
-   values before they cross the Room boundary. AES-GCM AAD binds ciphertext to
+2. The storage repository encrypts user-authored text, additive metadata, and
+   structured tracking payloads before they cross the Room boundary. AES-GCM AAD binds ciphertext to
    its row, protected field, source layer, and crypto version.
 3. Audio capture flows from `AudioRecord` directly into independently
    authenticated encrypted chunks. Playback and transcription decrypt streams
@@ -140,7 +140,11 @@ retain language context across pauses. AI Important extraction sends only the ne
 edited entry and still creates a suggestion requiring a tap, never an item.
 The independent automatic-metadata toggle sends the same bounded entry text to
 Groq `openai/gpt-oss-20b` and accepts only normalized topic tags and explicit
-ISO date links. Both analysis features are off by default.
+ISO date links. A third independent tracking-proposal toggle sends a deliberately
+selected entry's bounded text and, when present, its JPEG to Groq. Text proposals
+use strict structured output; photo proposals use the replaceable preview vision
+model and remain editable suggestions. They never mutate the source entry or
+become a log without a user Save. All analysis features are off by default.
 
 Unfinished Capture and Important-editor drafts are kept out of Android saved
 instance state. They are encrypted under the separate non-exportable Keystore
@@ -150,9 +154,10 @@ and deleted after the corresponding item is saved.
 The optional transcription vocabulary is encrypted under the distinct alias
 `soma.transcription.vocabulary.v1`. It is sent with audio when a cloud provider
 is selected; an empty list sends nothing. ElevenLabs keyterms add a provider
-surcharge, which is disclosed in the editor. ElevenLabs is the initial
-accuracy-first provider. Groq customers can enable Zero Data Retention in Groq's
-controls; ElevenLabs may retain request content unless the account is eligible
+surcharge, which is disclosed in the editor. Groq Turbo is the initial low-cost
+cloud provider; Groq Large v3 and ElevenLabs are explicit accuracy choices. Groq
+processing and any retained customer data are located in the United States.
+Groq customers can enable Zero Data Retention in Groq's controls; ElevenLabs may retain request content unless the account is eligible
 for its Enterprise-only zero-retention mode. Cloud failure falls back to bundled
 Whisper and never deletes the encrypted recording.
 

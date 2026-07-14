@@ -67,6 +67,7 @@ import kotlinx.coroutines.isActive
 fun HomeScreen(
     viewModel: SomaViewModel,
     onTodos: () -> Unit,
+    onLogs: () -> Unit,
     onResurfacedImportant: (Todo) -> Unit,
     onSettings: () -> Unit,
     onCalendar: () -> Unit,
@@ -114,6 +115,7 @@ fun HomeScreen(
             onSettings = onSettings,
             onCalendar = onCalendar,
             onTodos = onTodos,
+            onLogs = onLogs,
         )
         Column(
             modifier = Modifier.weight(1f).fillMaxWidth().daySwipe(
@@ -314,6 +316,7 @@ private fun HomeHeader(
     onSettings: () -> Unit,
     onCalendar: () -> Unit,
     onTodos: () -> Unit,
+    onLogs: () -> Unit,
 ) {
     Box(
         modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
@@ -341,7 +344,7 @@ private fun HomeHeader(
                 modifier = Modifier.padding(horizontal = 64.dp),
             )
         }
-        TodosButton(onTodos, Modifier.align(Alignment.CenterEnd).offset(x = 10.dp))
+        TodosButton(onTodos, onLogs, Modifier.align(Alignment.CenterEnd).offset(x = 10.dp))
     }
 }
 
@@ -485,6 +488,8 @@ private fun transcriptionSourceLabel(provenance: TranscriptionProvenance?): Stri
     val requested = when (provenance.requestedEngine) {
         TranscriptionEngine.LOCAL_WHISPER_TINY -> stringResource(R.string.transcription_engine_local)
         TranscriptionEngine.ELEVENLABS_SCRIBE_V2 -> stringResource(R.string.transcription_engine_elevenlabs)
+        TranscriptionEngine.GROQ_WHISPER_LARGE_V3_TURBO ->
+            stringResource(R.string.transcription_engine_groq_turbo)
         TranscriptionEngine.GROQ_WHISPER_LARGE_V3 -> stringResource(R.string.transcription_engine_groq)
     }
     return when (provenance.fallbackReason) {
@@ -602,6 +607,7 @@ private enum class EntryAction {
     EDIT,
     HISTORY,
     IMPORTANT,
+    LOG,
     RETURN,
     RECORD_ABOUT_PHOTO,
     PLAY,
@@ -617,6 +623,7 @@ fun EntryOptionsScreen(
     onEdit: () -> Unit,
     onHistory: () -> Unit,
     onMarkImportant: () -> Unit,
+    onLog: () -> Unit,
     onReturn: () -> Unit,
     onRecordAboutPhoto: () -> Unit,
     onPlay: () -> Unit,
@@ -637,6 +644,7 @@ fun EntryOptionsScreen(
         }
         if (entry.lastUserEditedAt != null) add(EntryAction.HISTORY)
         if (entry.text.isNotBlank()) add(EntryAction.IMPORTANT)
+        if (entry.text.isNotBlank() || entry.activeImage != null) add(EntryAction.LOG)
         add(EntryAction.RETURN)
         if (entry.activeImage != null && entry.activeAudio == null && entry.text.isBlank()) {
             add(EntryAction.RECORD_ABOUT_PHOTO)
@@ -664,6 +672,7 @@ fun EntryOptionsScreen(
                         EntryAction.EDIT -> stringResource(R.string.edit)
                         EntryAction.HISTORY -> stringResource(R.string.entry_history)
                         EntryAction.IMPORTANT -> stringResource(R.string.mark_important)
+                        EntryAction.LOG -> stringResource(R.string.log_from_entry)
                         EntryAction.RETURN -> stringResource(if (entry.returnLater) R.string.returned else R.string.return_later)
                         EntryAction.RECORD_ABOUT_PHOTO -> stringResource(R.string.record_about_photo)
                         EntryAction.PLAY -> stringResource(R.string.play_original)
@@ -676,6 +685,7 @@ fun EntryOptionsScreen(
                         EntryAction.EDIT -> onEdit
                         EntryAction.HISTORY -> onHistory
                         EntryAction.IMPORTANT -> onMarkImportant
+                        EntryAction.LOG -> onLog
                         EntryAction.RETURN -> onReturn
                         EntryAction.RECORD_ABOUT_PHOTO -> onRecordAboutPhoto
                         EntryAction.PLAY -> onPlay
@@ -701,6 +711,9 @@ fun TextEditorScreen(
     saveFailed: Boolean = false,
     allowBlank: Boolean = false,
     supportingText: String? = null,
+    secondaryActionLabel: String? = null,
+    secondaryActionRunning: Boolean = false,
+    onSecondaryAction: (() -> Unit)? = null,
     onSave: (String) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -766,6 +779,27 @@ fun TextEditorScreen(
                 lineHeight = 18.sp,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
             )
+        }
+        if (secondaryActionLabel != null && onSecondaryAction != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (!saving && !secondaryActionRunning) {
+                            tapModifier(onSecondaryAction, secondaryActionLabel)
+                        } else {
+                            Modifier
+                        },
+                    )
+                    .heightIn(min = 48.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                Text(
+                    if (secondaryActionRunning) stringResource(R.string.suggesting_with_groq) else secondaryActionLabel,
+                    color = if (!saving && !secondaryActionRunning) Ink else DimInk,
+                    fontSize = 18.sp,
+                )
+            }
         }
         Box(
             modifier = Modifier

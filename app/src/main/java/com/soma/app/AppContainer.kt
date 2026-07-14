@@ -10,6 +10,9 @@ import com.soma.core.model.EntryRevision
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.ImportantKind
 import com.soma.core.model.MetadataSource
+import com.soma.core.model.LogKind
+import com.soma.core.model.LogRecord
+import com.soma.core.model.LogRevision
 import com.soma.core.model.ImageAttachment
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
@@ -28,6 +31,7 @@ import com.soma.core.repository.DailyNoteRepository
 import com.soma.core.repository.EntryMutationResult
 import com.soma.core.repository.EntryMetadataRepository
 import com.soma.core.repository.StillOpenRepository
+import com.soma.core.repository.TrackingLogRepository
 import com.soma.core.repository.TodoRepository
 import com.soma.core.repository.TodoSuggestionRepository
 import com.soma.core.repository.TranscriptionJobRepository
@@ -55,6 +59,7 @@ data class SomaRepositories(
     val stillOpen: StillOpenRepository,
     val transcriptionJobs: TranscriptionJobRepository,
     val metadata: EntryMetadataRepository,
+    val trackingLogs: TrackingLogRepository,
 )
 
 class SomaApplication : Application() {
@@ -65,6 +70,7 @@ class SomaApplication : Application() {
     val audioDirectory: File by lazy { File(noBackupFilesDir, "audio").apply { mkdirs() } }
     val imageKeyProvider: ImageWrappingKeyProvider by lazy { AndroidImageWrappingKeyProvider() }
     val imageDirectory: File by lazy { File(noBackupFilesDir, "images").apply { mkdirs() } }
+    val europeanFoodCatalog: BundledEuropeanFoodCatalog by lazy { BundledEuropeanFoodCatalog(this) }
 
     override fun onCreate() {
         super.onCreate()
@@ -76,7 +82,15 @@ class SomaApplication : Application() {
 
     fun repositories(): SomaRepositories {
         val repository = if (SomaPrefs.demoMode(this)) demoRepository else realRepository
-        return SomaRepositories(repository, repository, repository, repository, repository, repository)
+        return SomaRepositories(
+            repository,
+            repository,
+            repository,
+            repository,
+            repository,
+            repository,
+            repository,
+        )
     }
 
     fun regenerateDemo() {
@@ -98,10 +112,12 @@ class SomaApplication : Application() {
 class InMemorySomaRepository private constructor(
     initialNotes: Map<LocalDate, DailyNote>,
     initialTodos: Map<String, Todo>,
+    initialTrackingLogs: Map<String, LogRecord> = emptyMap(),
 ) : DailyNoteRepository,
     TodoRepository,
     TodoSuggestionRepository,
     EntryMetadataRepository,
+    TrackingLogRepository,
     StillOpenRepository,
     TranscriptionJobRepository {
     private val mutex = Mutex()
@@ -112,6 +128,8 @@ class InMemorySomaRepository private constructor(
     private val jobs = MutableStateFlow<Map<String, TranscriptionJob>>(emptyMap())
     private val revisions = mutableMapOf<String, MutableList<EntryRevision>>()
     private val metadata = mutableMapOf<Pair<String, MetadataSource>, EntryMetadata>()
+    private val trackingLogs = MutableStateFlow(initialTrackingLogs)
+    private val trackingRevisions = mutableMapOf<String, MutableList<LogRevision>>()
 
     override suspend fun getOrCreate(date: LocalDate, createdAt: Instant): DailyNote = mutex.withLock {
         (notes.value[date] ?: DailyNote(date, createdAt).also { created ->
@@ -265,6 +283,44 @@ class InMemorySomaRepository private constructor(
             .sorted()
 
     private fun DailyNote.visible(): DailyNote = copy(entries = entries.filterNot(NoteEntry::isDeleted))
+
+    override suspend fun getLog(logId: String): LogRecord? = trackingLogs.value[logId]
+
+    override fun observe(kind: LogKind?): Flow<List<LogRecord>> = trackingLogs.map { all ->
+        all.values.filter { it.archivedAt == null && (kind == null || it.kind == kind) }
+            .sortedWith(compareByDescending<LogRecord> { it.occurredAt }.thenBy(LogRecord::id))
+    }
+
+    override suspend fun listAllLogs(): List<LogRecord> =
+        trackingLogs.value.values.sortedWith(compareBy(LogRecord::occurredAt, LogRecord::id))
+
+    override suspend fun insert(log: LogRecord): Boolean = mutex.withLock {
+        require(log.revision == 0L) { "A new tracking log must start at revision zero" }
+        if (log.id in trackingLogs.value) return@withLock false
+        trackingLogs.value = trackingLogs.value + (log.id to log)
+        true
+    }
+
+    override suspend fun update(log: LogRecord): Boolean = mutex.withLock {
+        val existing = trackingLogs.value[log.id] ?: return@withLock false
+        require(log.kind == existing.kind) { "Tracking log kind is immutable" }
+        require(log.createdAt == existing.createdAt) { "Tracking log creation time is immutable" }
+        require(log.occurredAt == existing.occurredAt) { "Tracking log occurrence time is immutable" }
+        require(log.source == existing.source) { "Tracking log source is immutable" }
+        require(log.revision == existing.revision + 1) { "Tracking log revision must advance exactly once" }
+        require(!log.updatedAt.isBefore(existing.updatedAt)) { "Tracking log update cannot move backwards" }
+        trackingRevisions.getOrPut(log.id, ::mutableListOf) += LogRevision(
+            logId = existing.id,
+            revision = existing.revision,
+            snapshot = existing,
+            editedAt = log.updatedAt,
+        )
+        trackingLogs.value = trackingLogs.value + (log.id to log)
+        true
+    }
+
+    override suspend fun listRevisions(logId: String): List<LogRevision> =
+        trackingRevisions[logId].orEmpty().toList()
 
     override suspend fun get(todoId: String): Todo? = todos.value[todoId]
 

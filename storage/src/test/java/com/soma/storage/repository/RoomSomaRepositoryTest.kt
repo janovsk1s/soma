@@ -12,7 +12,14 @@ import com.soma.core.model.EntryMetadata
 import com.soma.core.model.ImportantKind
 import com.soma.core.model.ImageAttachment
 import com.soma.core.model.ImageFormat
+import com.soma.core.model.FoodItem
+import com.soma.core.model.FoodQuantityUnit
+import com.soma.core.model.LogKind
+import com.soma.core.model.LogRecord
 import com.soma.core.model.MetadataSource
+import com.soma.core.model.NutritionBasis
+import com.soma.core.model.NutritionEstimate
+import com.soma.core.model.NutritionSource
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
@@ -238,6 +245,69 @@ class RoomSomaRepositoryTest {
             listOf("newer-first", "newer-second", "older"),
             repository.listAllVisible().map(EntryMetadata::entryId),
         )
+    }
+
+    @Test
+    fun `tracking edits preserve encrypted original records and backup history`() = runBlocking {
+        repository.getOrCreate(date, start)
+        val sourceEntry = NoteEntry.text("meal-entry", date, 0, "Milchreis on the train", start)
+        assertTrue(repository.insertEntry(sourceEntry))
+        val original = LogRecord(
+            id = "meal-log",
+            kind = LogKind.MEAL,
+            title = "Milchreis",
+            occurredAt = start,
+            createdAt = start,
+            updatedAt = start,
+            source = EntrySource(date, sourceEntry.id),
+            foods = listOf(
+                FoodItem(
+                    name = "Rice pudding",
+                    quantity = 1.0,
+                    unit = FoodQuantityUnit.SERVING,
+                    gramWeight = 300.0,
+                    nutrition = NutritionEstimate(
+                        basis = NutritionBasis.ESTIMATED,
+                        source = NutritionSource.AI_ESTIMATE,
+                        energyKcalMin = 350.0,
+                        energyKcalMax = 500.0,
+                        reference = "user-confirmed photo estimate",
+                    ),
+                ),
+            ),
+        )
+
+        assertTrue(repository.insert(original))
+        val revised = original.revise(
+            title = "Rice pudding",
+            at = start.plusSeconds(30),
+        )
+        assertTrue(repository.update(revised))
+
+        assertEquals(revised, repository.getLog(original.id))
+        assertEquals(original, repository.listRevisions(original.id).single().snapshot)
+        assertEquals(listOf(revised), repository.observe(LogKind.MEAL).first())
+        assertEquals(sourceEntry, repository.getEntry(sourceEntry.id))
+        database.openHelper.writableDatabase
+            .query("SELECT payload_ciphertext FROM tracking_logs WHERE id = 'meal-log'")
+            .use { cursor ->
+                cursor.moveToFirst()
+                assertFalse(cursor.getBlob(0).containsSubsequence("Rice pudding".encodeToByteArray()))
+            }
+        database.openHelper.writableDatabase
+            .query("SELECT payload_ciphertext FROM tracking_log_revisions WHERE log_id = 'meal-log'")
+            .use { cursor ->
+                cursor.moveToFirst()
+                assertFalse(cursor.getBlob(0).containsSubsequence("Milchreis".encodeToByteArray()))
+            }
+
+        val snapshot = repository.createBackupSnapshot(start.plusSeconds(60))
+        assertEquals(listOf(revised), snapshot.trackingLogs)
+        assertEquals(original, snapshot.trackingLogRevisions.single().snapshot)
+
+        repository.replaceAll(snapshot)
+        assertEquals(revised, repository.getLog(original.id))
+        assertEquals(original, repository.listRevisions(original.id).single().snapshot)
     }
 
     @Test

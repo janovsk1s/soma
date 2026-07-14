@@ -6,7 +6,11 @@ import com.soma.core.model.EntryLinkKind
 import com.soma.core.model.EntryMetadata
 import com.soma.core.model.EntryRevision
 import com.soma.core.model.ImportantKind
+import com.soma.core.model.LogKind
+import com.soma.core.model.LogRecord
+import com.soma.core.model.LogRevision
 import com.soma.core.model.NoteEntry
+import com.soma.core.model.NutritionEstimate
 import com.soma.core.model.Todo
 import com.soma.core.model.TodoState
 import java.io.ByteArrayOutputStream
@@ -34,6 +38,10 @@ class MarkdownVaultExporter(
         val historyPaths = revisions.keys.associateWith { entryId ->
             val entry = visible.entry(entryId)
             "history/${entry.noteDate}-${entryToken(entryId)}.md"
+        }
+        val logRevisions = visible.trackingLogRevisions.groupBy(LogRevision::logId)
+        val logHistoryPaths = logRevisions.keys.associateWith { logId ->
+            "history/log-${entryToken(logId)}.md"
         }
         val includedAudioIds = visible.audioContainers.mapTo(hashSetOf(), BackupAudioContainer::fileId)
         val audioPaths = visible.notes.asSequence()
@@ -67,6 +75,7 @@ class MarkdownVaultExporter(
             zip.putText("README.md", readme(visible))
             zip.putText(".soma/manifest.json", manifest(visible))
             zip.putText("Important.md", importantMarkdown(visible.todos))
+            zip.putText("Logs.md", logsMarkdown(visible.trackingLogs, logRevisions, logHistoryPaths))
             visible.notes.sortedBy(DailyNote::date).forEach { note ->
                 zip.putText(
                     "${note.date}.md",
@@ -80,6 +89,15 @@ class MarkdownVaultExporter(
                             historyMarkdown(entry, earlier),
                         )
                     }
+                }
+            }
+            visible.trackingLogs.forEach { log ->
+                val earlier = logRevisions[log.id].orEmpty().sortedBy(LogRevision::revision)
+                if (earlier.isNotEmpty()) {
+                    zip.putText(
+                        logHistoryPaths.getValue(log.id),
+                        logHistoryMarkdown(log, earlier),
+                    )
                 }
             }
             visible.audioContainers.sortedBy(BackupAudioContainer::fileId).forEach { audio ->
@@ -112,7 +130,9 @@ class MarkdownVaultExporter(
         appendLine()
         appendLine("Daily notes are the `YYYY-MM-DD.md` files in this folder.")
         appendLine("`Important.md` is a portable checklist linked back to source entries.")
+        appendLine("`Logs.md` contains meals, recipes, workouts, nutrition sources, and gym sets.")
         appendLine("`history/` preserves earlier wordings after deliberate edits.")
+        appendLine("Structured-log history also remains in `history/`, including original values.")
         appendLine("Entry tags and links remain portable Obsidian tags and wikilinks.")
         appendLine("`media/` contains standard WAV recordings and JPEG originals when media was included.")
         appendLine()
@@ -130,6 +150,8 @@ class MarkdownVaultExporter(
         appendLine("  \"noteCount\": ${snapshot.notes.size},")
         appendLine("  \"entryCount\": ${snapshot.notes.sumOf { it.entries.size }},")
         appendLine("  \"importantCount\": ${snapshot.todos.size},")
+        appendLine("  \"logCount\": ${snapshot.trackingLogs.size},")
+        appendLine("  \"logRevisionCount\": ${snapshot.trackingLogRevisions.size},")
         appendLine("  \"revisionCount\": ${snapshot.entryRevisions.size},")
         appendLine("  \"audioCount\": ${snapshot.audioContainers.size},")
         appendLine("  \"imageCount\": ${snapshot.imageContainers.size},")
@@ -281,6 +303,133 @@ class MarkdownVaultExporter(
         appendLine()
     }
 
+    private fun logsMarkdown(
+        logs: List<LogRecord>,
+        revisions: Map<String, List<LogRevision>>,
+        historyPaths: Map<String, String>,
+    ): String = buildString {
+        appendLine("---")
+        appendLine("tags: []")
+        appendLine("soma_timezone: ${quoted(zoneId.id)}")
+        appendLine("---")
+        appendLine()
+        appendLine("# Logs")
+        appendLine()
+        if (logs.isEmpty()) appendLine("_None._")
+        LogKind.entries.forEach { kind ->
+            val matching = logs.filter { it.kind == kind }
+                .sortedWith(compareBy(LogRecord::occurredAt, LogRecord::id))
+            if (matching.isEmpty()) return@forEach
+            appendLine("## ${kind.name.lowercase().replaceFirstChar(Char::uppercase)}s")
+            appendLine()
+            matching.forEach { log ->
+                appendLine("### ${log.title}")
+                appendLine()
+                appendLine("_${log.occurredAt.atZone(zoneId)}${if (log.archivedAt != null) " · archived" else ""}_")
+                appendLine()
+                if (log.note.isNotBlank()) {
+                    appendLine(log.note)
+                    appendLine()
+                }
+                log.source?.let { source ->
+                    appendLine("[[${source.noteDate}#^soma-${entryToken(source.entryId)}|Source entry]]")
+                    appendLine()
+                }
+                log.foods.forEach { food ->
+                    append("- ${food.name}")
+                    food.quantity?.let { append(" · ${plainNumber(it)} ${food.unit?.name?.lowercase()}") }
+                    food.gramWeight?.let { append(" · ${plainNumber(it)} g") }
+                    appendLine()
+                    food.nutrition?.let { nutrition ->
+                        appendLine("  - ${nutritionMarkdown(nutrition)}")
+                    }
+                }
+                log.exercises.forEach { exercise ->
+                    append("- ${exercise.name}")
+                    exercise.machine?.let { append(" · machine: $it") }
+                    appendLine()
+                    exercise.sets.forEachIndexed { index, set ->
+                        val values = listOfNotNull(
+                            set.repetitions?.let { "$it reps" },
+                            set.weightKilograms?.let { "${plainNumber(it)} kg" },
+                            set.durationSeconds?.let { "$it sec" },
+                        ).joinToString(" · ")
+                        appendLine("  - set ${index + 1}: $values")
+                    }
+                }
+                if (revisions[log.id].orEmpty().isNotEmpty()) {
+                    appendLine()
+                    appendLine("[[${historyPaths.getValue(log.id).removeSuffix(".md")}|Earlier versions]]")
+                }
+                appendLine()
+            }
+        }
+    }
+
+    private fun logHistoryMarkdown(log: LogRecord, revisions: List<LogRevision>): String = buildString {
+        appendLine("---")
+        appendLine("soma_log_id: ${quoted(log.id)}")
+        appendLine("tags: []")
+        appendLine("---")
+        appendLine()
+        appendLine("# Earlier versions · ${log.title}")
+        appendLine()
+        revisions.forEachIndexed { index, revision ->
+            appendLine("## ${if (index == 0) "Original" else "Version ${revision.revision}"}")
+            appendLine()
+            appendLine("_Replaced ${revision.editedAt}_")
+            appendLine()
+            appendLogSnapshot(revision.snapshot)
+        }
+        appendLine("## Current")
+        appendLine()
+        appendLogSnapshot(log)
+    }
+
+    private fun StringBuilder.appendLogSnapshot(log: LogRecord) {
+        appendLine("Type: ${log.kind.name.lowercase()}")
+        appendLine("Occurred: ${log.occurredAt}")
+        appendLine("Title: ${log.title}")
+        if (log.note.isNotBlank()) appendLine("Note: ${log.note}")
+        log.foods.forEach { food ->
+            append("- ${food.name}")
+            food.quantity?.let { append(" · ${plainNumber(it)} ${food.unit?.name?.lowercase()}") }
+            food.nutrition?.let { append(" · ${nutritionMarkdown(it)}") }
+            appendLine()
+        }
+        log.exercises.forEach { exercise ->
+            appendLine("- ${exercise.name}${exercise.machine?.let { " · $it" }.orEmpty()}")
+            exercise.sets.forEach { set ->
+                appendLine(
+                    "  - " + listOfNotNull(
+                        set.repetitions?.let { "$it reps" },
+                        set.weightKilograms?.let { "${plainNumber(it)} kg" },
+                        set.durationSeconds?.let { "$it sec" },
+                    ).joinToString(" · "),
+                )
+            }
+        }
+        appendLine()
+    }
+
+    private fun nutritionMarkdown(nutrition: NutritionEstimate): String = buildString {
+        append("${nutrition.basis.name.lowercase().replace('_', ' ')} · ${nutrition.source.name.lowercase().replace('_', ' ')}")
+        nutrition.energyKcal?.let { append(" · ${plainNumber(it)} kcal") }
+        nutrition.energyKcalMin?.let { minimum ->
+            append(" · about ${plainNumber(minimum)}–${plainNumber(nutrition.energyKcalMax ?: minimum)} kcal")
+        }
+        nutrition.proteinGrams?.let { append(" · protein ${plainNumber(it)} g") }
+        nutrition.carbohydrateGrams?.let { append(" · carbohydrate ${plainNumber(it)} g") }
+        nutrition.fatGrams?.let { append(" · fat ${plainNumber(it)} g") }
+        nutrition.reference?.let { append(" · $it") }
+    }
+
+    private fun plainNumber(value: Double): String = if (value % 1.0 == 0.0) {
+        value.toLong().toString()
+    } else {
+        value.toString()
+    }
+
     private fun BackupSnapshot.entry(id: String): NoteEntry = notes.asSequence()
         .flatMap { it.entries.asSequence() }
         .first { it.id == id }
@@ -315,7 +464,7 @@ class MarkdownVaultExporter(
     }
 
     private companion object {
-        const val FORMAT_VERSION = 3
+        const val FORMAT_VERSION = 4
         const val TOKEN_BYTES = 8
         // 1980-01-01T00:00:00Z stays inside the DOS timestamp range understood by old ZIP tools.
         const val FIXED_ZIP_TIME_MILLIS = 315_532_800_000L

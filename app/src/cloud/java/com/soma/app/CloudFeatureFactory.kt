@@ -7,7 +7,10 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import com.soma.core.model.SupportedLanguage
+import com.soma.core.model.LogKind
 import com.soma.core.model.TranscriptionFallbackReason
+import com.soma.core.model.NutritionSource
+import com.soma.core.tracking.EuropeanFoodReference
 import com.soma.whisper.TranscribedChunk
 import com.soma.whisper.Transcriber
 import com.soma.whisper.TranscriptionResult
@@ -41,9 +44,11 @@ private class AndroidCloudFeatureController(private val context: Context) : Clou
         available = true,
         transcriptionEnabled = SomaPrefs.cloudTranscription(context),
         provider = SomaPrefs.cloudSpeechProvider(context),
+        groqModel = SomaPrefs.groqSpeechModel(context),
         wifiOnly = SomaPrefs.cloudWifiOnly(context),
         aiTodoSuggestions = SomaPrefs.aiTodoSuggestions(context),
         aiAutoMetadata = SomaPrefs.aiAutoMetadata(context),
+        aiTrackingSuggestions = SomaPrefs.aiTrackingSuggestions(context),
         hasGroqKey = secrets.read(CloudSpeechProvider.GROQ) != null,
         hasElevenLabsKey = secrets.read(CloudSpeechProvider.ELEVENLABS) != null,
     )
@@ -52,11 +57,15 @@ private class AndroidCloudFeatureController(private val context: Context) : Clou
 
     override fun setProvider(provider: CloudSpeechProvider) = SomaPrefs.setCloudSpeechProvider(context, provider)
 
+    override fun setGroqModel(model: GroqSpeechModel) = SomaPrefs.setGroqSpeechModel(context, model)
+
     override fun setWifiOnly(enabled: Boolean) = SomaPrefs.setCloudWifiOnly(context, enabled)
 
     override fun setAiTodoSuggestions(enabled: Boolean) = SomaPrefs.setAiTodoSuggestions(context, enabled)
 
     override fun setAiAutoMetadata(enabled: Boolean) = SomaPrefs.setAiAutoMetadata(context, enabled)
+
+    override fun setAiTrackingSuggestions(enabled: Boolean) = SomaPrefs.setAiTrackingSuggestions(context, enabled)
 
     override fun setApiKey(provider: CloudSpeechProvider, value: CharArray) {
         try {
@@ -79,6 +88,7 @@ private class AndroidCloudFeatureController(private val context: Context) : Clou
                 context.openCloudConnection(url, setting.wifiOnly)
             },
             provider = setting.provider,
+            groqModel = setting.groqModel,
             apiKey = key,
             wifiOnly = setting.wifiOnly,
             languagePolicy = CloudSpeechLanguagePolicy.from(
@@ -122,10 +132,49 @@ private class AndroidCloudFeatureController(private val context: Context) : Clou
             null
         }
     }
+
+    override suspend fun lookupPackagedFood(barcode: String): EuropeanFoodReference? {
+        if (!BARCODE_PATTERN.matches(barcode)) return null
+        return try {
+            CloudHttp.lookupPackagedFood(
+                barcode = barcode,
+                connectionOpener = CloudConnectionOpener { url ->
+                    // This is an explicit user-triggered lookup and is allowed on cellular.
+                    context.openCloudConnection(url, wifiOnly = false)
+                },
+            )
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    override suspend fun suggestTrackingText(
+        kind: LogKind,
+        text: String,
+        imageJpeg: ByteArray?,
+    ): String? {
+        if (!SomaPrefs.aiTrackingSuggestions(context)) return null
+        if (text.isBlank() && imageJpeg == null) return null
+        if (imageJpeg != null && imageJpeg.size > MAX_VISION_IMAGE_BYTES) return null
+        val wifiOnly = SomaPrefs.cloudWifiOnly(context)
+        if (!cloudNetworkAllowed(wifiOnly, context.isOnWifi())) return null
+        val key = secrets.read(CloudSpeechProvider.GROQ) ?: return null
+        val connectionOpener = CloudConnectionOpener { url -> context.openCloudConnection(url, wifiOnly) }
+        return try {
+            CloudHttp.extractTrackingText(key, kind, text, imageJpeg, connectionOpener)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            null
+        }
+    }
 }
 
 internal class FallbackCloudTranscriber(
     private val provider: CloudSpeechProvider,
+    private val groqModel: GroqSpeechModel = GroqSpeechModel.TURBO,
     private val apiKey: String?,
     private val wifiOnly: Boolean,
     private val languagePolicy: CloudSpeechLanguagePolicy,
@@ -150,7 +199,7 @@ internal class FallbackCloudTranscriber(
                 return TranscriptionResult(
                     text = "",
                     chunks = emptyList(),
-                    provenance = cloudSuccessProvenance(provider),
+                    provenance = cloudSuccessProvenance(provider, groqModel),
                 )
             }
             val chunks = try {
@@ -181,7 +230,7 @@ internal class FallbackCloudTranscriber(
             TranscriptionResult(
                 text = chunks.map(TranscribedChunk::text).filter(String::isNotBlank).joinToString("\n"),
                 chunks = chunks,
-                provenance = cloudSuccessProvenance(provider),
+                provenance = cloudSuccessProvenance(provider, groqModel),
             )
         } catch (error: CloudProviderException) {
             localFallback(samples, sampleRate, error.fallbackReason)
@@ -208,6 +257,7 @@ internal class FallbackCloudTranscriber(
                 CloudSpeechProvider.GROQ -> CloudHttp.transcribeGroq(
                     key,
                     wav,
+                    groqModel.apiId,
                     languagePolicy.requestCode(provider),
                     vocabulary,
                     connectionOpener,
@@ -237,7 +287,7 @@ internal class FallbackCloudTranscriber(
         sampleRate: Int,
         reason: TranscriptionFallbackReason,
     ): TranscriptionResult = local().transcribe(samples, sampleRate).copy(
-        provenance = cloudFallbackProvenance(provider, reason),
+        provenance = cloudFallbackProvenance(provider, reason, groqModel),
     )
 
     private fun local(): Transcriber = local ?: localFactory().also { local = it }
@@ -255,15 +305,50 @@ internal class FallbackCloudTranscriber(
 private data class CloudTranscript(val text: String, val languageCode: String)
 
 private object CloudHttp {
+    suspend fun lookupPackagedFood(
+        barcode: String,
+        connectionOpener: CloudConnectionOpener,
+    ): EuropeanFoodReference? = withContext(Dispatchers.IO) {
+        val fields = "code,product_name,product_name_en,product_name_de,serving_quantity,nutriments"
+        val response = jsonGet(
+            "https://world.openfoodfacts.org/api/v2/product/$barcode.json?fields=$fields",
+            connectionOpener,
+        )
+        if (response.optInt("status") != 1) return@withContext null
+        val product = response.optJSONObject("product") ?: return@withContext null
+        val name = sequenceOf(
+            product.optString("product_name"),
+            product.optString("product_name_en"),
+            product.optString("product_name_de"),
+        ).map(String::trim).firstOrNull(String::isNotEmpty) ?: return@withContext null
+        val names = sequenceOf(
+            name,
+            product.optString("product_name_en"),
+            product.optString("product_name_de"),
+        ).map(String::trim).filter(String::isNotEmpty).distinct().toList()
+        val nutrients = product.optJSONObject("nutriments") ?: JSONObject()
+        EuropeanFoodReference(
+            id = barcode,
+            source = NutritionSource.OPEN_FOOD_FACTS,
+            names = names,
+            energyKcalPer100Grams = nutrients.optionalDouble("energy-kcal_100g"),
+            proteinPer100Grams = nutrients.optionalDouble("proteins_100g"),
+            carbohydratePer100Grams = nutrients.optionalDouble("carbohydrates_100g"),
+            fatPer100Grams = nutrients.optionalDouble("fat_100g"),
+            servingGrams = product.optionalDouble("serving_quantity"),
+        )
+    }
+
     suspend fun transcribeGroq(
         apiKey: String,
         wav: ByteArray,
+        model: String,
         language: String?,
         vocabulary: List<String>,
         connectionOpener: CloudConnectionOpener,
     ): CloudTranscript = withContext(Dispatchers.IO) {
         val fields = linkedMapOf(
-            "model" to "whisper-large-v3",
+            "model" to model,
             "response_format" to "verbose_json",
         ).apply {
             if (language != null) put("language", language)
@@ -486,6 +571,104 @@ private object CloudHttp {
         normalizeCloudMetadata(tags, dateLinks)
     }
 
+    suspend fun extractTrackingText(
+        apiKey: String,
+        kind: LogKind,
+        text: String,
+        imageJpeg: ByteArray?,
+        connectionOpener: CloudConnectionOpener,
+    ): String = withContext(Dispatchers.IO) {
+        val lineSchema = JSONObject()
+            .put("type", "array")
+            .put("maxItems", 100)
+            .put("items", JSONObject().put("type", "string").put("maxLength", 500))
+        val schema = JSONObject()
+            .put("type", "object")
+            .put("properties", JSONObject().put("lines", lineSchema))
+            .put("required", JSONArray().put("lines"))
+            .put("additionalProperties", false)
+        val systemPrompt = when (kind) {
+            LogKind.MEAL ->
+                "Extract an editable meal proposal from the entry. Return JSON with a lines array, " +
+                    "one food per line. Preserve explicit quantities and metric units. Identify visible " +
+                    "food only when reasonably clear. Do not output calories, macros, medical advice, " +
+                    "or details absent from the entry or photo. Keep uncertain identifications qualified."
+            LogKind.RECIPE ->
+                "Extract an editable recipe proposal from the entry. Return JSON with a lines array, " +
+                    "one ingredient per line. Preserve explicit quantities and metric units. Do not " +
+                    "invent quantities, calories, ingredients, or instructions that are not present."
+            LogKind.WORKOUT ->
+                "Extract an editable workout proposal from the entry. Return JSON with a lines array, " +
+                    "one exercise per line in the compact form 'Exercise 3x10 80 kg' when those exact " +
+                    "values are stated. A photo may suggest the machine or exercise, but spoken or typed " +
+                    "sets, repetitions, and kilograms are authoritative. Never invent missing values."
+        }
+        val userText = JSONObject()
+            .put("record_type", kind.name.lowercase())
+            .put("entry", text.take(MAX_NOTE_CHARACTERS))
+            .toString()
+        val userContent: Any = if (imageJpeg == null) {
+            userText
+        } else {
+            JSONArray()
+                .put(JSONObject().put("type", "text").put("text", userText))
+                .put(
+                    JSONObject()
+                        .put("type", "image_url")
+                        .put(
+                            "image_url",
+                            JSONObject().put(
+                                "url",
+                                "data:image/jpeg;base64,${Base64.encodeToString(imageJpeg, Base64.NO_WRAP)}",
+                            ),
+                        ),
+                )
+        }
+        val body = JSONObject()
+            .put("model", if (imageJpeg == null) CLOUD_AI_TRACKING_MODEL else CLOUD_AI_VISION_MODEL)
+            .put("reasoning_effort", if (imageJpeg == null) "low" else "none")
+            .put("max_completion_tokens", 1_024)
+            .put(
+                "messages",
+                JSONArray()
+                    .put(JSONObject().put("role", "system").put("content", systemPrompt))
+                    .put(JSONObject().put("role", "user").put("content", userContent)),
+            )
+            .put(
+                "response_format",
+                if (imageJpeg == null) {
+                    JSONObject()
+                        .put("type", "json_schema")
+                        .put(
+                            "json_schema",
+                            JSONObject().put("name", "tracking_proposal").put("strict", true).put("schema", schema),
+                        )
+                } else {
+                    // Qwen vision currently supports JSON Object Mode rather than Groq strict schemas.
+                    JSONObject().put("type", "json_object")
+                },
+            )
+        val response = jsonPost(
+            "https://api.groq.com/openai/v1/chat/completions",
+            mapOf("Authorization" to "Bearer $apiKey"),
+            body,
+            connectionOpener,
+        )
+        val content = response.getJSONArray("choices").getJSONObject(0)
+            .getJSONObject("message").getString("content")
+        val lines = JSONObject(content).getJSONArray("lines")
+        buildList {
+            for (index in 0 until minOf(lines.length(), MAX_TRACKING_LINES)) {
+                lines.optString(index)
+                    .trim()
+                    .trimStart('-', '•', '*')
+                    .trim()
+                    .takeIf { it.isNotEmpty() && it.length <= MAX_TRACKING_LINE_CHARACTERS }
+                    ?.let(::add)
+            }
+        }.distinct().joinToString("\n").also { require(it.isNotBlank()) }
+    }
+
     private fun multipart(
         url: String,
         headers: Map<String, String>,
@@ -542,6 +725,40 @@ private object CloudHttp {
         }
     }
 
+    private fun jsonGet(url: String, connectionOpener: CloudConnectionOpener): JSONObject {
+        val connection = connectionOpener.open(URL(url))
+        try {
+            connection.requestMethod = "GET"
+            connection.connectTimeout = CONNECT_TIMEOUT_MILLIS
+            connection.readTimeout = READ_TIMEOUT_MILLIS
+            connection.setRequestProperty("User-Agent", "Soma/${BuildConfig.VERSION_NAME} (local-first notes app)")
+            connection.setRequestProperty("Accept", "application/json")
+            val status = connection.responseCode
+            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+            val response = stream?.use { input ->
+                val output = ByteArrayOutputStream()
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                var remaining = MAX_RESPONSE_BYTES
+                while (remaining > 0) {
+                    val count = input.read(buffer, 0, minOf(buffer.size, remaining))
+                    if (count <= 0) break
+                    output.write(buffer, 0, count)
+                    remaining -= count
+                }
+                output.toString(Charsets.UTF_8.name())
+            }.orEmpty()
+            if (status !in 200..299) throw IOException("Open Food Facts request failed")
+            return JSONObject(response)
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private fun JSONObject.optionalDouble(name: String): Double? {
+        val value = optDouble(name, Double.NaN)
+        return value.takeIf { it.isFinite() && it >= 0.0 }
+    }
+
     private fun execute(
         url: String,
         headers: Map<String, String>,
@@ -585,7 +802,14 @@ private object CloudHttp {
     private const val READ_TIMEOUT_MILLIS = 90_000
     private const val MAX_RESPONSE_BYTES = 2 * 1024 * 1024
     private const val MAX_NOTE_CHARACTERS = 4_000
+    private const val MAX_TRACKING_LINES = 100
+    private const val MAX_TRACKING_LINE_CHARACTERS = 500
 }
+
+private val BARCODE_PATTERN = Regex("\\d{8,14}")
+private const val MAX_VISION_IMAGE_BYTES = 19 * 1024 * 1024
+private const val CLOUD_AI_TRACKING_MODEL = "openai/gpt-oss-20b"
+private const val CLOUD_AI_VISION_MODEL = "qwen/qwen3.6-27b"
 
 private class CloudProviderException(
     val fallbackReason: TranscriptionFallbackReason,

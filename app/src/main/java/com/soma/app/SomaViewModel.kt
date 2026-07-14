@@ -12,6 +12,9 @@ import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.ImportantKind
 import com.soma.core.model.ImageAttachment
 import com.soma.core.model.ImageFormat
+import com.soma.core.model.LogKind
+import com.soma.core.model.LogRecord
+import com.soma.core.model.LogRevision
 import com.soma.core.model.MetadataSource
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
@@ -26,6 +29,8 @@ import com.soma.core.model.TranscriptionInfo
 import com.soma.core.model.TranscriptionJob
 import com.soma.core.policy.TodoStalenessPolicy
 import com.soma.core.todo.RuleBasedTodoDetector
+import com.soma.core.tracking.QuickLogParser
+import com.soma.core.tracking.EuropeanFoodReference
 import com.soma.storage.repository.RoomSomaRepository
 import com.soma.media.EncryptedImageContainer
 import com.soma.voice.AudioMetadata
@@ -74,6 +79,8 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     private val mutableRecordingUiState = MutableStateFlow<RecordingUiState>(RecordingUiState.Idle)
     private val mutablePhotoCommentEntryId = MutableStateFlow<String?>(null)
     private val mutableDeletionUndo = MutableStateFlow<DeletionUndo?>(null)
+    private val mutableFoodSearchResults = MutableStateFlow<List<EuropeanFoodReference>>(emptyList())
+    private val mutableFoodSearchLoading = MutableStateFlow(false)
     private val draftStore = EditorDraftStore(app)
     private val mutableCaptureDraft = MutableStateFlow("")
     private val mutableImportantDraft = MutableStateFlow("")
@@ -91,6 +98,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     private var stopRecordingRequested = false
     private var stopRecordingInProgress = false
     private var recordingOperationEntryId: String? = null
+    private var foodSearchJob: Job? = null
 
     val selectedDate: StateFlow<LocalDate> = mutableDate.asStateFlow()
     // WhileSubscribed lets the Room observers stop shortly after their screens
@@ -103,6 +111,8 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(FLOW_STOP_TIMEOUT_MILLIS), emptyList())
     val closedTodos = repositories.todos.observe(setOf(TodoState.DONE, TodoState.ARCHIVED))
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(FLOW_STOP_TIMEOUT_MILLIS), emptyList())
+    val trackingLogs = repositories.trackingLogs.observe()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(FLOW_STOP_TIMEOUT_MILLIS), emptyList())
     val returnLater = repositories.notes.observeReturnLater()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(FLOW_STOP_TIMEOUT_MILLIS), emptyList())
     val deletedEntries = repositories.notes.observeDeleted()
@@ -113,11 +123,17 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     internal val recordingUiState: StateFlow<RecordingUiState> = mutableRecordingUiState.asStateFlow()
     internal val photoCommentEntryId: StateFlow<String?> = mutablePhotoCommentEntryId.asStateFlow()
     internal val deletionUndo: StateFlow<DeletionUndo?> = mutableDeletionUndo.asStateFlow()
+    internal val foodSearchResults: StateFlow<List<EuropeanFoodReference>> =
+        mutableFoodSearchResults.asStateFlow()
+    internal val foodSearchLoading: StateFlow<Boolean> = mutableFoodSearchLoading.asStateFlow()
     val captureDraft: StateFlow<String> = mutableCaptureDraft.asStateFlow()
     val importantDraft: StateFlow<String> = mutableImportantDraft.asStateFlow()
     val playbackState: StateFlow<PlaybackState> = player.state
     val messageEvents = messages.receiveAsFlow()
     val isDemo: Boolean get() = SomaPrefs.demoMode(app)
+    internal val packagedFoodLookupAvailable: Boolean get() = cloudFeatures(app).settings().available
+    internal val trackingSuggestionAvailable: Boolean
+        get() = cloudFeatures(app).settings().let { it.available && it.aiTrackingSuggestions && it.hasGroqKey }
 
     init {
         viewModelScope.launch {
@@ -668,6 +684,169 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun addTrackingLog(
+        kind: LogKind,
+        text: String,
+        sourceEntry: NoteEntry? = null,
+        onSaved: (Boolean) -> Unit = {},
+    ) {
+        val clean = text.trim()
+        if (clean.isEmpty()) {
+            onSaved(false)
+            return
+        }
+        viewModelScope.launch {
+            val saved = runCatching {
+                val draft = QuickLogParser.parse(kind, clean)
+                val now = clock.instant()
+                repositories.trackingLogs.insert(
+                    LogRecord(
+                        id = UUID.randomUUID().toString(),
+                        kind = kind,
+                        title = draft.title,
+                        note = draft.note,
+                        occurredAt = sourceEntry?.createdAt ?: now,
+                        createdAt = now,
+                        updatedAt = now,
+                        source = sourceEntry?.let { EntrySource(it.noteDate, it.id) },
+                        foods = draft.foods,
+                        exercises = draft.exercises,
+                    ),
+                )
+            }.getOrDefault(false)
+            onSaved(saved)
+        }
+    }
+
+    fun suggestTrackingText(
+        kind: LogKind,
+        sourceEntry: NoteEntry,
+        onResult: (String?) -> Unit,
+    ) {
+        if (!trackingSuggestionAvailable) {
+            onResult(null)
+            return
+        }
+        viewModelScope.launch {
+            var jpeg: ByteArray? = null
+            val proposal = try {
+                jpeg = sourceEntry.activeImage?.let { image ->
+                    withContext(Dispatchers.IO) {
+                        val file = app.encryptedImageFile(image.fileId)
+                        if (!file.isFile) null else EncryptedImageContainer.read(
+                            file = file,
+                            expectedImageId = image.fileId,
+                            keyProvider = app.imageKeyProvider,
+                        ).second
+                    }
+                }
+                cloudFeatures(app).suggestTrackingText(kind, sourceEntry.text, jpeg)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                null
+            } finally {
+                jpeg?.fill(0)
+            }
+            onResult(proposal)
+        }
+    }
+
+    fun editTrackingLog(log: LogRecord, text: String, onSaved: (Boolean) -> Unit = {}) {
+        val clean = text.trim()
+        if (clean.isEmpty()) {
+            onSaved(false)
+            return
+        }
+        viewModelScope.launch {
+            val saved = runCatching {
+                val current = repositories.trackingLogs.getLog(log.id) ?: return@runCatching false
+                val draft = QuickLogParser.parse(current.kind, clean)
+                repositories.trackingLogs.update(
+                    current.revise(
+                        title = draft.title,
+                        note = draft.note,
+                        foods = draft.foods,
+                        exercises = draft.exercises,
+                        at = maxOf(clock.instant(), current.updatedAt),
+                    ),
+                )
+            }.getOrDefault(false)
+            onSaved(saved)
+        }
+    }
+
+    fun archiveTrackingLog(log: LogRecord, onSaved: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val saved = runCatching {
+                val current = repositories.trackingLogs.getLog(log.id) ?: return@runCatching false
+                repositories.trackingLogs.update(current.archive(maxOf(clock.instant(), current.updatedAt)))
+            }.getOrDefault(false)
+            onSaved(saved)
+        }
+    }
+
+    internal suspend fun trackingLogHistory(logId: String): List<LogRevision> =
+        repositories.trackingLogs.listRevisions(logId)
+
+    fun searchEuropeanFoods(query: String) {
+        foodSearchJob?.cancel()
+        val clean = query.trim()
+        if (clean.length < 2) {
+            mutableFoodSearchResults.value = emptyList()
+            mutableFoodSearchLoading.value = false
+            return
+        }
+        mutableFoodSearchLoading.value = true
+        foodSearchJob = viewModelScope.launch {
+            delay(FOOD_SEARCH_DEBOUNCE_MILLIS)
+            val results = withContext(Dispatchers.IO) {
+                app.europeanFoodCatalog.catalog(SomaPrefs.language(app)).search(clean)
+            }
+            mutableFoodSearchResults.value = results
+            mutableFoodSearchLoading.value = false
+        }
+    }
+
+    fun lookupPackagedFood(barcode: String) {
+        val clean = barcode.trim()
+        if (!BARCODE_PATTERN.matches(clean) || !packagedFoodLookupAvailable) return
+        foodSearchJob?.cancel()
+        mutableFoodSearchLoading.value = true
+        foodSearchJob = viewModelScope.launch {
+            val product = cloudFeatures(app).lookupPackagedFood(clean)
+            mutableFoodSearchResults.value = listOfNotNull(product)
+            mutableFoodSearchLoading.value = false
+        }
+    }
+
+    fun applyEuropeanFood(
+        log: LogRecord,
+        foodIndex: Int,
+        reference: EuropeanFoodReference,
+        onSaved: (Boolean) -> Unit = {},
+    ) {
+        viewModelScope.launch {
+            val saved = runCatching {
+                val current = repositories.trackingLogs.getLog(log.id) ?: return@runCatching false
+                val currentFood = current.foods.getOrNull(foodIndex) ?: return@runCatching false
+                val catalog = withContext(Dispatchers.IO) {
+                    app.europeanFoodCatalog.catalog(SomaPrefs.language(app))
+                }
+                val foods = current.foods.toMutableList().apply {
+                    this[foodIndex] = catalog.apply(reference, currentFood)
+                }
+                repositories.trackingLogs.update(
+                    current.revise(
+                        foods = foods,
+                        at = maxOf(clock.instant(), current.updatedAt),
+                    ),
+                )
+            }.getOrDefault(false)
+            onSaved(saved)
+        }
+    }
+
     /** Consumes a one-shot resurfacing when its item is deliberately opened. */
     fun acknowledgeResurfacedTodo(todo: Todo) {
         if (todo.resurfaceOn == null) return
@@ -1140,5 +1319,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     private companion object {
         const val FLOW_STOP_TIMEOUT_MILLIS = 5_000L
         const val DRAFT_WRITE_DEBOUNCE_MILLIS = 250L
+        const val FOOD_SEARCH_DEBOUNCE_MILLIS = 180L
+        val BARCODE_PATTERN = Regex("\\d{8,14}")
     }
 }

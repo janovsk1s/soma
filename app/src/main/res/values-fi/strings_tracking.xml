@@ -1,0 +1,29 @@
+<resources>
+    <string name="transcription_engine_groq_turbo">Groq · Whisper Large v3 Turbo</string>
+    <string name="logs">Lokit</string><string name="logs_all">kaikki</string><string name="logs_empty">Ei vielä aterioita, reseptejä tai harjoituksia.</string>
+    <string name="meal">ateria</string><string name="meals">ateriat</string><string name="recipe">resepti</string><string name="recipes">reseptit</string>
+    <string name="workout">harjoitus</string><string name="workouts">harjoitukset</string><string name="add_log">lisää loki</string>
+    <string name="add_meal">lisää ateria…</string><string name="add_recipe">lisää resepti…</string><string name="add_workout">lisää harjoitus…</string>
+    <string name="log_meal_help">Yksi ruoka riville. Lisää määrä, kun tiedät sen, esimerkiksi ”riisipuuro 300 g”. Soma ei keksi kaloreita.</string>
+    <string name="log_recipe_help">Yksi ainesosa riville, esimerkiksi ”riisi 100 g”. Määriä ja ravintoarvoja voi muokata.</string>
+    <string name="log_workout_help">Pikamuoto: ”jalkaprässi 3×10 80 kg”. Kirjoita toinen liike uudelle riville.</string>
+    <string name="log_from_entry">kirjaa ateria, resepti tai harjoitus</string><string name="archive_log">arkistoi loki</string>
+    <string name="log_earlier_versions">%1$d aiempaa versiota</string><string name="source_entry">lähdemerkintä</string>
+    <string name="nutrition_package_label">pakkausmerkintä</string><string name="nutrition_official_average">virallinen eurooppalainen keskiarvo</string>
+    <string name="nutrition_estimated">arvio</string><string name="nutrition_unquantified">määrää ei laskettu</string>
+    <string name="nutrition_kcal">noin %1$s kcal</string><string name="nutrition_kcal_range">noin %1$s–%2$s kcal</string>
+    <string name="nutrition_kcal_per_100g">%1$s kcal / 100 g</string><string name="match_food">yhdistä viralliseen ruokaan</string>
+    <string name="food_search_hint">Etsi ruokaa…</string><string name="food_search_loading">ladataan eurooppalaisia ruokia…</string>
+    <string name="food_search_empty">Paikallista osumaa ei löytynyt. Jätä laskematta.</string><string name="lookup_barcode_online">hae viivakoodi verkosta</string>
+    <string name="open_food_facts">Open Food Facts</string><string name="food_piece">kappale</string><string name="food_serving">annos</string>
+    <string name="workout_unquantified">sarjoja, toistoja tai painoa ei kirjattu</string><string name="workout_set">sarja %1$d · %2$s</string>
+    <string name="workout_reps">%1$d toistoa</string><string name="workout_kg">%1$s kg</string><string name="workout_seconds">%1$d s</string>
+    <string name="workout_exercise_hint">liike tai laite…</string><string name="workout_sets_hint">sarjat…</string>
+    <string name="workout_repetitions_hint">toistot…</string><string name="workout_weight_hint">kilogrammat…</string>
+    <string name="workout_detailed_entry">kirjoita yksityiskohtainen harjoitus</string><string name="choose_exercise">valitse liike</string>
+    <string name="exercise_search_hint">Etsi liikettä tai laitetta…</string><string name="exercise_search_empty">Paikallista osumaa ei löytynyt. Kirjoita oma nimi.</string>
+    <string name="developer_light_gear">Light-ratas</string><string name="developer_groq_model">Groq-puhemalli</string>
+    <string name="developer_groq_turbo">Turbo · edullisempi</string><string name="developer_groq_accuracy">Large v3 · tarkkuus</string>
+    <string name="developer_ai_tracking">tekoälyn ateria- ja harjoitusehdotukset</string><string name="suggest_with_groq">ehdota merkinnästä Groqilla</string>
+    <string name="suggesting_with_groq">kysytään Groqilta…</string><string name="tracking_suggestion_failed">Ehdotusta ei saatu. Alkuperäinen merkintä ei muuttunut.</string>
+</resources>

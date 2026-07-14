@@ -122,6 +122,51 @@ data class EntryMetadataEntity(
 )
 
 @Entity(
+    tableName = "tracking_logs",
+    indices = [
+        Index(value = ["kind", "occurred_at_millis"]),
+        Index(value = ["source_entry_id"]),
+        Index(value = ["archived_at_millis"]),
+    ],
+)
+data class TrackingLogEntity(
+    @PrimaryKey @ColumnInfo(name = "id") val id: String,
+    @ColumnInfo(name = "kind") val kind: String,
+    @ColumnInfo(name = "payload_ciphertext", typeAffinity = ColumnInfo.BLOB)
+    val payloadCiphertext: ByteArray,
+    @ColumnInfo(name = "crypto_version") val cryptoVersion: Int,
+    @ColumnInfo(name = "occurred_at_millis") val occurredAtMillis: Long,
+    @ColumnInfo(name = "created_at_millis") val createdAtMillis: Long,
+    @ColumnInfo(name = "updated_at_millis") val updatedAtMillis: Long,
+    @ColumnInfo(name = "source_note_epoch_day") val sourceNoteEpochDay: Long?,
+    @ColumnInfo(name = "source_entry_id") val sourceEntryId: String?,
+    @ColumnInfo(name = "revision") val revision: Long,
+    @ColumnInfo(name = "archived_at_millis") val archivedAtMillis: Long?,
+)
+
+@Entity(
+    tableName = "tracking_log_revisions",
+    primaryKeys = ["log_id", "revision"],
+    foreignKeys = [
+        ForeignKey(
+            entity = TrackingLogEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["log_id"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index(value = ["log_id"])],
+)
+data class TrackingLogRevisionEntity(
+    @ColumnInfo(name = "log_id") val logId: String,
+    @ColumnInfo(name = "revision") val revision: Long,
+    @ColumnInfo(name = "payload_ciphertext", typeAffinity = ColumnInfo.BLOB)
+    val payloadCiphertext: ByteArray,
+    @ColumnInfo(name = "crypto_version") val cryptoVersion: Int,
+    @ColumnInfo(name = "edited_at_millis") val editedAtMillis: Long,
+)
+
+@Entity(
     tableName = "todos",
     foreignKeys = [
         ForeignKey(

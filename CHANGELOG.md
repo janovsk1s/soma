@@ -2,6 +2,41 @@
 
 Notable changes to Soma are documented here.
 
+## 0.1.0-preview.27 — 2026-07-14
+
+### Added
+
+- Encrypted, revisioned meal, recipe, and workout logs linked back to the original
+  note, voice entry, or photo without rewriting that source material.
+- A quick workout form and local exercise/machine catalogue for recording sets,
+  reps, and kilograms without AI or a network connection.
+- 7,722 bundled European food records from Fineli and CIQUAL, with explicit
+  provenance and local quantity calculations, plus deliberate Open Food Facts
+  barcode lookup in the cloud flavor.
+- Optional, off-by-default Groq text and photo proposals. Suggestions remain
+  editable drafts until the user confirms them; models never invent nutrition.
+- Durable log data and revision history in encrypted backups, readable archives,
+  and Markdown-vault exports.
+
+### Changed
+
+- Groq Whisper Turbo is the fresh-install cloud transcription default, with Large
+  V3 available as an accuracy option and ElevenLabs Scribe v2 retained for users
+  who prefer its Baltic-language results. All cloud providers remain BYOK.
+- Cloud processing works on cellular unless the user deliberately enables the
+  Wi-Fi-only setting; offline capture and local tracking never depend on it.
+- The settings control uses Paka's exact Light gear asset by default. Its drawn
+  fallback and light theme remain available only from Developer settings.
+- Tracking, provenance, nutrition, workout, and cloud-privacy copy is available
+  in every language Soma currently offers.
+
+### Data
+
+- The Room schema advances to version 9 with a tested migration for tracking logs
+  and immutable revision snapshots.
+- Fineli is attributed under CC BY 4.0 and CIQUAL under the French Open Licence
+  2.0; the generated catalogue digest is recorded in third-party notices.
+
 ## 0.1.0-preview.26 — 2026-07-14
 
 ### Changed

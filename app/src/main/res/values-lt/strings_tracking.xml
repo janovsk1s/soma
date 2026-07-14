@@ -1,0 +1,29 @@
+<resources>
+    <string name="transcription_engine_groq_turbo">Groq · Whisper Large v3 Turbo</string>
+    <string name="logs">Žurnalai</string><string name="logs_all">visi</string><string name="logs_empty">Dar nėra valgių, receptų ar treniruočių.</string>
+    <string name="meal">valgis</string><string name="meals">valgiai</string><string name="recipe">receptas</string><string name="recipes">receptai</string>
+    <string name="workout">treniruotė</string><string name="workouts">treniruotės</string><string name="add_log">pridėti žurnalą</string>
+    <string name="add_meal">pridėti valgį…</string><string name="add_recipe">pridėti receptą…</string><string name="add_workout">pridėti treniruotę…</string>
+    <string name="log_meal_help">Vienas maisto produktas eilutėje. Jei žinomas, pridėk kiekį, pvz., „ryžių košė 300 g“. Soma neišgalvoja kalorijų.</string>
+    <string name="log_recipe_help">Vienas ingredientas eilutėje, pvz., „ryžiai 100 g“. Kiekius ir maistinę vertę galima taisyti.</string>
+    <string name="log_workout_help">Greita forma: „kojų spaudimas 3×10 80 kg“. Kitą pratimą rašyk naujoje eilutėje.</string>
+    <string name="log_from_entry">registruoti valgį, receptą ar treniruotę</string><string name="archive_log">archyvuoti žurnalą</string>
+    <string name="log_earlier_versions">%1$d ankstesnės versijos</string><string name="source_entry">šaltinio įrašas</string>
+    <string name="nutrition_package_label">pakuotės etiketė</string><string name="nutrition_official_average">oficialus Europos vidurkis</string>
+    <string name="nutrition_estimated">apytikslis įvertis</string><string name="nutrition_unquantified">kiekis nenustatytas</string>
+    <string name="nutrition_kcal">apie %1$s kcal</string><string name="nutrition_kcal_range">apie %1$s–%2$s kcal</string>
+    <string name="nutrition_kcal_per_100g">%1$s kcal / 100 g</string><string name="match_food">susieti su oficialiu maistu</string>
+    <string name="food_search_hint">Ieškoti maisto…</string><string name="food_search_loading">įkeliami Europos maisto produktai…</string>
+    <string name="food_search_empty">Vietinio atitikmens nėra. Palik neapskaičiuota.</string><string name="lookup_barcode_online">ieškoti brūkšninio kodo internete</string>
+    <string name="open_food_facts">Open Food Facts</string><string name="food_piece">vienetas</string><string name="food_serving">porcija</string>
+    <string name="workout_unquantified">serijos, pakartojimai ar svoris neužrašyti</string><string name="workout_set">%1$d serija · %2$s</string>
+    <string name="workout_reps">%1$d pakart.</string><string name="workout_kg">%1$s kg</string><string name="workout_seconds">%1$d sek.</string>
+    <string name="workout_exercise_hint">pratimas arba treniruoklis…</string><string name="workout_sets_hint">serijos…</string>
+    <string name="workout_repetitions_hint">pakartojimai…</string><string name="workout_weight_hint">kilogramai…</string>
+    <string name="workout_detailed_entry">rašyti išsamią treniruotę</string><string name="choose_exercise">pasirinkti pratimą</string>
+    <string name="exercise_search_hint">Ieškoti pratimo ar treniruoklio…</string><string name="exercise_search_empty">Vietinio atitikmens nėra. Įrašyk savo pavadinimą.</string>
+    <string name="developer_light_gear">Light krumpliaratis</string><string name="developer_groq_model">Groq kalbos modelis</string>
+    <string name="developer_groq_turbo">Turbo · pigiau</string><string name="developer_groq_accuracy">Large v3 · tikslumas</string>
+    <string name="developer_ai_tracking">DI valgių ir treniruočių pasiūlymai</string><string name="suggest_with_groq">pasiūlyti iš įrašo su Groq</string>
+    <string name="suggesting_with_groq">klausiama Groq…</string><string name="tracking_suggestion_failed">Pasiūlymas negautas. Pradinis įrašas nepakeistas.</string>
+</resources>

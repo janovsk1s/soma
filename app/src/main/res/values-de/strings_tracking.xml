@@ -1,0 +1,29 @@
+<resources>
+    <string name="transcription_engine_groq_turbo">Groq · Whisper Large v3 Turbo</string>
+    <string name="logs">Protokolle</string><string name="logs_all">alle</string><string name="logs_empty">Noch keine Mahlzeiten, Rezepte oder Trainings.</string>
+    <string name="meal">Mahlzeit</string><string name="meals">Mahlzeiten</string><string name="recipe">Rezept</string><string name="recipes">Rezepte</string>
+    <string name="workout">Training</string><string name="workouts">Trainings</string><string name="add_log">Protokoll hinzufügen</string>
+    <string name="add_meal">Mahlzeit hinzufügen…</string><string name="add_recipe">Rezept hinzufügen…</string><string name="add_workout">Training hinzufügen…</string>
+    <string name="log_meal_help">Ein Lebensmittel pro Zeile. Menge ergänzen, wenn bekannt, etwa „Milchreis 300 g“. Soma erfindet keine Kalorien.</string>
+    <string name="log_recipe_help">Eine Zutat pro Zeile, etwa „Reis 100 g“. Mengen und Nährwerte bleiben bearbeitbar.</string>
+    <string name="log_workout_help">Schnellform: „Beinpresse 3×10 80 kg“. Für eine weitere Übung eine neue Zeile verwenden.</string>
+    <string name="log_from_entry">Mahlzeit, Rezept oder Training protokollieren</string><string name="archive_log">Protokoll archivieren</string>
+    <string name="log_earlier_versions">%1$d frühere Versionen</string><string name="source_entry">Quelleintrag</string>
+    <string name="nutrition_package_label">Packungsangabe</string><string name="nutrition_official_average">offizieller europäischer Mittelwert</string>
+    <string name="nutrition_estimated">Schätzung</string><string name="nutrition_unquantified">nicht quantifiziert</string>
+    <string name="nutrition_kcal">etwa %1$s kcal</string><string name="nutrition_kcal_range">etwa %1$s–%2$s kcal</string>
+    <string name="nutrition_kcal_per_100g">%1$s kcal / 100 g</string><string name="match_food">offizielles Lebensmittel zuordnen</string>
+    <string name="food_search_hint">Lebensmittel suchen…</string><string name="food_search_loading">europäische Lebensmittel werden geladen…</string>
+    <string name="food_search_empty">Kein lokaler Treffer. Unquantifiziert lassen.</string><string name="lookup_barcode_online">Barcode online nachschlagen</string>
+    <string name="open_food_facts">Open Food Facts</string><string name="food_piece">Stück</string><string name="food_serving">Portion</string>
+    <string name="workout_unquantified">Sätze, Wiederholungen oder Gewicht fehlen</string><string name="workout_set">Satz %1$d · %2$s</string>
+    <string name="workout_reps">%1$d Wdh.</string><string name="workout_kg">%1$s kg</string><string name="workout_seconds">%1$d Sek.</string>
+    <string name="workout_exercise_hint">Übung oder Gerät…</string><string name="workout_sets_hint">Sätze…</string>
+    <string name="workout_repetitions_hint">Wiederholungen…</string><string name="workout_weight_hint">Kilogramm…</string>
+    <string name="workout_detailed_entry">detailliertes Training schreiben</string><string name="choose_exercise">Übung wählen</string>
+    <string name="exercise_search_hint">Übung oder Gerät suchen…</string><string name="exercise_search_empty">Kein lokaler Treffer. Eigenen Namen eingeben.</string>
+    <string name="developer_light_gear">Light-Zahnrad</string><string name="developer_groq_model">Groq-Sprachmodell</string>
+    <string name="developer_groq_turbo">Turbo · günstiger</string><string name="developer_groq_accuracy">Large v3 · Genauigkeit</string>
+    <string name="developer_ai_tracking">KI-Vorschläge für Essen und Training</string><string name="suggest_with_groq">mit Groq aus Eintrag vorschlagen</string>
+    <string name="suggesting_with_groq">Groq wird gefragt…</string><string name="tracking_suggestion_failed">Kein Vorschlag erhalten. Der ursprüngliche Eintrag ist unverändert.</string>
+</resources>

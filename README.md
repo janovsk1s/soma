@@ -64,6 +64,15 @@ cloud API keys only when explicitly enabled in Developer settings.
   headings or bullet points stay grouped as one list. Any Important item can be
   asked to return tomorrow, in one week, or in one month. After 30 untouched days, one
   quiet “keep / let go” choice appears when the item is viewed.
+- Keeps a separate flat Logs section for meals, recipes, and workouts. Quick
+  workout capture uses exercise/machine, sets, repetitions, and kilograms, with
+  an offline equipment catalogue and no AI requirement.
+- Bundles searchable Fineli and Ciqual food data for local European-average
+  calculations. Explicit barcode lookup can use Open Food Facts in the cloud
+  build and is labelled as community-supplied package data.
+- Optionally asks Groq for an editable meal/workout proposal from a selected
+  text, voice transcript, or photo. The proposal requires Save, never changes
+  the source entry, and never promotes guessed nutrition to an official value.
 - Starts each day with an optional, dismissible summary of current Important items and notes
   explicitly marked for return.
 - Pages Important and settings in fixed groups of five, matching Paka. The daily note
@@ -90,7 +99,7 @@ editable. The `browser` and `purist` builds never send audio or text elsewhere.
   advertising, crash reporting, update checker, Google Play Services dependency,
   outbound HTTP client library, or outbound implementation.
 - Note text, transcripts, Important text, rule suggestions, additive metadata,
-  and protected diagnostics are encrypted at rest with AES-256-GCM and a
+  revisioned meal/workout payloads, and protected diagnostics are encrypted at rest with AES-256-GCM and a
   non-exportable Android Keystore key. Ciphertext is authenticated against its
   row and field.
 - Recordings go directly from `AudioRecord` into crash-recoverable encrypted
@@ -146,12 +155,13 @@ repository. Choose one flavor:
 - `purist` removes the LAN module and the `INTERNET` permission entirely.
 - `cloud` is a separate experimental build that can replace the normal build
   while preserving its data when signed with the same key. Developer settings can
-  enable Groq Whisper Large v3 or ElevenLabs Scribe v2 transcription and Groq
+  enable Groq Whisper Large v3 Turbo, Groq Whisper Large v3, or ElevenLabs Scribe v2 transcription and Groq
   GPT-OSS Important suggestions. It is off by default and uses BYOK: the key belongs
   to the user, Soma has no cloud account or proxy, and the provider charges the
   user's provider account directly.
-  ElevenLabs is the initial accuracy-first speech choice; Groq remains one tap
-  away and can share its key with AI Important extraction.
+  Groq Turbo is the initial cheap/fast cloud choice; Large v3 is the accuracy
+  setting and ElevenLabs remains the optional Baltic-language premium choice.
+  The same Groq key can power opt-in Important, metadata, and tracking proposals.
   Choosing one speech language sends that language to the provider; choosing
   several keeps pause-separated language auto-detection. A provider result outside
   the selected set, a missing key, an enabled Wi-Fi-only restriction, or any API
@@ -215,8 +225,10 @@ separate `cloud` source set uses the Android platform HTTPS connection API; API
 keys are AES-GCM encrypted under a dedicated Android Keystore key and are never
 exported. Transcription vocabulary uses a different Keystore key and is included
 in portable and readable exports. Local Whisper remains the failure fallback.
-Groq `openai/gpt-oss-20b` performs optional structured Important and metadata
-extraction; each feature has its own off-by-default Developer toggle.
+Groq `openai/gpt-oss-20b` performs optional structured Important, metadata, and
+text-based tracking extraction. Optional photo proposals use the replaceable
+preview vision model `qwen/qwen3.6-27b`; each feature has its own off-by-default
+Developer toggle, and all cloud calls use the user's own key.
 
 ## Building and verification
 

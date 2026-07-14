@@ -10,6 +10,10 @@ import com.soma.core.model.EntryMetadata
 import com.soma.core.model.ImportantKind
 import com.soma.core.model.ImageAttachment
 import com.soma.core.model.ImageFormat
+import com.soma.core.model.FoodItem
+import com.soma.core.model.LogKind
+import com.soma.core.model.LogRecord
+import com.soma.core.model.LogRevision
 import com.soma.core.model.MetadataSource
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
@@ -120,6 +124,41 @@ class PortableBackupCodecTest {
         try {
             val decoded = BackupPayloadCodec.decode(encoded, BackupSnapshot.CURRENT_PAYLOAD_VERSION)
             assertEquals(commentedPhoto, decoded.notes.single().entries.single())
+        } finally {
+            encoded.fill(0)
+        }
+    }
+
+    @Test
+    fun `portable payload keeps structured logs and their prior versions`() {
+        val original = LogRecord(
+            id = "recipe-log",
+            kind = LogKind.RECIPE,
+            title = "Milchreis",
+            occurredAt = START,
+            createdAt = START,
+            updatedAt = START,
+            source = EntrySource(DATE, TEXT_ENTRY.id),
+            foods = listOf(FoodItem("Rice"), FoodItem("Milk")),
+        )
+        val revised = original.revise(title = "Rice pudding", at = START.plusSeconds(30))
+        val snapshot = BackupSnapshot(
+            exportedAt = START.plusSeconds(60),
+            notes = listOf(DailyNote(DATE, START, listOf(TEXT_ENTRY))),
+            trackingLogs = listOf(revised),
+            trackingLogRevisions = listOf(
+                LogRevision(original.id, original.revision, original, revised.updatedAt),
+            ),
+            todos = emptyList(),
+            suggestions = emptyList(),
+        )
+
+        val encoded = BackupPayloadCodec.encode(snapshot)
+        try {
+            assertEquals(
+                snapshot,
+                BackupPayloadCodec.decode(encoded, BackupSnapshot.CURRENT_PAYLOAD_VERSION),
+            )
         } finally {
             encoded.fill(0)
         }

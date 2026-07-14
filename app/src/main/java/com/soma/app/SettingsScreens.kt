@@ -278,7 +278,7 @@ fun LicensesScreen(onBack: () -> Unit) {
     }
 }
 
-private enum class DeveloperAction { LIGHT_MODE, DEMO, RETURN_HOME, BATTERY_SAVER, LANGUAGE, CLOUD }
+private enum class DeveloperAction { LIGHT_MODE, LIGHT_GEAR, DEMO, RETURN_HOME, BATTERY_SAVER, LANGUAGE, CLOUD }
 
 @Composable
 fun DeveloperScreen(
@@ -290,6 +290,7 @@ fun DeveloperScreen(
     BackHandler(onBack = onBack)
     val context = LocalContext.current
     var lightMode by remember { mutableStateOf(SomaPrefs.lightMode(context)) }
+    var lightGear by remember { mutableStateOf(SomaPrefs.lightGear(context)) }
     var demo by remember { mutableStateOf(SomaPrefs.demoMode(context)) }
     var returnHome by remember { mutableStateOf(SomaPrefs.returnHome(context)) }
     var batterySaver by remember { mutableStateOf(SomaPrefs.transcribeInBatterySaver(context)) }
@@ -300,6 +301,7 @@ fun DeveloperScreen(
                 SettingsItem(
                     label = when (action) {
                         DeveloperAction.LIGHT_MODE -> stringResource(R.string.developer_light_mode)
+                        DeveloperAction.LIGHT_GEAR -> stringResource(R.string.developer_light_gear)
                         DeveloperAction.DEMO -> stringResource(R.string.developer_demo)
                         DeveloperAction.RETURN_HOME -> stringResource(R.string.developer_return_home)
                         DeveloperAction.BATTERY_SAVER -> stringResource(R.string.developer_transcribe_power_saver)
@@ -308,6 +310,7 @@ fun DeveloperScreen(
                     },
                     trailing = when (action) {
                         DeveloperAction.LIGHT_MODE -> stringResource(if (lightMode) R.string.on else R.string.off)
+                        DeveloperAction.LIGHT_GEAR -> stringResource(if (lightGear) R.string.on else R.string.off)
                         DeveloperAction.DEMO -> stringResource(if (demo) R.string.on else R.string.off)
                         DeveloperAction.RETURN_HOME -> stringResource(if (returnHome) R.string.on else R.string.off)
                         DeveloperAction.BATTERY_SAVER -> stringResource(if (batterySaver) R.string.on else R.string.off)
@@ -322,6 +325,10 @@ fun DeveloperScreen(
                                 lightMode = !lightMode
                                 SomaPalette.lightMode = lightMode
                                 SomaPrefs.setLightMode(context, lightMode)
+                            }
+                            DeveloperAction.LIGHT_GEAR -> {
+                                lightGear = !lightGear
+                                SomaPrefs.setLightGear(context, lightGear)
                             }
                             DeveloperAction.DEMO -> {
                                 demo = !demo
@@ -350,9 +357,11 @@ fun DeveloperScreen(
 private enum class CloudDeveloperAction {
     TRANSCRIPTION,
     PROVIDER,
+    GROQ_MODEL,
     WIFI_ONLY,
     AI_TODOS,
     AI_METADATA,
+    AI_TRACKING,
     GROQ_KEY,
     ELEVENLABS_KEY,
     PRIVACY,
@@ -456,9 +465,11 @@ fun CloudDeveloperScreen(onBack: () -> Unit) {
                     label = when (action) {
                         CloudDeveloperAction.TRANSCRIPTION -> stringResource(R.string.developer_cloud_transcription)
                         CloudDeveloperAction.PROVIDER -> stringResource(R.string.developer_provider)
+                        CloudDeveloperAction.GROQ_MODEL -> stringResource(R.string.developer_groq_model)
                         CloudDeveloperAction.WIFI_ONLY -> stringResource(R.string.developer_wifi_only)
                         CloudDeveloperAction.AI_TODOS -> stringResource(R.string.developer_ai_todos)
                         CloudDeveloperAction.AI_METADATA -> stringResource(R.string.developer_ai_metadata)
+                        CloudDeveloperAction.AI_TRACKING -> stringResource(R.string.developer_ai_tracking)
                         CloudDeveloperAction.GROQ_KEY -> stringResource(R.string.developer_groq_key)
                         CloudDeveloperAction.ELEVENLABS_KEY -> stringResource(R.string.developer_elevenlabs_key)
                         CloudDeveloperAction.PRIVACY -> stringResource(R.string.developer_cloud_data)
@@ -469,9 +480,14 @@ fun CloudDeveloperScreen(onBack: () -> Unit) {
                             CloudSpeechProvider.GROQ -> "Groq"
                             CloudSpeechProvider.ELEVENLABS -> "ElevenLabs"
                         }
+                        CloudDeveloperAction.GROQ_MODEL -> when (settings.groqModel) {
+                            GroqSpeechModel.TURBO -> stringResource(R.string.developer_groq_turbo)
+                            GroqSpeechModel.LARGE_V3 -> stringResource(R.string.developer_groq_accuracy)
+                        }
                         CloudDeveloperAction.WIFI_ONLY -> stringResource(if (settings.wifiOnly) R.string.on else R.string.off)
                         CloudDeveloperAction.AI_TODOS -> stringResource(if (settings.aiTodoSuggestions) R.string.on else R.string.off)
                         CloudDeveloperAction.AI_METADATA -> stringResource(if (settings.aiAutoMetadata) R.string.on else R.string.off)
+                        CloudDeveloperAction.AI_TRACKING -> stringResource(if (settings.aiTrackingSuggestions) R.string.on else R.string.off)
                         CloudDeveloperAction.GROQ_KEY -> stringResource(if (settings.hasGroqKey) R.string.developer_key_saved else R.string.developer_key_missing)
                         CloudDeveloperAction.ELEVENLABS_KEY -> stringResource(if (settings.hasElevenLabsKey) R.string.developer_key_saved else R.string.developer_key_missing)
                         CloudDeveloperAction.PRIVACY -> null
@@ -492,9 +508,17 @@ fun CloudDeveloperScreen(onBack: () -> Unit) {
                             CloudDeveloperAction.PROVIDER -> controller.setProvider(
                                 if (settings.provider == CloudSpeechProvider.GROQ) CloudSpeechProvider.ELEVENLABS else CloudSpeechProvider.GROQ,
                             )
+                            CloudDeveloperAction.GROQ_MODEL -> controller.setGroqModel(
+                                if (settings.groqModel == GroqSpeechModel.TURBO) {
+                                    GroqSpeechModel.LARGE_V3
+                                } else {
+                                    GroqSpeechModel.TURBO
+                                },
+                            )
                             CloudDeveloperAction.WIFI_ONLY -> controller.setWifiOnly(!settings.wifiOnly)
                             CloudDeveloperAction.AI_TODOS -> controller.setAiTodoSuggestions(!settings.aiTodoSuggestions)
                             CloudDeveloperAction.AI_METADATA -> controller.setAiAutoMetadata(!settings.aiAutoMetadata)
+                            CloudDeveloperAction.AI_TRACKING -> controller.setAiTrackingSuggestions(!settings.aiTrackingSuggestions)
                             CloudDeveloperAction.GROQ_KEY -> editingKey = CloudSpeechProvider.GROQ
                             CloudDeveloperAction.ELEVENLABS_KEY -> editingKey = CloudSpeechProvider.ELEVENLABS
                             CloudDeveloperAction.PRIVACY -> showPrivacy = true

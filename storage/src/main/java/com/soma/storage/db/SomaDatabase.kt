@@ -13,12 +13,14 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         EntryEntity::class,
         EntryRevisionEntity::class,
         EntryMetadataEntity::class,
+        TrackingLogEntity::class,
+        TrackingLogRevisionEntity::class,
         TodoEntity::class,
         TodoSuggestionEntity::class,
         StillOpenDismissalEntity::class,
         TranscriptionJobEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 abstract class SomaDatabase : RoomDatabase() {
@@ -26,6 +28,8 @@ abstract class SomaDatabase : RoomDatabase() {
     abstract fun entryDao(): EntryDao
     abstract fun entryRevisionDao(): EntryRevisionDao
     abstract fun entryMetadataDao(): EntryMetadataDao
+    abstract fun trackingLogDao(): TrackingLogDao
+    abstract fun trackingLogRevisionDao(): TrackingLogRevisionDao
     abstract fun todoDao(): TodoDao
     abstract fun todoSuggestionDao(): TodoSuggestionDao
     abstract fun stillOpenDismissalDao(): StillOpenDismissalDao
@@ -44,6 +48,7 @@ abstract class SomaDatabase : RoomDatabase() {
                     MIGRATION_5_6,
                     MIGRATION_6_7,
                     MIGRATION_7_8,
+                    MIGRATION_8_9,
                 )
                 .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
                 .build()
@@ -137,6 +142,59 @@ abstract class SomaDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS index_entry_metadata_source_derived_at_millis " +
                         "ON entry_metadata(source, derived_at_millis)",
+                )
+            }
+        }
+
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS tracking_logs (
+                        id TEXT NOT NULL,
+                        kind TEXT NOT NULL,
+                        payload_ciphertext BLOB NOT NULL,
+                        crypto_version INTEGER NOT NULL,
+                        occurred_at_millis INTEGER NOT NULL,
+                        created_at_millis INTEGER NOT NULL,
+                        updated_at_millis INTEGER NOT NULL,
+                        source_note_epoch_day INTEGER,
+                        source_entry_id TEXT,
+                        revision INTEGER NOT NULL,
+                        archived_at_millis INTEGER,
+                        PRIMARY KEY(id)
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_tracking_logs_kind_occurred_at_millis " +
+                        "ON tracking_logs(kind, occurred_at_millis)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_tracking_logs_source_entry_id " +
+                        "ON tracking_logs(source_entry_id)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_tracking_logs_archived_at_millis " +
+                        "ON tracking_logs(archived_at_millis)",
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS tracking_log_revisions (
+                        log_id TEXT NOT NULL,
+                        revision INTEGER NOT NULL,
+                        payload_ciphertext BLOB NOT NULL,
+                        crypto_version INTEGER NOT NULL,
+                        edited_at_millis INTEGER NOT NULL,
+                        PRIMARY KEY(log_id, revision),
+                        FOREIGN KEY(log_id) REFERENCES tracking_logs(id)
+                            ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_tracking_log_revisions_log_id " +
+                        "ON tracking_log_revisions(log_id)",
                 )
             }
         }

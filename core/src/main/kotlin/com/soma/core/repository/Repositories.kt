@@ -3,6 +3,9 @@ package com.soma.core.repository
 import com.soma.core.model.DailyNote
 import com.soma.core.model.EntryRevision
 import com.soma.core.model.EntryMetadata
+import com.soma.core.model.LogKind
+import com.soma.core.model.LogRecord
+import com.soma.core.model.LogRevision
 import com.soma.core.model.MetadataSource
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
@@ -88,6 +91,27 @@ interface EntryMetadataRepository {
     suspend fun upsert(metadata: EntryMetadata): Boolean
 
     suspend fun delete(entryId: String, source: MetadataSource): Boolean
+}
+
+interface TrackingLogRepository {
+    suspend fun getLog(logId: String): LogRecord?
+
+    /** Active records newest-first, optionally restricted to one kind. */
+    fun observe(kind: LogKind? = null): Flow<List<LogRecord>>
+
+    suspend fun listAllLogs(): List<LogRecord>
+
+    /** Returns false rather than replacing a duplicate id. */
+    suspend fun insert(log: LogRecord): Boolean
+
+    /**
+     * Atomically stores [log] and the encrypted previous snapshot. The immutable id, creation
+     * timestamp, source link, and exactly-next revision are checked by the implementation.
+     */
+    suspend fun update(log: LogRecord): Boolean
+
+    /** Previous snapshots oldest-first. */
+    suspend fun listRevisions(logId: String): List<LogRevision>
 }
 
 interface TodoRepository {

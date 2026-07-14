@@ -196,7 +196,7 @@
     <string name="developer_key_storage">Atslēga ir šifrēta ar Android Keystore un netiek eksportēta. Saglabā tukšu vērtību, lai to dzēstu.</string>
     <string name="developer_key_saved">saglabāta</string>
     <string name="developer_key_missing">trūkst</string>
-    <string name="developer_cloud_privacy">Pēc noklusējuma izslēgts. Mākoņa transkripcija nosūta audio izvēlētajam pakalpojumam. Soma valodām ElevenLabs ir noklusējuma izvēle precizitātei. MI ieteikumi un automātiskās birkas/saites nosūta Groq tikai jauno vai laboto ierakstu. Mazākai datu glabāšanai ieslēdz Zero Data Retention Groq; ElevenLabs tas prasa Enterprise. Pieprasījumi izmanto tavu aktīvo savienojumu, tostarp mobilos datus, ja vien neieslēdz tikai Wi-Fi.</string>
+    <string name="developer_cloud_privacy">Izmanto savu pakalpojuma atslēgu; Soma nav konta vai servera, un maksa nonāk tavā pakalpojuma kontā. Pēc noklusējuma izslēgts. Transkripcija nosūta audio un vārdnīcu izvēlētajam pakalpojumam. Svarīgā ieteikumi un birkas nosūta ieraksta tekstu Groq. Maltīšu un treniņu priekšlikumi nosūta izvēlēto tekstu un tikai tad, ja ir, tā fotoattēlu Groq. Groq apstrāde un saglabātie klienta dati atrodas ASV; Groq iestatījumos ieslēdz Zero Data Retention. ElevenLabs nulles glabāšana prasa Enterprise. Tiek lietots arī mobilais tīkls, ja nav ieslēgts tikai Wi-Fi.</string>
     <string name="developer_cloud_data">mākoņa dati un privātums</string>
     <string name="developer_enabled">Izstrādātāja iespējas ieslēgtas</string>
     <string name="language_name_english">English</string>

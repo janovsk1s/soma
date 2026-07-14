@@ -181,6 +181,52 @@ interface EntryMetadataDao {
 }
 
 @Dao
+interface TrackingLogDao {
+    @Query("DELETE FROM tracking_logs")
+    suspend fun clear(): Int
+
+    @Query("SELECT * FROM tracking_logs WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): TrackingLogEntity?
+
+    @Query(
+        """
+        SELECT * FROM tracking_logs
+        WHERE archived_at_millis IS NULL AND (:kind IS NULL OR kind = :kind)
+        ORDER BY occurred_at_millis DESC, id ASC
+        """,
+    )
+    fun observeActive(kind: String?): Flow<List<TrackingLogEntity>>
+
+    @Query("SELECT * FROM tracking_logs ORDER BY occurred_at_millis ASC, id ASC")
+    suspend fun listAll(): List<TrackingLogEntity>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(log: TrackingLogEntity): Long
+
+    @Update
+    suspend fun update(log: TrackingLogEntity): Int
+}
+
+@Dao
+interface TrackingLogRevisionDao {
+    @Query("DELETE FROM tracking_log_revisions")
+    suspend fun clear(): Int
+
+    @Query(
+        "SELECT * FROM tracking_log_revisions WHERE log_id = :logId ORDER BY revision ASC",
+    )
+    suspend fun listForLog(logId: String): List<TrackingLogRevisionEntity>
+
+    @Query(
+        "SELECT * FROM tracking_log_revisions ORDER BY edited_at_millis ASC, log_id ASC, revision ASC",
+    )
+    suspend fun listAll(): List<TrackingLogRevisionEntity>
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insert(revision: TrackingLogRevisionEntity)
+}
+
+@Dao
 interface TodoDao {
     @Query("DELETE FROM todos")
     suspend fun clear(): Int

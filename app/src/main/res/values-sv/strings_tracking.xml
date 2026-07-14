@@ -1,0 +1,29 @@
+<resources>
+    <string name="transcription_engine_groq_turbo">Groq · Whisper Large v3 Turbo</string>
+    <string name="logs">Loggar</string><string name="logs_all">alla</string><string name="logs_empty">Inga måltider, recept eller träningspass än.</string>
+    <string name="meal">måltid</string><string name="meals">måltider</string><string name="recipe">recept</string><string name="recipes">recept</string>
+    <string name="workout">träningspass</string><string name="workouts">träningspass</string><string name="add_log">lägg till logg</string>
+    <string name="add_meal">lägg till måltid…</string><string name="add_recipe">lägg till recept…</string><string name="add_workout">lägg till träningspass…</string>
+    <string name="log_meal_help">Ett livsmedel per rad. Lägg till mängd när den är känd, till exempel ”risgrynsgröt 300 g”. Soma hittar inte på kalorier.</string>
+    <string name="log_recipe_help">En ingrediens per rad, till exempel ”ris 100 g”. Mängder och näringsvärden kan redigeras.</string>
+    <string name="log_workout_help">Snabbform: ”benpress 3×10 80 kg”. Använd en ny rad för nästa övning.</string>
+    <string name="log_from_entry">logga måltid, recept eller träningspass</string><string name="archive_log">arkivera logg</string>
+    <string name="log_earlier_versions">%1$d tidigare versioner</string><string name="source_entry">källanteckning</string>
+    <string name="nutrition_package_label">förpackningsetikett</string><string name="nutrition_official_average">officiellt europeiskt genomsnitt</string>
+    <string name="nutrition_estimated">uppskattning</string><string name="nutrition_unquantified">inte kvantifierat</string>
+    <string name="nutrition_kcal">cirka %1$s kcal</string><string name="nutrition_kcal_range">cirka %1$s–%2$s kcal</string>
+    <string name="nutrition_kcal_per_100g">%1$s kcal / 100 g</string><string name="match_food">matcha officiellt livsmedel</string>
+    <string name="food_search_hint">Hitta ett livsmedel…</string><string name="food_search_loading">läser in europeiska livsmedel…</string>
+    <string name="food_search_empty">Ingen lokal träff. Lämna okvantifierat.</string><string name="lookup_barcode_online">slå upp streckkod online</string>
+    <string name="open_food_facts">Open Food Facts</string><string name="food_piece">styck</string><string name="food_serving">portion</string>
+    <string name="workout_unquantified">set, repetitioner eller vikt saknas</string><string name="workout_set">set %1$d · %2$s</string>
+    <string name="workout_reps">%1$d reps</string><string name="workout_kg">%1$s kg</string><string name="workout_seconds">%1$d sek</string>
+    <string name="workout_exercise_hint">övning eller maskin…</string><string name="workout_sets_hint">set…</string>
+    <string name="workout_repetitions_hint">repetitioner…</string><string name="workout_weight_hint">kilogram…</string>
+    <string name="workout_detailed_entry">skriv detaljerat träningspass</string><string name="choose_exercise">välj övning</string>
+    <string name="exercise_search_hint">Hitta en övning eller maskin…</string><string name="exercise_search_empty">Ingen lokal träff. Skriv ett eget namn.</string>
+    <string name="developer_light_gear">Light-kugghjul</string><string name="developer_groq_model">Groq-talmodell</string>
+    <string name="developer_groq_turbo">Turbo · billigare</string><string name="developer_groq_accuracy">Large v3 · noggrannhet</string>
+    <string name="developer_ai_tracking">AI-förslag för mat och träning</string><string name="suggest_with_groq">föreslå från anteckning med Groq</string>
+    <string name="suggesting_with_groq">frågar Groq…</string><string name="tracking_suggestion_failed">Inget förslag returnerades. Originalanteckningen är oförändrad.</string>
+</resources>

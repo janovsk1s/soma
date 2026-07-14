@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -19,6 +20,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.rotate
@@ -29,6 +31,8 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.PI
@@ -44,6 +48,7 @@ fun LineInput(
     modifier: Modifier = Modifier,
     singleLine: Boolean = true,
     password: Boolean = false,
+    keyboardType: KeyboardType = if (password) KeyboardType.Password else KeyboardType.Text,
     onDone: () -> Unit = {},
 ) {
     BasicTextField(
@@ -64,7 +69,7 @@ fun LineInput(
         keyboardOptions = KeyboardOptions(
             capitalization = if (password) KeyboardCapitalization.None else KeyboardCapitalization.Sentences,
             imeAction = if (singleLine) ImeAction.Done else ImeAction.Default,
-            keyboardType = if (password) KeyboardType.Password else KeyboardType.Text,
+            keyboardType = keyboardType,
         ),
         keyboardActions = KeyboardActions(onDone = { onDone() }),
         visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
@@ -103,7 +108,22 @@ fun SettingsItem(
 
 @Composable
 fun GearButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Canvas(modifier.size(48.dp).then(tapModifier(onClick, "settings"))) { drawGear() }
+    val lightGear = SomaPrefs.lightGear(LocalContext.current)
+    if (lightGear) {
+        Box(
+            modifier = modifier.size(48.dp).then(tapModifier(onClick, "settings")),
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(
+                painter = painterResource(R.drawable.ic_light_settings_white),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(Ink),
+                modifier = Modifier.size(27.dp),
+            )
+        }
+    } else {
+        Canvas(modifier.size(48.dp).then(tapModifier(onClick, "settings"))) { drawGear() }
+    }
 }
 
 @Composable
@@ -112,8 +132,10 @@ fun PlusButton(onClick: () -> Unit, onLongClick: () -> Unit, modifier: Modifier 
 }
 
 @Composable
-fun TodosButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Canvas(modifier.size(48.dp).then(tapModifier(onClick, "todos"))) { drawOpenRing() }
+fun TodosButton(onClick: () -> Unit, onLongClick: () -> Unit, modifier: Modifier = Modifier) {
+    Canvas(modifier.size(48.dp).then(tapLongModifier(onClick, onLongClick, "important and logs"))) {
+        drawOpenRing()
+    }
 }
 
 @Composable

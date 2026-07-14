@@ -23,9 +23,20 @@ class CloudTranscriptionProvenanceTest {
             TranscriptionFallbackReason.PROVIDER_ERROR,
         )
 
-        assertEquals(TranscriptionEngine.GROQ_WHISPER_LARGE_V3, provenance.requestedEngine)
+        assertEquals(TranscriptionEngine.GROQ_WHISPER_LARGE_V3_TURBO, provenance.requestedEngine)
         assertEquals(TranscriptionEngine.LOCAL_WHISPER_TINY, provenance.usedEngine)
         assertEquals(TranscriptionFallbackReason.PROVIDER_ERROR, provenance.fallbackReason)
+    }
+
+    @Test
+    fun `Groq accuracy setting records Large v3`() {
+        val provenance = cloudSuccessProvenance(
+            CloudSpeechProvider.GROQ,
+            GroqSpeechModel.LARGE_V3,
+        )
+
+        assertEquals(TranscriptionEngine.GROQ_WHISPER_LARGE_V3, provenance.requestedEngine)
+        assertEquals(TranscriptionEngine.GROQ_WHISPER_LARGE_V3, provenance.usedEngine)
     }
 
     @Test

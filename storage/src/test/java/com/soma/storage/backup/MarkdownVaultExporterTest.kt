@@ -13,7 +13,12 @@ import com.soma.core.model.ImageAttachment
 import com.soma.core.model.ImageFormat
 import com.soma.core.model.MetadataSource
 import com.soma.core.model.NoteEntry
+import com.soma.core.model.LogKind
+import com.soma.core.model.LogRecord
+import com.soma.core.model.LogRevision
 import com.soma.core.model.Todo
+import com.soma.core.model.WorkoutExercise
+import com.soma.core.model.WorkoutSet
 import java.io.ByteArrayInputStream
 import java.time.Instant
 import java.time.LocalDate
@@ -71,6 +76,20 @@ class MarkdownVaultExporterTest {
         val done = Todo("done", "call Ada", created, created).markDone(edited)
         val archived = Todo("archived", "old reference", created, created).archive(edited)
         val audioBytes = byteArrayOf(1, 2, 3, 4)
+        val originalWorkout = LogRecord(
+            id = "workout-1",
+            kind = LogKind.WORKOUT,
+            title = "Leg press",
+            occurredAt = created,
+            createdAt = created,
+            updatedAt = created,
+            source = EntrySource(date, entry.id),
+            exercises = listOf(WorkoutExercise("Leg press", sets = listOf(WorkoutSet(10, 80.0)))),
+        )
+        val currentWorkout = originalWorkout.revise(
+            exercises = listOf(WorkoutExercise("Leg press", sets = listOf(WorkoutSet(12, 80.0)))),
+            at = edited,
+        )
         val snapshot = BackupSnapshot(
             exportedAt = Instant.parse("2026-07-14T11:00:00Z"),
             notes = listOf(DailyNote(date, created, listOf(entry, voice, deleted, photo))),
@@ -90,6 +109,10 @@ class MarkdownVaultExporterTest {
                     source = MetadataSource.AI,
                 ),
             ),
+            trackingLogs = listOf(currentWorkout),
+            trackingLogRevisions = listOf(
+                LogRevision(originalWorkout.id, 0, originalWorkout, edited),
+            ),
             todos = listOf(open, done, archived),
             suggestions = emptyList(),
             audioContainers = listOf(BackupAudioContainer("audio-voice-1", audioBytes)),
@@ -104,13 +127,16 @@ class MarkdownVaultExporterTest {
         assertArrayEquals(encoded, exporter.encode(snapshot))
 
         val historyPath = files.keys.single { it.startsWith("history/2026-07-14-") }
+        val logHistoryPath = files.keys.single { it.startsWith("history/log-") }
         assertEquals(
             setOf(
                 "README.md",
                 ".soma/manifest.json",
                 "Important.md",
+                "Logs.md",
                 "2026-07-14.md",
                 historyPath,
+                logHistoryPath,
                 "media/2026-07-14-audio-voice-1.wav",
                 "media/2026-07-14-image-1.jpg",
             ),
@@ -137,7 +163,7 @@ class MarkdownVaultExporterTest {
         assertFalse(day.contains("SHOULD-NOT-EXPORT"))
 
         val manifest = files.getValue(".soma/manifest.json").toString(Charsets.UTF_8)
-        assertTrue(manifest.contains("\"version\": 3"))
+        assertTrue(manifest.contains("\"version\": 4"))
         assertTrue(manifest.contains("\"metadataLayerCount\": 1"))
 
         val important = files.getValue("Important.md").toString(Charsets.UTF_8)
@@ -155,6 +181,14 @@ class MarkdownVaultExporterTest {
         assertTrue(history.contains("buy oat milk"))
         assertFalse(history.contains("deleted original"))
         assertArrayEquals(audioBytes, files.getValue("media/2026-07-14-audio-voice-1.wav"))
+
+        val logs = files.getValue("Logs.md").toString(Charsets.UTF_8)
+        assertTrue(logs.contains("Leg press"))
+        assertTrue(logs.contains("12 reps · 80 kg"))
+        assertTrue(logs.contains("|Source entry]]"))
+        val logHistory = files.getValue(logHistoryPath).toString(Charsets.UTF_8)
+        assertTrue(logHistory.contains("## Original"))
+        assertTrue(logHistory.contains("10 reps · 80 kg"))
     }
 
     @Test

@@ -41,12 +41,15 @@ class SomaSpeechLanguagePreferenceTest {
     }
 
     @Test
-    fun `ElevenLabs is the initial cloud speech provider but remains selectable`() {
-        assertEquals(CloudSpeechProvider.ELEVENLABS, SomaPrefs.cloudSpeechProvider(context))
-
-        SomaPrefs.setCloudSpeechProvider(context, CloudSpeechProvider.GROQ)
-
+    fun `Groq Turbo is the initial cloud speech choice but providers and accuracy remain selectable`() {
         assertEquals(CloudSpeechProvider.GROQ, SomaPrefs.cloudSpeechProvider(context))
+        assertEquals(GroqSpeechModel.TURBO, SomaPrefs.groqSpeechModel(context))
+
+        SomaPrefs.setCloudSpeechProvider(context, CloudSpeechProvider.ELEVENLABS)
+        SomaPrefs.setGroqSpeechModel(context, GroqSpeechModel.LARGE_V3)
+
+        assertEquals(CloudSpeechProvider.ELEVENLABS, SomaPrefs.cloudSpeechProvider(context))
+        assertEquals(GroqSpeechModel.LARGE_V3, SomaPrefs.groqSpeechModel(context))
     }
 
     @Test
@@ -64,10 +67,13 @@ class SomaSpeechLanguagePreferenceTest {
     fun `automatic cloud analysis is separately opt in`() {
         assertFalse(SomaPrefs.aiTodoSuggestions(context))
         assertFalse(SomaPrefs.aiAutoMetadata(context))
+        assertFalse(SomaPrefs.aiTrackingSuggestions(context))
 
         SomaPrefs.setAiAutoMetadata(context, true)
+        SomaPrefs.setAiTrackingSuggestions(context, true)
 
         assertTrue(SomaPrefs.aiAutoMetadata(context))
+        assertTrue(SomaPrefs.aiTrackingSuggestions(context))
         assertFalse(SomaPrefs.aiTodoSuggestions(context))
     }
 

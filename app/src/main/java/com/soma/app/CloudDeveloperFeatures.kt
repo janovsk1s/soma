@@ -3,11 +3,13 @@ package com.soma.app
 import android.content.Context
 import com.soma.core.model.EntryLink
 import com.soma.core.model.EntryLinkKind
+import com.soma.core.model.LogKind
 import com.soma.core.model.SupportedLanguage
 import com.soma.core.model.TranscriptionEngine
 import com.soma.core.model.TranscriptionFallbackReason
 import com.soma.core.model.TranscriptionProvenance
 import com.soma.core.model.normalizeMetadataTag
+import com.soma.core.tracking.EuropeanFoodReference
 import com.soma.whisper.Transcriber
 import java.util.Locale
 
@@ -16,9 +18,18 @@ enum class CloudSpeechProvider {
     ELEVENLABS,
 }
 
-internal val CloudSpeechProvider.transcriptionEngine: TranscriptionEngine
-    get() = when (this) {
-        CloudSpeechProvider.GROQ -> TranscriptionEngine.GROQ_WHISPER_LARGE_V3
+enum class GroqSpeechModel(val apiId: String) {
+    TURBO("whisper-large-v3-turbo"),
+    LARGE_V3("whisper-large-v3"),
+}
+
+internal fun CloudSpeechProvider.transcriptionEngine(
+    groqModel: GroqSpeechModel = GroqSpeechModel.TURBO,
+): TranscriptionEngine = when (this) {
+        CloudSpeechProvider.GROQ -> when (groqModel) {
+            GroqSpeechModel.TURBO -> TranscriptionEngine.GROQ_WHISPER_LARGE_V3_TURBO
+            GroqSpeechModel.LARGE_V3 -> TranscriptionEngine.GROQ_WHISPER_LARGE_V3
+        }
         CloudSpeechProvider.ELEVENLABS -> TranscriptionEngine.ELEVENLABS_SCRIBE_V2
     }
 
@@ -30,16 +41,20 @@ internal val CloudSpeechProvider.transcriptionEngine: TranscriptionEngine
 internal val CloudSpeechProvider.preservesRecordingContext: Boolean
     get() = this == CloudSpeechProvider.ELEVENLABS
 
-internal fun cloudSuccessProvenance(provider: CloudSpeechProvider) = TranscriptionProvenance(
-    requestedEngine = provider.transcriptionEngine,
-    usedEngine = provider.transcriptionEngine,
+internal fun cloudSuccessProvenance(
+    provider: CloudSpeechProvider,
+    groqModel: GroqSpeechModel = GroqSpeechModel.TURBO,
+) = TranscriptionProvenance(
+    requestedEngine = provider.transcriptionEngine(groqModel),
+    usedEngine = provider.transcriptionEngine(groqModel),
 )
 
 internal fun cloudFallbackProvenance(
     provider: CloudSpeechProvider,
     reason: TranscriptionFallbackReason,
+    groqModel: GroqSpeechModel = GroqSpeechModel.TURBO,
 ) = TranscriptionProvenance(
-    requestedEngine = provider.transcriptionEngine,
+    requestedEngine = provider.transcriptionEngine(groqModel),
     usedEngine = TranscriptionEngine.LOCAL_WHISPER_TINY,
     fallbackReason = reason,
 )
@@ -150,9 +165,11 @@ data class CloudDeveloperSettings(
     val available: Boolean,
     val transcriptionEnabled: Boolean,
     val provider: CloudSpeechProvider,
+    val groqModel: GroqSpeechModel,
     val wifiOnly: Boolean,
     val aiTodoSuggestions: Boolean,
     val aiAutoMetadata: Boolean,
+    val aiTrackingSuggestions: Boolean,
     val hasGroqKey: Boolean,
     val hasElevenLabsKey: Boolean,
 )
@@ -243,11 +260,15 @@ interface CloudFeatureController {
 
     fun setProvider(provider: CloudSpeechProvider)
 
+    fun setGroqModel(model: GroqSpeechModel)
+
     fun setWifiOnly(enabled: Boolean)
 
     fun setAiTodoSuggestions(enabled: Boolean)
 
     fun setAiAutoMetadata(enabled: Boolean)
+
+    fun setAiTrackingSuggestions(enabled: Boolean)
 
     /** Empty text deletes the provider key. Keys are Keystore-encrypted at rest. */
     fun setApiKey(provider: CloudSpeechProvider, value: CharArray)
@@ -262,6 +283,16 @@ interface CloudFeatureController {
         text: String,
         languages: Set<SupportedLanguage>,
     ): CloudMetadataResult?
+
+    /** Explicit barcode lookup only. Offline flavors always return null. */
+    suspend fun lookupPackagedFood(barcode: String): EuropeanFoodReference?
+
+    /** Explicit, editable proposal only; the source entry/photo remains authoritative and untouched. */
+    suspend fun suggestTrackingText(
+        kind: LogKind,
+        text: String,
+        imageJpeg: ByteArray?,
+    ): String?
 }
 
 internal fun cloudFeatures(context: Context): CloudFeatureController = createCloudFeatureController(context)
