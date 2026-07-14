@@ -30,14 +30,17 @@ case "$flavor" in
   browser)
     expected_permissions="android.permission.INTERNET
 android.permission.POST_NOTIFICATIONS
+android.permission.CAMERA
 android.permission.RECORD_AUDIO"
     ;;
   purist)
-    expected_permissions="android.permission.POST_NOTIFICATIONS
+    expected_permissions="android.permission.CAMERA
+android.permission.POST_NOTIFICATIONS
 android.permission.RECORD_AUDIO"
     ;;
   cloud)
     expected_permissions="android.permission.ACCESS_NETWORK_STATE
+android.permission.CAMERA
 android.permission.INTERNET
 android.permission.POST_NOTIFICATIONS
 android.permission.RECORD_AUDIO"

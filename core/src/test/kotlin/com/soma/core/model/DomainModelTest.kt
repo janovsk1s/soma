@@ -69,6 +69,19 @@ class DomainModelTest {
     }
 
     @Test
+    fun `image factory keeps encrypted original metadata through a tombstone`() {
+        val image = ImageAttachment("image-1", ImageFormat.JPEG, 1280, 960, 90, 12_000)
+        val entry = NoteEntry.image("image-entry", date, 0, image, now, "train window")
+
+        assertEquals(EntryKind.IMAGE, entry.kind)
+        assertEquals(image, entry.activeImage)
+        val deleted = entry.copy(imageDeletedAt = now.plusSeconds(5))
+        assertNull(deleted.activeImage)
+        assertEquals(image, deleted.image)
+        assertEquals(now, deleted.createdAt)
+    }
+
+    @Test
     fun `daily note accepts only ordered entries from its date`() {
         val first = NoteEntry.text("one", date, 1, "One", now)
         val second = NoteEntry.text("two", date, 2, "Two", now)

@@ -46,7 +46,8 @@ fun BrowserScreen(onBack: () -> Unit) {
     val lightMode = SomaPrefs.lightMode(context)
     val controller = remember(lightMode) {
         val audio = EncryptedBrowserViewAudioProvider(app::encryptedAudioFile, app.audioKeyProvider)
-        val source = RepositoryBrowserViewDataSource(repositories.notes, repositories.todos, audio)
+        val images = EncryptedBrowserViewImageProvider(app::encryptedImageFile, app.imageKeyProvider)
+        val source = RepositoryBrowserViewDataSource(repositories.notes, repositories.todos, audio, images)
         BrowserViewController(source, lightMode)
     }
     val state by controller.state.collectAsState()

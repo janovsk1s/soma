@@ -8,6 +8,8 @@ import com.soma.core.model.EntryRevision
 import com.soma.core.model.EntrySource
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.ImportantKind
+import com.soma.core.model.ImageAttachment
+import com.soma.core.model.ImageFormat
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.SupportedLanguage
@@ -56,6 +58,7 @@ internal object BackupPayloadCodec {
                 output.writeList(snapshot.audioContainers, ::writeAudioContainer)
                 output.writeList(snapshot.entryRevisions, ::writeEntryRevision)
                 output.writeList(snapshot.transcriptionVocabulary) { target, term -> target.writeString(term) }
+                output.writeList(snapshot.imageContainers, ::writeImageContainer)
             }
             buffer.copyBytes()
         } finally {
@@ -79,6 +82,7 @@ internal object BackupPayloadCodec {
         val audio = input.readList(::readAudioContainer)
         val revisions = if (payloadVersion >= 2) input.readList(::readEntryRevision) else emptyList()
         val transcriptionVocabulary = if (payloadVersion >= 4) input.readList { it.readString() } else emptyList()
+        val images = if (payloadVersion >= 8) input.readList(::readImageContainer) else emptyList()
         val lastEdits = revisions.groupBy(EntryRevision::entryId)
             .mapValues { (_, values) -> values.maxBy(EntryRevision::editedAt).editedAt }
         val notes = rawNotes.map { note ->
@@ -96,6 +100,7 @@ internal object BackupPayloadCodec {
             stillOpenDismissals = dismissals,
             transcriptionJobs = jobs,
             audioContainers = audio,
+            imageContainers = images,
             transcriptionVocabulary = transcriptionVocabulary,
         )
         if (byteInput.available() != 0) {
@@ -140,6 +145,8 @@ internal object BackupPayloadCodec {
         output.writeNullable(entry.transcription, ::writeTranscriptionInfo)
         output.writeNullable(entry.deletedAt) { target, value -> target.writeInstant(value) }
         output.writeNullable(entry.audioDeletedAt) { target, value -> target.writeInstant(value) }
+        output.writeNullable(entry.image, ::writeImageAttachment)
+        output.writeNullable(entry.imageDeletedAt) { target, value -> target.writeInstant(value) }
     }
 
     private fun readEntry(input: DataInput, noteDate: LocalDate, payloadVersion: Int): NoteEntry = NoteEntry(
@@ -155,6 +162,26 @@ internal object BackupPayloadCodec {
         transcription = input.readNullable { source -> readTranscriptionInfo(source, payloadVersion) },
         deletedAt = if (payloadVersion >= 7) input.readNullable { it.readInstant() } else null,
         audioDeletedAt = if (payloadVersion >= 7) input.readNullable { it.readInstant() } else null,
+        image = if (payloadVersion >= 8) input.readNullable(::readImageAttachment) else null,
+        imageDeletedAt = if (payloadVersion >= 8) input.readNullable { it.readInstant() } else null,
+    )
+
+    private fun writeImageAttachment(output: DataOutput, image: ImageAttachment) {
+        output.writeString(image.fileId)
+        output.writeEnum(image.format)
+        output.writeInt(image.width)
+        output.writeInt(image.height)
+        output.writeInt(image.rotationDegrees)
+        output.writeLong(image.byteCount)
+    }
+
+    private fun readImageAttachment(input: DataInput) = ImageAttachment(
+        fileId = input.readString(),
+        format = input.readEnum<ImageFormat>(),
+        width = input.readInt(),
+        height = input.readInt(),
+        rotationDegrees = input.readInt(),
+        byteCount = input.readLong(),
     )
 
     private fun writeEntryRevision(output: DataOutput, revision: EntryRevision) {
@@ -188,6 +215,27 @@ internal object BackupPayloadCodec {
         sampleRateHz = input.readInt(),
         channelCount = input.readInt(),
     )
+
+    private fun writeImageContainer(output: DataOutput, image: BackupImageContainer) {
+        output.writeString(image.fileId)
+        image.writeBytes { bytes ->
+            require(bytes.size <= MAX_IMAGE_BYTES) { "Portable image is too large" }
+            output.writeInt(bytes.size)
+            output.write(bytes)
+        }
+    }
+
+    private fun readImageContainer(input: DataInput): BackupImageContainer {
+        val fileId = input.readString()
+        val size = input.readBoundedLength(MAX_IMAGE_BYTES, "image container")
+        val bytes = ByteArray(size)
+        return try {
+            input.readFully(bytes)
+            BackupImageContainer(fileId, bytes)
+        } finally {
+            Arrays.fill(bytes, 0)
+        }
+    }
 
     private fun writeTranscriptionInfo(output: DataOutput, info: TranscriptionInfo) {
         output.writeEnum(info.state)
@@ -476,4 +524,5 @@ internal object BackupPayloadCodec {
     private const val MAX_COLLECTION_SIZE = 100_000
     private const val MAX_STRING_BYTES = 4 * 1024 * 1024
     private const val MAX_AUDIO_BYTES = 128 * 1024 * 1024
+    private const val MAX_IMAGE_BYTES = 24 * 1024 * 1024
 }

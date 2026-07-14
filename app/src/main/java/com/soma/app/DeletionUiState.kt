@@ -7,4 +7,5 @@ internal data class DeletionUndo(
     val entryId: String,
     val previousDeletedAt: Instant?,
     val previousAudioDeletedAt: Instant?,
+    val previousImageDeletedAt: Instant?,
 )

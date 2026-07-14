@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Requested only when the user deliberately opens photo capture. -->
+    <uses-permission android:name="android.permission.CAMERA" />
     <!-- Requested only when the optional reminder or Browser-view notice is enabled. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- WorkManager declares these for optional modes Soma does not use. -->
@@ -12,6 +14,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" tools:node="remove" />
 
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
     <application
         android:name=".SomaApplication"

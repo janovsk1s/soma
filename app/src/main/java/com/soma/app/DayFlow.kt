@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.soma.core.model.EntryTranscriptionState
+import com.soma.core.model.EntryKind
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.TodoSuggestion
 import java.time.ZoneId
@@ -59,6 +60,7 @@ fun DayFlowPager(
             when {
                 entry.id == recordingEntryId -> recordingText
                 entry.text.isNotBlank() -> entry.text
+                entry.kind == EntryKind.IMAGE -> ""
                 entry.transcription?.state == EntryTranscriptionState.FAILED -> failedText
                 else -> transcribingText
             }
@@ -80,6 +82,8 @@ fun DayFlowPager(
             val passiveChipPx = with(density) { CHIP_ROW_HEIGHT.roundToPx() }
             val touchTargetPx = with(density) { MIN_TOUCH_TARGET.roundToPx() }
             val timeLinePx = with(density) { TIME_LINE_HEIGHT.roundToPx() }
+            val imagePreviewPx = with(density) { IMAGE_PREVIEW_HEIGHT.roundToPx() }
+            val imageCaptionSpacingPx = with(density) { IMAGE_CAPTION_SPACING.roundToPx() }
             // A single entry never shows more than one page of lines, so cap both
             // the measured line count and the measured text length. Otherwise an
             // unusually long entry makes this composition-thread layout scale with
@@ -94,22 +98,33 @@ fun DayFlowPager(
                     entry.returnLater -> passiveChipPx
                     else -> 0
                 }
+                val hasImage = entry.activeImage != null
                 val measuredText = displayed[index].let { if (it.length > charCap) it.take(charCap) else it }
                 val full = measurer.measure(
-                    AnnotatedString(measuredText),
+                    AnnotatedString(measuredText.ifEmpty { " " }),
                     bodyStyle,
                     maxLines = lineCap,
                     constraints = Constraints(maxWidth = textWidthPx),
                 )
                 val lineHeightPx = (full.size.height / full.lineCount.coerceAtLeast(1)).coerceAtLeast(1)
-                val budget = pageContentHeightPx - timeLinePx - chipPx
+                val imagePx = if (hasImage) {
+                    imagePreviewPx.coerceAtMost((pageContentHeightPx - timeLinePx - chipPx).coerceAtLeast(0))
+                } else {
+                    0
+                }
+                val captionSpacingPx = if (hasImage && measuredText.isNotEmpty()) imageCaptionSpacingPx else 0
+                val budget = pageContentHeightPx - timeLinePx - chipPx - imagePx - captionSpacingPx
                 val maxLines = (budget / lineHeightPx).coerceAtLeast(1)
-                val lines = full.lineCount.coerceAtMost(maxLines)
+                val lines = if (measuredText.isEmpty()) 0 else full.lineCount.coerceAtMost(maxLines)
                 FlowBlock(
                     entry = entry,
                     text = displayed[index],
-                    maxLines = lines,
-                    heightPx = maxOf(touchTargetPx, timeLinePx + lines * lineHeightPx + chipPx),
+                    maxLines = lines.coerceAtLeast(1),
+                    imageHeightPx = imagePx,
+                    heightPx = maxOf(
+                        touchTargetPx,
+                        timeLinePx + imagePx + captionSpacingPx + lines * lineHeightPx + chipPx,
+                    ),
                     spacingPx = spacingPx,
                 )
             }
@@ -162,6 +177,7 @@ internal data class FlowBlock(
     val entry: NoteEntry,
     val text: String,
     val maxLines: Int,
+    val imageHeightPx: Int = 0,
     val heightPx: Int,
     val spacingPx: Int,
 )
@@ -193,6 +209,7 @@ private fun EntryFlowBlock(
     onSuggestion: () -> Unit,
 ) {
     val entry = block.entry
+    val density = LocalDensity.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -213,15 +230,24 @@ private fun EntryFlowBlock(
             )
             if (entry.activeAudio != null) VoiceMark()
         }
-        Text(
-            block.text,
-            color = Ink,
-            fontSize = FLOW_FONT_SIZE,
-            lineHeight = FLOW_LINE_HEIGHT,
-            fontWeight = FontWeight.Normal,
-            maxLines = block.maxLines,
-            overflow = TextOverflow.Ellipsis,
-        )
+        if (block.imageHeightPx > 0) {
+            EncryptedEntryImage(
+                entry = entry,
+                modifier = Modifier.fillMaxWidth().height(with(density) { block.imageHeightPx.toDp() }),
+            )
+        }
+        if (block.text.isNotEmpty()) {
+            Text(
+                block.text,
+                color = Ink,
+                fontSize = FLOW_FONT_SIZE,
+                lineHeight = FLOW_LINE_HEIGHT,
+                fontWeight = FontWeight.Normal,
+                maxLines = block.maxLines,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = if (block.imageHeightPx > 0) IMAGE_CAPTION_SPACING else 0.dp),
+            )
+        }
         if (suggestion != null || entry.returnLater) {
             Row(
                 modifier = Modifier.height(if (suggestion != null) MIN_TOUCH_TARGET else CHIP_ROW_HEIGHT),
@@ -261,6 +287,8 @@ private val ENTRY_SPACING = 10.dp
 private val CHIP_ROW_HEIGHT = 22.dp
 private val MIN_TOUCH_TARGET = 48.dp
 private val TIME_LINE_HEIGHT = 16.dp
+private val IMAGE_PREVIEW_HEIGHT = 190.dp
+private val IMAGE_CAPTION_SPACING = 8.dp
 private val FLOW_FONT_SIZE = 18.sp
 private val FLOW_LINE_HEIGHT = 23.sp
 private val FLOW_TIME_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)

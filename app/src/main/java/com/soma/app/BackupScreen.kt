@@ -80,6 +80,7 @@ fun BackupScreen(viewModel: SomaViewModel, onBack: () -> Unit) {
             selectedImport?.fill(0)
             selectedImport = null
             decoded?.audioContainers?.forEach { it.clearPortableBytes() }
+            decoded?.imageContainers?.forEach { it.clearPortableBytes() }
             decoded = null
             status = null
         }
@@ -383,6 +384,7 @@ fun BackupScreen(viewModel: SomaViewModel, onBack: () -> Unit) {
                                 selectedImport?.fill(0)
                                 selectedImport = null
                                 value.audioContainers.forEach { it.clearPortableBytes() }
+                                value.imageContainers.forEach { it.clearPortableBytes() }
                                 status = restoredMessage
                                 decoded = null
                                 route = BackupRoute.MENU

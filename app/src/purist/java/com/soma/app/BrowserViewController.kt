@@ -8,6 +8,8 @@ import com.soma.core.repository.DailyNoteRepository
 import com.soma.core.repository.TodoRepository
 import com.soma.voice.AudioWrappingKeyProvider
 import com.soma.voice.EncryptedAudioReader
+import com.soma.media.EncryptedImageContainer
+import com.soma.media.ImageWrappingKeyProvider
 import java.io.File
 import java.io.InputStream
 import java.time.Instant
@@ -39,6 +41,7 @@ data class BrowserViewDay(
 enum class BrowserViewEntryKind {
     TEXT,
     VOICE,
+    IMAGE,
 }
 
 data class BrowserViewEntry(
@@ -46,6 +49,7 @@ data class BrowserViewEntry(
     val text: String,
     val kind: BrowserViewEntryKind,
     val audioId: String?,
+    val imageId: String? = null,
     val transcriptionPending: Boolean,
     val markedForReturn: Boolean,
     val history: List<BrowserViewEntryVersion> = emptyList(),
@@ -100,6 +104,38 @@ interface BrowserViewAudioProvider {
     }
 }
 
+class BrowserViewImage(
+    val contentType: String,
+    val contentLength: Long,
+    val openStream: () -> InputStream,
+)
+
+interface BrowserViewImageProvider {
+    suspend fun open(imageId: String): BrowserViewImage?
+
+    companion object {
+        val NONE: BrowserViewImageProvider = object : BrowserViewImageProvider {
+            override suspend fun open(imageId: String): BrowserViewImage? = null
+        }
+    }
+}
+
+/** Kept for source-set parity; the purist flavor has no server and never calls open. */
+class EncryptedBrowserViewImageProvider(
+    private val fileForImageId: (String) -> File,
+    private val keyProvider: ImageWrappingKeyProvider,
+) : BrowserViewImageProvider {
+    override suspend fun open(imageId: String): BrowserViewImage? {
+        val file = fileForImageId(imageId)
+        if (!file.isFile) return null
+        val (metadata, probe) = EncryptedImageContainer.read(file, imageId, keyProvider)
+        probe.fill(0)
+        return BrowserViewImage("image/jpeg", metadata.jpegByteCount.toLong()) {
+            EncryptedImageContainer.read(file, imageId, keyProvider).second.inputStream()
+        }
+    }
+}
+
 /** Same flavor-neutral provider API; the purist controller never serves the resulting stream. */
 class EncryptedBrowserViewAudioProvider(
     private val fileForAudioId: (String) -> File,
@@ -137,6 +173,8 @@ interface BrowserViewDataSource {
     ): BrowserViewPage<BrowserViewTodo>
 
     suspend fun openAudio(audioId: String): BrowserViewAudio?
+
+    suspend fun openImage(imageId: String): BrowserViewImage? = null
 }
 
 /** Same repository adapter as the browser flavor, retained to keep main construction flavor-blind. */
@@ -144,6 +182,7 @@ class RepositoryBrowserViewDataSource(
     private val notes: DailyNoteRepository,
     private val todos: TodoRepository,
     private val audioProvider: BrowserViewAudioProvider = BrowserViewAudioProvider.NONE,
+    private val imageProvider: BrowserViewImageProvider = BrowserViewImageProvider.NONE,
     private val zoneId: ZoneId = ZoneId.systemDefault(),
     private val today: () -> LocalDate = { LocalDate.now(zoneId) },
 ) : BrowserViewDataSource {
@@ -172,12 +211,13 @@ class RepositoryBrowserViewDataSource(
             BrowserViewEntry(
                 id = entry.id,
                 text = entry.text,
-                kind = if (entry.kind == EntryKind.VOICE) {
-                    BrowserViewEntryKind.VOICE
-                } else {
-                    BrowserViewEntryKind.TEXT
+                kind = when (entry.kind) {
+                    EntryKind.TEXT -> BrowserViewEntryKind.TEXT
+                    EntryKind.VOICE -> BrowserViewEntryKind.VOICE
+                    EntryKind.IMAGE -> BrowserViewEntryKind.IMAGE
                 },
                 audioId = entry.activeAudio?.fileId,
+                imageId = entry.activeImage?.fileId,
                 transcriptionPending = entry.transcription?.state in PENDING_TRANSCRIPTION_STATES,
                 markedForReturn = entry.returnLater,
                 history = history.map { version ->
@@ -224,9 +264,15 @@ class RepositoryBrowserViewDataSource(
 
     override suspend fun openAudio(audioId: String): BrowserViewAudio? = audioProvider.open(audioId)
 
+    override suspend fun openImage(imageId: String): BrowserViewImage? = imageProvider.open(imageId)
+
     private fun DailyNote.preview(): String {
         val text = entries.firstOrNull { it.text.isNotBlank() }?.text
-            ?: if (entries.any { it.kind == EntryKind.VOICE }) "Voice note" else ""
+            ?: when {
+                entries.any { it.kind == EntryKind.IMAGE } -> "Photo"
+                entries.any { it.kind == EntryKind.VOICE } -> "Voice note"
+                else -> ""
+            }
         return text.lineSequence().firstOrNull().orEmpty().take(PREVIEW_CHARACTERS)
     }
 

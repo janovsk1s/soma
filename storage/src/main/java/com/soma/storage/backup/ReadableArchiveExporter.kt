@@ -22,12 +22,18 @@ import java.util.zip.ZipOutputStream
 class ReadableArchiveExporter {
     fun encode(snapshot: BackupSnapshot): ByteArray {
         val readable = snapshot.withoutDeletedContent()
+        val includedImages = readable.imageContainers.mapTo(hashSetOf(), BackupImageContainer::fileId)
+        val imagePaths = readable.notes.asSequence().flatMap { it.entries.asSequence() }
+            .mapNotNull { entry ->
+                entry.activeImage?.fileId?.takeIf { it in includedImages }
+                    ?.let { it to "images/${entry.noteDate}-$it.jpg" }
+            }.toMap()
         val output = ByteArrayOutputStream()
         ZipOutputStream(output, Charsets.UTF_8).use { zip ->
             zip.putText("README.txt", readme(readable))
             zip.putText("manifest.json", manifest(readable))
             readable.notes.sortedBy { it.date }.forEach { note ->
-                zip.putText("notes/${note.date}.md", noteMarkdown(note))
+                zip.putText("notes/${note.date}.md", noteMarkdown(note, imagePaths))
             }
             zip.putText("todos.csv", todosCsv(readable))
             zip.putText("data/notes.json", notesJson(readable))
@@ -52,6 +58,17 @@ class ReadableArchiveExporter {
                     bytes.fill(0)
                 }
             }
+            readable.imageContainers.sortedBy(BackupImageContainer::fileId).forEach { image ->
+                val path = imagePaths[image.fileId] ?: return@forEach
+                val bytes = image.portableJpegBytes()
+                try {
+                    zip.putNextEntry(ZipEntry(path))
+                    zip.write(bytes)
+                    zip.closeEntry()
+                } finally {
+                    bytes.fill(0)
+                }
+            }
         }
         return output.toByteArray()
     }
@@ -69,6 +86,7 @@ class ReadableArchiveExporter {
         appendLine("data/history.jsonl preserves previous text after user edits.")
         appendLine("settings/transcription-vocabulary.txt preserves user-provided speech spellings.")
         appendLine("audio/ contains standard 16 kHz mono WAV files when included.")
+        appendLine("images/ contains standard JPEG originals when included.")
         appendLine()
         appendLine("This ZIP is intentionally not encrypted. Store it somewhere you trust.")
         appendLine("It is designed to remain readable even if Soma no longer exists.")
@@ -92,27 +110,37 @@ class ReadableArchiveExporter {
         append(',')
         jsonNumberField("audioCount", snapshot.audioContainers.size)
         append(',')
+        jsonNumberField("imageCount", snapshot.imageContainers.size)
+        append(',')
         jsonNumberField("transcriptionVocabularyCount", snapshot.transcriptionVocabulary.size)
         append('}')
         appendLine()
     }
 
-    private fun noteMarkdown(note: DailyNote): String = buildString {
+    private fun noteMarkdown(note: DailyNote, imagePaths: Map<String, String>): String = buildString {
         appendLine("# ${note.date}")
         appendLine()
         if (note.entries.isEmpty()) appendLine("_No entries._")
         note.entries.sortedBy(NoteEntry::position).forEach { entry ->
-            val kind = if (entry.kind == EntryKind.VOICE) "voice" else "text"
+            val kind = entry.kind.name.lowercase()
             append("- **${TIME.format(entry.createdAt)}**")
             if (kind == "voice") append(" · voice")
+            if (kind == "image") append(" · photo")
             if (entry.returnLater) append(" · return later")
             appendLine()
-            appendLine("  ${markdownText(entry.text.ifBlank { "_(no transcript)_" })}")
+            appendLine(
+                "  ${markdownText(entry.text.ifBlank {
+                    if (entry.kind == EntryKind.IMAGE) "_(photo)_" else "_(no transcript)_"
+                })}",
+            )
             entry.lastUserEditedAt?.let { appendLine("  _edited ${TIME.format(it)}_") }
             entry.transcription?.provenance?.let {
                 appendLine("  _transcription: ${transcriptionLabel(it)}_")
             }
             entry.activeAudio?.let { appendLine("  _audio id: `${it.fileId}`_") }
+            entry.activeImage?.fileId?.let { imageId ->
+                imagePaths[imageId]?.let { appendLine("  ![photo](../$it)") }
+            }
             appendLine()
         }
     }
@@ -224,6 +252,25 @@ class ReadableArchiveExporter {
             }
             append('}')
         }
+        append(",\"image\":")
+        val image = entry.activeImage
+        if (image == null) {
+            append("null")
+        } else {
+            append('{')
+            jsonField("fileId", image.fileId)
+            append(',')
+            jsonField("format", image.format.name.lowercase())
+            append(',')
+            jsonNumberField("width", image.width)
+            append(',')
+            jsonNumberField("height", image.height)
+            append(',')
+            jsonNumberField("rotationDegrees", image.rotationDegrees)
+            append(',')
+            jsonNumberField("byteCount", image.byteCount)
+            append('}')
+        }
         append('}')
     }
 
@@ -308,7 +355,7 @@ class ReadableArchiveExporter {
     }
 
     private companion object {
-        const val READABLE_FORMAT_VERSION = 6
+        const val READABLE_FORMAT_VERSION = 7
         val TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss 'UTC'").withZone(ZoneOffset.UTC)
     }
 }

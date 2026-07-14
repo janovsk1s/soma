@@ -4,6 +4,7 @@ import com.soma.core.model.DailyNote
 import com.soma.core.model.AudioAttachment
 import com.soma.core.model.EntryKind
 import com.soma.core.model.EntryRevision
+import com.soma.core.model.ImageAttachment
 import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.Todo
 import com.soma.core.model.TodoSuggestion
@@ -28,6 +29,7 @@ data class BackupSnapshot(
     val stillOpenDismissals: List<StillOpenDismissal> = emptyList(),
     val transcriptionJobs: List<TranscriptionJob> = emptyList(),
     val audioContainers: List<BackupAudioContainer> = emptyList(),
+    val imageContainers: List<BackupImageContainer> = emptyList(),
     val transcriptionVocabulary: List<String> = emptyList(),
 ) {
     init {
@@ -57,6 +59,9 @@ data class BackupSnapshot(
         require(audioContainers.map { it.fileId }.distinct().size == audioContainers.size) {
             "A backup cannot contain duplicate audio file ids"
         }
+        require(imageContainers.map { it.fileId }.distinct().size == imageContainers.size) {
+            "A backup cannot contain duplicate image file ids"
+        }
         require(
             TranscriptionVocabulary.parse(TranscriptionVocabulary.asEditableText(transcriptionVocabulary)) ==
                 transcriptionVocabulary,
@@ -78,6 +83,16 @@ data class BackupSnapshot(
         require(audioContainers.all { it.fileId in attachmentIds }) {
             "A backup contains audio that is not referenced by an entry"
         }
+        val imageAttachmentIds = entriesById.values.mapNotNull { it.image?.fileId }
+        require(imageAttachmentIds.distinct().size == imageAttachmentIds.size) {
+            "Each image entry must own a distinct image file"
+        }
+        require(imageAttachmentIds.all(ImageAttachment::isValidFileId)) {
+            "A backup contains an unsafe image file id"
+        }
+        require(imageContainers.all { it.fileId in imageAttachmentIds }) {
+            "A backup contains an image that is not referenced by an entry"
+        }
         suggestions.forEach { suggestion ->
             require(suggestion.entryId in entriesById) { "A suggestion references a missing entry" }
         }
@@ -97,9 +112,33 @@ data class BackupSnapshot(
     }
 
     companion object {
-        const val CURRENT_PAYLOAD_VERSION: Int = 7
+        const val CURRENT_PAYLOAD_VERSION: Int = 8
         val SUPPORTED_PAYLOAD_VERSIONS: IntRange = 1..CURRENT_PAYLOAD_VERSION
     }
+}
+
+/** Immutable-by-copy wrapper for a standard JPEG inside the outer backup encryption. */
+class BackupImageContainer(
+    val fileId: String,
+    portableJpegBytes: ByteArray,
+) {
+    private val bytes = portableJpegBytes.copyOf()
+
+    init {
+        require(ImageAttachment.isValidFileId(fileId)) { "Image file id is unsafe" }
+        require(bytes.isNotEmpty()) { "Portable image payload must not be empty" }
+    }
+
+    fun portableJpegBytes(): ByteArray = bytes.copyOf()
+    fun clearPortableBytes() = bytes.fill(0)
+    internal fun writeBytes(block: (ByteArray) -> Unit) = block(bytes)
+
+    override fun equals(other: Any?): Boolean =
+        other is BackupImageContainer && fileId == other.fileId && bytes.contentEquals(other.bytes)
+
+    override fun hashCode(): Int = 31 * fileId.hashCode() + bytes.contentHashCode()
+
+    override fun toString(): String = "BackupImageContainer(fileId=$fileId, jpegByteCount=${bytes.size})"
 }
 
 /** Immutable-by-copy wrapper with content-based equality for a portable WAV payload. */

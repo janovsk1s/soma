@@ -263,6 +263,32 @@ class LanBrowserServerTest {
     }
 
     @Test
+    fun `image is rendered and never decrypted before authentication`() {
+        val image = byteArrayOf(0xff.toByte(), 0xd8.toByte(), 1, 2, 0xff.toByte(), 0xd9.toByte())
+        val entry = BrowserEntry(
+            id = "photo-entry",
+            text = "train window",
+            kind = BrowserEntryKind.IMAGE,
+            imageId = "image-1",
+        )
+        val data = FakeDataSource(entries = listOf(entry), image = image)
+        val server = server(data)
+        val endpoint = server.start()
+
+        assertEquals(401, request(endpoint, "GET", "/image/image-1").status)
+        assertEquals(0, data.imageOpenCount)
+
+        val cookie = authenticate(endpoint).cookie
+        val day = request(endpoint, "GET", "/day/2026-07-12", cookie = cookie)
+        assertTrue(day.text.contains("src=\"/image/image-1\""))
+        val response = request(endpoint, "GET", "/image/image-1", cookie = cookie)
+        assertEquals(200, response.status)
+        assertEquals("image/jpeg", response.headers["content-type"])
+        assertArrayEquals(image, response.body)
+        assertEquals(1, data.imageOpenCount)
+    }
+
+    @Test
     fun `only authenticated activity refreshes the idle deadline`() {
         val clock = MutableClock(Instant.parse("2026-07-12T08:00:00Z"))
         val server = server(FakeDataSource(), clock = clock)
@@ -412,12 +438,16 @@ class LanBrowserServerTest {
         private val entries: List<BrowserEntry> = emptyList(),
         private val todos: List<BrowserTodo> = emptyList(),
         private val audio: ByteArray? = null,
+        private val image: ByteArray? = null,
         private val ignoreRequestedLimit: Boolean = false,
     ) : ReadOnlySomaDataSource {
         val daysRequests = CopyOnWriteArrayList<PageRequest>()
 
         @Volatile
         var audioOpenCount = 0
+
+        @Volatile
+        var imageOpenCount = 0
 
         override fun listDays(request: PageRequest): PagedResult<BrowserDay> {
             daysRequests += request
@@ -438,6 +468,12 @@ class LanBrowserServerTest {
             audioOpenCount++
             val content = audio ?: return null
             return AudioResource("audio/wav", content.size.toLong()) { ByteArrayInputStream(content) }
+        }
+
+        override fun openImage(imageId: String): ImageResource? {
+            imageOpenCount++
+            val content = image ?: return null
+            return ImageResource("image/jpeg", content.size.toLong()) { ByteArrayInputStream(content) }
         }
 
         private fun <T> page(values: List<T>, request: PageRequest): List<T> {

@@ -6,6 +6,7 @@ import java.time.LocalDate
 enum class EntryKind {
     TEXT,
     VOICE,
+    IMAGE,
 }
 
 enum class AudioFormat {
@@ -37,6 +38,33 @@ data class AudioAttachment(
 
     companion object {
         const val WHISPER_SAMPLE_RATE_HZ: Int = 16_000
+        private val SAFE_FILE_ID = Regex("[A-Za-z0-9_-]{1,80}")
+
+        fun isValidFileId(value: String): Boolean = SAFE_FILE_ID.matches(value)
+    }
+}
+
+enum class ImageFormat {
+    JPEG,
+}
+
+/** Opaque reference to an encrypted, app-private original image. */
+data class ImageAttachment(
+    val fileId: String,
+    val format: ImageFormat,
+    val width: Int,
+    val height: Int,
+    val rotationDegrees: Int,
+    val byteCount: Long,
+) {
+    init {
+        require(isValidFileId(fileId)) { "Image fileId is not a safe opaque identifier" }
+        require(width > 0 && height > 0) { "Image dimensions must be positive" }
+        require(rotationDegrees in setOf(0, 90, 180, 270)) { "Image rotation must be a right angle" }
+        require(byteCount > 0) { "Image byte count must be positive" }
+    }
+
+    companion object {
         private val SAFE_FILE_ID = Regex("[A-Za-z0-9_-]{1,80}")
 
         fun isValidFileId(value: String): Boolean = SAFE_FILE_ID.matches(value)
@@ -86,11 +114,14 @@ data class NoteEntry(
     val lastUserEditedAt: Instant? = null,
     val returnLater: Boolean = false,
     val audio: AudioAttachment? = null,
+    val image: ImageAttachment? = null,
     val transcription: TranscriptionInfo? = null,
     /** Soft-delete tombstone. It never changes authored or edit timestamps. */
     val deletedAt: Instant? = null,
     /** Audio-only tombstone; the encrypted attachment remains recoverable until purge. */
     val audioDeletedAt: Instant? = null,
+    /** Image-only tombstone; the encrypted original remains recoverable until purge. */
+    val imageDeletedAt: Instant? = null,
 ) {
     init {
         require(id.isNotBlank()) { "Entry id must not be blank" }
@@ -100,10 +131,12 @@ data class NoteEntry(
             "Entry edit cannot precede creation"
         }
         require(kind == EntryKind.VOICE || audio == null) { "Text entries cannot have audio" }
+        require(kind == EntryKind.IMAGE || image == null) { "Non-image entries cannot have an image" }
         require(kind == EntryKind.VOICE || transcription == null) {
-            "Text entries cannot have transcription state"
+            "Non-voice entries cannot have transcription state"
         }
         require(kind != EntryKind.VOICE || audio != null) { "Voice entries require audio" }
+        require(kind != EntryKind.IMAGE || image != null) { "Image entries require an image" }
         require(deletedAt == null || !deletedAt.isBefore(createdAt)) {
             "Entry deletion cannot precede creation"
         }
@@ -112,6 +145,12 @@ data class NoteEntry(
         }
         require(audioDeletedAt == null || !audioDeletedAt.isBefore(createdAt)) {
             "Audio deletion cannot precede creation"
+        }
+        require(imageDeletedAt == null || image != null) {
+            "An image tombstone requires an image attachment"
+        }
+        require(imageDeletedAt == null || !imageDeletedAt.isBefore(createdAt)) {
+            "Image deletion cannot precede creation"
         }
     }
 
@@ -124,6 +163,10 @@ data class NoteEntry(
     /** User-visible/playable audio. [audio] itself remains the recoverable source of truth. */
     val activeAudio: AudioAttachment?
         get() = audio.takeIf { audioDeletedAt == null && deletedAt == null }
+
+    /** User-visible image. [image] remains the recoverable source of truth. */
+    val activeImage: ImageAttachment?
+        get() = image.takeIf { imageDeletedAt == null && deletedAt == null }
 
     companion object {
         fun text(
@@ -166,6 +209,24 @@ data class NoteEntry(
                 },
                 updatedAt = createdAt,
             ),
+        )
+
+        fun image(
+            id: String,
+            noteDate: LocalDate,
+            position: Int,
+            image: ImageAttachment,
+            createdAt: Instant,
+            caption: String = "",
+        ): NoteEntry = NoteEntry(
+            id = id,
+            noteDate = noteDate,
+            position = position,
+            kind = EntryKind.IMAGE,
+            text = caption,
+            createdAt = createdAt,
+            updatedAt = createdAt,
+            image = image,
         )
     }
 }

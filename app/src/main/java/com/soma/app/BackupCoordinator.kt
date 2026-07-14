@@ -7,6 +7,8 @@ import com.soma.core.model.AudioAttachment
 import com.soma.core.model.AudioFormat
 import com.soma.core.model.DEFAULT_TRANSCRIPTION_MAX_ATTEMPTS
 import com.soma.core.model.EntryKind
+import com.soma.core.model.ImageAttachment
+import com.soma.core.model.ImageFormat
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.TodoState
@@ -16,12 +18,14 @@ import com.soma.core.model.TranscriptionInfo
 import com.soma.core.model.TranscriptionJobState
 import com.soma.storage.backup.BackupAudioContainer
 import com.soma.storage.backup.BackupSnapshot
+import com.soma.storage.backup.BackupImageContainer
 import com.soma.storage.backup.MarkdownVaultExporter
 import com.soma.storage.backup.PortableBackupCodec
 import com.soma.storage.backup.ReadableArchiveExporter
 import com.soma.storage.repository.RoomSomaRepository
 import com.soma.voice.EncryptedAudioReader
 import com.soma.voice.EncryptedAudioWriter
+import com.soma.media.EncryptedImageContainer
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -43,6 +47,7 @@ class BackupCoordinator(
             codec.encode(snapshot, passphrase)
         } finally {
             snapshot.audioContainers.forEach { it.clearPortableBytes() }
+            snapshot.imageContainers.forEach { it.clearPortableBytes() }
         }
     }
 
@@ -52,6 +57,7 @@ class BackupCoordinator(
             readableExporter.encode(snapshot)
         } finally {
             snapshot.audioContainers.forEach { it.clearPortableBytes() }
+            snapshot.imageContainers.forEach { it.clearPortableBytes() }
         }
     }
 
@@ -61,6 +67,7 @@ class BackupCoordinator(
             markdownExporter.encode(snapshot)
         } finally {
             snapshot.audioContainers.forEach { it.clearPortableBytes() }
+            snapshot.imageContainers.forEach { it.clearPortableBytes() }
         }
     }
 
@@ -78,6 +85,7 @@ class BackupCoordinator(
             ?: error("Portable restore requires the Room repository")
         val restoreId = UUID.randomUUID().toString()
         val activeDir = app.audioDirectory
+        val activeImageDir = app.imageDirectory
         val stagedFiles = mutableListOf<File>()
         var committed = false
         val vocabularyStore = TranscriptionVocabularyStore(app)
@@ -86,8 +94,10 @@ class BackupCoordinator(
 
         try {
             val staged = stagePortableAudio(snapshot, activeDir, restoreId, stagedFiles)
+            val stagedImages = stagePortableImages(snapshot, stagedFiles)
             syncDirectory(activeDir)
-            val restored = normalizeForDestination(snapshot, staged)
+            syncDirectory(activeImageDir)
+            val restored = normalizeForDestination(snapshot, staged, stagedImages)
             // Imported audio already has fresh, collision-free final names. A crash
             // before this transaction commits leaves the old data intact plus only
             // harmless orphans; a crash after commit leaves a complete new generation.
@@ -103,7 +113,18 @@ class BackupCoordinator(
                 if (file.name.endsWith(".sma") && id !in referenced) runCatching { file.delete() }
                 if (file.name.endsWith(".importing")) runCatching { file.delete() }
             }
+            val referencedImages = restored.notes.flatMap(DailyNote::entries)
+                .mapNotNull { it.image?.fileId }
+                .toSet()
+            activeImageDir.listFiles().orEmpty().forEach { file ->
+                val id = file.name.removeSuffix(".smi")
+                if (file.name.endsWith(".smi") && id !in referencedImages) runCatching { file.delete() }
+                if (file.name.endsWith(".importing") || file.name.endsWith(".partial")) {
+                    runCatching { file.delete() }
+                }
+            }
             runCatching { syncDirectory(activeDir) }
+            runCatching { syncDirectory(activeImageDir) }
         } catch (error: Throwable) {
             if (!committed) {
                 stagedFiles.forEach { runCatching { it.delete() } }
@@ -142,10 +163,73 @@ class BackupCoordinator(
         } else {
             emptyList()
         }
+        val images = if (includeAudio) {
+            var totalPortableBytes = 0L
+            entries.mapNotNull(NoteEntry::image).map { attachment ->
+                val file = app.encryptedImageFile(attachment.fileId)
+                check(file.isFile) { "A referenced image is missing" }
+                val (metadata, jpeg) = EncryptedImageContainer.read(
+                    file,
+                    attachment.fileId,
+                    app.imageKeyProvider,
+                )
+                check(
+                    metadata.width == attachment.width &&
+                        metadata.height == attachment.height &&
+                        metadata.rotationDegrees == attachment.rotationDegrees
+                ) { "Image metadata does not match its attachment" }
+                totalPortableBytes = Math.addExact(totalPortableBytes, jpeg.size.toLong())
+                check(totalPortableBytes <= MAX_PORTABLE_IMAGE_BYTES) {
+                    "Images are too large for one in-memory backup"
+                }
+                BackupImageContainer(attachment.fileId, jpeg).also { jpeg.fill(0) }
+            }
+        } else {
+            emptyList()
+        }
         base.copy(
             audioContainers = audio,
+            imageContainers = images,
             transcriptionVocabulary = TranscriptionVocabularyStore(app).read(),
         )
+    }
+
+    private fun stagePortableImages(
+        snapshot: BackupSnapshot,
+        stagedFiles: MutableList<File>,
+    ): Map<String, StagedImage> {
+        val attachments = snapshot.notes.flatMap(DailyNote::entries)
+            .mapNotNull(NoteEntry::image)
+            .associateBy(ImageAttachment::fileId)
+        val staged = mutableMapOf<String, StagedImage>()
+        snapshot.imageContainers.forEach { portable ->
+            val source = requireNotNull(attachments[portable.fileId]) { "Portable image has no attachment" }
+            val jpeg = portable.portableJpegBytes()
+            val destinationId = UUID.randomUUID().toString()
+            val final = app.encryptedImageFile(destinationId)
+            stagedFiles += final
+            try {
+                EncryptedImageContainer.write(
+                    finalFile = final,
+                    imageId = destinationId,
+                    jpegBytes = jpeg,
+                    width = source.width,
+                    height = source.height,
+                    rotationDegrees = source.rotationDegrees,
+                    keyProvider = app.imageKeyProvider,
+                )
+                staged[portable.fileId] = StagedImage(
+                    destinationId = destinationId,
+                    width = source.width,
+                    height = source.height,
+                    rotationDegrees = source.rotationDegrees,
+                    encryptedByteCount = final.length(),
+                )
+            } finally {
+                jpeg.fill(0)
+            }
+        }
+        return staged
     }
 
     private fun stagePortableAudio(
@@ -188,7 +272,11 @@ class BackupCoordinator(
         return staged
     }
 
-    private fun normalizeForDestination(snapshot: BackupSnapshot, staged: Map<String, StagedAudio>): BackupSnapshot {
+    private fun normalizeForDestination(
+        snapshot: BackupSnapshot,
+        staged: Map<String, StagedAudio>,
+        stagedImages: Map<String, StagedImage>,
+    ): BackupSnapshot {
         val now = Instant.now()
         val normalizedJobs = snapshot.transcriptionJobs.map { job ->
             when {
@@ -214,7 +302,7 @@ class BackupCoordinator(
         val notes = snapshot.notes.map { note ->
             note.copy(entries = note.entries.map { entry ->
                 val audio = entry.audio
-                if (audio == null) {
+                val withAudio = if (audio == null) {
                     entry
                 } else if (audio.fileId in staged) {
                     val imported = staged.getValue(audio.fileId)
@@ -251,13 +339,41 @@ class BackupCoordinator(
                         audioDeletedAt = null,
                     )
                 }
+                val image = withAudio.image
+                if (image == null) {
+                    withAudio
+                } else if (image.fileId in stagedImages) {
+                    val imported = stagedImages.getValue(image.fileId)
+                    withAudio.copy(
+                        image = ImageAttachment(
+                            fileId = imported.destinationId,
+                            format = ImageFormat.JPEG,
+                            width = imported.width,
+                            height = imported.height,
+                            rotationDegrees = imported.rotationDegrees,
+                            byteCount = imported.encryptedByteCount,
+                        ),
+                    )
+                } else {
+                    withAudio.copy(
+                        kind = EntryKind.TEXT,
+                        text = withAudio.text.ifBlank { app.getString(R.string.photo_not_in_backup) },
+                        image = null,
+                        imageDeletedAt = null,
+                    )
+                }
             })
         }
         val audioEntryIds = notes.flatMap(DailyNote::entries)
             .filter { it.audio != null }
             .mapTo(hashSetOf(), NoteEntry::id)
         val jobs = normalizedJobs.filter { it.entryId in audioEntryIds }
-        return snapshot.copy(notes = notes, transcriptionJobs = jobs, audioContainers = emptyList())
+        return snapshot.copy(
+            notes = notes,
+            transcriptionJobs = jobs,
+            audioContainers = emptyList(),
+            imageContainers = emptyList(),
+        )
     }
 
     private fun parseWavPcm(wav: ByteArray): ByteArray {
@@ -286,6 +402,7 @@ class BackupCoordinator(
     private companion object {
         const val MAX_BACKUP_ROWS = 100_000
         const val MAX_PORTABLE_AUDIO_BYTES = 120L * 1024 * 1024
+        const val MAX_PORTABLE_IMAGE_BYTES = 120L * 1024 * 1024
         const val WAV_HEADER_BYTES = 44
         const val AUDIO_IMPORT_CHUNK = 64 * 1024
     }
@@ -293,6 +410,14 @@ class BackupCoordinator(
     private data class StagedAudio(
         val destinationId: String,
         val durationMillis: Long,
+        val encryptedByteCount: Long,
+    )
+
+    private data class StagedImage(
+        val destinationId: String,
+        val width: Int,
+        val height: Int,
+        val rotationDegrees: Int,
         val encryptedByteCount: Long,
     )
 }

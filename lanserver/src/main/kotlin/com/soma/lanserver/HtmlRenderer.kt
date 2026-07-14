@@ -91,6 +91,11 @@ internal object HtmlRenderer {
                         append(Html.pathSegment(entry.audioId))
                         append("\">Audio playback is not supported by this browser.</audio>")
                     }
+                    if (entry.kind == BrowserEntryKind.IMAGE && entry.imageId != null) {
+                        append("<img loading=\"lazy\" src=\"/image/")
+                        append(Html.pathSegment(entry.imageId))
+                        append("\" alt=\"Captured photo\">")
+                    }
                     if (entry.markedForReturn) {
                         append("<small class=\"quiet\">return to this</small>")
                     }
@@ -262,7 +267,7 @@ internal object HtmlRenderer {
         .row{text-decoration:none}.row small{display:block;margin-top:5px}.count{font-variant-numeric:tabular-nums}
         .entry{display:block}.entry p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}.entry small{display:block;margin-top:10px}
         .history{margin-top:18px}.history summary{cursor:pointer;color:var(--dim)}.history ol{margin:14px 0 0;padding-left:24px}.history li{padding:10px 0}.history li p{margin-top:5px}
-        audio{display:block;width:100%;margin-top:14px}.empty{padding:36px 0}
+        audio{display:block;width:100%;margin-top:14px}.entry img{display:block;width:100%;height:auto;max-height:520px;object-fit:contain;margin-top:14px}.empty{padding:36px 0}
         .pager{display:grid;grid-template-columns:1fr auto 1fr;gap:20px;padding:28px 0;align-items:center}.pager>*:last-child{text-align:right}
         .tabs{display:flex;gap:24px;margin-bottom:20px}.tabs [aria-current=page]{font-weight:bold;text-decoration-thickness:2px}
         form{border-top:2px solid var(--ink);padding-top:24px}label{display:block;margin-bottom:8px}input,button{font:inherit;border:2px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:0;padding:12px}

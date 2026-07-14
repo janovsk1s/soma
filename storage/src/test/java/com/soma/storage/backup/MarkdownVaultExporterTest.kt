@@ -6,6 +6,8 @@ import com.soma.core.model.DailyNote
 import com.soma.core.model.EntryRevision
 import com.soma.core.model.EntrySource
 import com.soma.core.model.ImportantKind
+import com.soma.core.model.ImageAttachment
+import com.soma.core.model.ImageFormat
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.Todo
 import java.io.ByteArrayInputStream
@@ -45,6 +47,14 @@ class MarkdownVaultExporterTest {
             text = "SHOULD-NOT-EXPORT",
             createdAt = created.plusSeconds(120),
         ).copy(deletedAt = edited.plusSeconds(1))
+        val photo = NoteEntry.image(
+            id = "photo-entry",
+            noteDate = date,
+            position = 3,
+            image = ImageAttachment("image-1", ImageFormat.JPEG, 1280, 960, 0, 5),
+            createdAt = created.plusSeconds(180),
+            caption = "train window",
+        )
         val open = Todo(
             id = "open",
             text = "buy oats\nand cinnamon",
@@ -59,7 +69,7 @@ class MarkdownVaultExporterTest {
         val audioBytes = byteArrayOf(1, 2, 3, 4)
         val snapshot = BackupSnapshot(
             exportedAt = Instant.parse("2026-07-14T11:00:00Z"),
-            notes = listOf(DailyNote(date, created, listOf(entry, voice, deleted))),
+            notes = listOf(DailyNote(date, created, listOf(entry, voice, deleted, photo))),
             entryRevisions = listOf(
                 EntryRevision(entry.id, 1, "buy milk", edited),
                 EntryRevision(deleted.id, 1, "deleted original", edited),
@@ -67,6 +77,9 @@ class MarkdownVaultExporterTest {
             todos = listOf(open, done, archived),
             suggestions = emptyList(),
             audioContainers = listOf(BackupAudioContainer("audio-voice-1", audioBytes)),
+            imageContainers = listOf(
+                BackupImageContainer("image-1", byteArrayOf(0xff.toByte(), 0xd8.toByte(), 1, 0xff.toByte(), 0xd9.toByte())),
+            ),
         )
 
         val exporter = MarkdownVaultExporter(ZoneId.of("Europe/Vienna"))
@@ -83,6 +96,7 @@ class MarkdownVaultExporterTest {
                 "2026-07-14.md",
                 historyPath,
                 "media/2026-07-14-audio-voice-1.wav",
+                "media/2026-07-14-image-1.jpg",
             ),
             files.keys,
         )
@@ -99,6 +113,8 @@ class MarkdownVaultExporterTest {
         assertTrue(day.contains("Milchreis and milk"))
         assertTrue(day.contains("[[${historyPath.removeSuffix(".md")}|Earlier wordings]]"))
         assertTrue(day.contains("![[media/2026-07-14-audio-voice-1.wav]]"))
+        assertTrue(day.contains("![[media/2026-07-14-image-1.jpg]]"))
+        assertTrue(day.contains("train window"))
         assertFalse(day.contains("SHOULD-NOT-EXPORT"))
 
         val important = files.getValue("Important.md").toString(Charsets.UTF_8)

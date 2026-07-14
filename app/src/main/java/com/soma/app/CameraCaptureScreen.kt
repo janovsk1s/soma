@@ -1,0 +1,271 @@
+package com.soma.app
+
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.util.Size
+import android.view.Surface
+import androidx.activity.compose.BackHandler
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.soma.core.model.NoteEntry
+import com.soma.media.EncryptedImageContainer
+import java.util.concurrent.Executors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+data class CapturedPhoto(
+    val jpegBytes: ByteArray,
+    val width: Int,
+    val height: Int,
+    val rotationDegrees: Int,
+)
+
+@Composable
+fun CameraCaptureScreen(
+    saving: Boolean,
+    onCaptured: (CapturedPhoto) -> Unit,
+    onBack: () -> Unit,
+) {
+    BackHandler(enabled = !saving, onBack = onBack)
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val mainExecutor = remember(context) { ContextCompat.getMainExecutor(context) }
+    val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
+    val previewView = remember {
+        PreviewView(context).apply {
+            implementationMode = PreviewView.ImplementationMode.PERFORMANCE
+            scaleType = PreviewView.ScaleType.FILL_CENTER
+        }
+    }
+    val imageCapture = remember {
+        @Suppress("DEPRECATION")
+        ImageCapture.Builder()
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .setOutputFormat(ImageCapture.OUTPUT_FORMAT_JPEG)
+            .setTargetResolution(Size(CAPTURE_WIDTH, CAPTURE_HEIGHT))
+            .build()
+    }
+    var ready by remember { mutableStateOf(false) }
+    var failed by remember { mutableStateOf(false) }
+
+    DisposableEffect(lifecycleOwner, previewView, imageCapture) {
+        val future = ProcessCameraProvider.getInstance(context)
+        future.addListener(
+            {
+                runCatching {
+                    val provider = future.get()
+                    val preview = Preview.Builder().build().also {
+                        it.surfaceProvider = previewView.surfaceProvider
+                    }
+                    imageCapture.targetRotation = previewView.display?.rotation ?: Surface.ROTATION_0
+                    provider.unbindAll()
+                    provider.bindToLifecycle(
+                        lifecycleOwner,
+                        CameraSelector.DEFAULT_BACK_CAMERA,
+                        preview,
+                        imageCapture,
+                    )
+                    ready = true
+                }.onFailure { failed = true }
+            },
+            mainExecutor,
+        )
+        onDispose {
+            if (future.isDone) runCatching { future.get().unbindAll() }
+            cameraExecutor.shutdownNow()
+        }
+    }
+
+    fun takePhoto() {
+        if (!ready || failed || saving) return
+        ready = false
+        imageCapture.takePicture(
+            cameraExecutor,
+            object : ImageCapture.OnImageCapturedCallback() {
+                override fun onCaptureSuccess(image: ImageProxy) {
+                    try {
+                        val plane = image.planes.firstOrNull() ?: error("Camera returned no JPEG plane")
+                        val buffer = plane.buffer
+                        val bytes = ByteArray(buffer.remaining()).also(buffer::get)
+                        val captured = CapturedPhoto(
+                            jpegBytes = bytes,
+                            width = image.width,
+                            height = image.height,
+                            rotationDegrees = image.imageInfo.rotationDegrees,
+                        )
+                        mainExecutor.execute { onCaptured(captured) }
+                    } catch (_: Throwable) {
+                        mainExecutor.execute {
+                            failed = true
+                            ready = true
+                        }
+                    } finally {
+                        image.close()
+                    }
+                }
+
+                override fun onError(exception: ImageCaptureException) {
+                    mainExecutor.execute {
+                        failed = true
+                        ready = true
+                    }
+                }
+            },
+        )
+    }
+
+    Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding()) {
+        Box(Modifier.padding(horizontal = 28.dp)) {
+            SimpleTopBar(stringResource(R.string.photo_title), if (saving) null else onBack)
+        }
+        Box(Modifier.weight(1f).fillMaxWidth().background(androidx.compose.ui.graphics.Color.Black)) {
+            AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+            if (!ready || failed || saving) {
+                EmptyHint(
+                    stringResource(
+                        when {
+                            saving -> R.string.photo_saving
+                            failed -> R.string.photo_failed
+                            else -> R.string.photo_starting
+                        },
+                    ),
+                )
+            }
+        }
+        Box(
+            modifier = Modifier.fillMaxWidth().height(104.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Canvas(
+                Modifier.width(72.dp).height(72.dp).then(
+                    if (ready && !saving && !failed) {
+                        tapModifier(::takePhoto, stringResource(R.string.photo_take))
+                    } else {
+                        Modifier
+                    },
+                ),
+            ) {
+                val color = if (ready && !saving && !failed) Ink else DimInk
+                drawCircle(
+                    color = color,
+                    radius = size.minDimension * 0.36f,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = size.minDimension * 0.06f,
+                        cap = StrokeCap.Round,
+                    ),
+                )
+                drawCircle(color = color, radius = size.minDimension * 0.25f)
+            }
+        }
+    }
+}
+
+/** Decrypts and downsamples only the visible image; no plaintext disk cache is created. */
+@Composable
+fun EncryptedEntryImage(
+    entry: NoteEntry,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop,
+) {
+    val app = LocalContext.current.applicationContext as SomaApplication
+    val attachment = entry.activeImage
+    val bitmap by produceState<ImageBitmap?>(null, attachment?.fileId) {
+        value = if (attachment == null) {
+            null
+        } else {
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val (_, jpeg) = EncryptedImageContainer.read(
+                        app.encryptedImageFile(attachment.fileId),
+                        attachment.fileId,
+                        app.imageKeyProvider,
+                    )
+                    try {
+                        decodeForDisplay(jpeg, attachment.rotationDegrees).asImageBitmap()
+                    } finally {
+                        jpeg.fill(0)
+                    }
+                }.getOrNull()
+            }
+        }
+    }
+    Box(modifier.clipToBounds().background(DimInk.copy(alpha = 0.16f))) {
+        bitmap?.let {
+            Image(
+                bitmap = it,
+                contentDescription = stringResource(R.string.photo_description),
+                modifier = Modifier.fillMaxSize(),
+                contentScale = contentScale,
+            )
+        }
+    }
+}
+
+private fun decodeForDisplay(jpeg: ByteArray, rotationDegrees: Int): Bitmap {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size, bounds)
+    var sample = 1
+    while (bounds.outWidth / sample > MAX_DISPLAY_EDGE || bounds.outHeight / sample > MAX_DISPLAY_EDGE) {
+        sample *= 2
+    }
+    val decoded = requireNotNull(
+        BitmapFactory.decodeByteArray(
+            jpeg,
+            0,
+            jpeg.size,
+            BitmapFactory.Options().apply { inSampleSize = sample },
+        ),
+    ) { "Could not decode image" }
+    if (rotationDegrees == 0) return decoded
+    return Bitmap.createBitmap(
+        decoded,
+        0,
+        0,
+        decoded.width,
+        decoded.height,
+        Matrix().apply { postRotate(rotationDegrees.toFloat()) },
+        true,
+    ).also { if (it !== decoded) decoded.recycle() }
+}
+
+private const val CAPTURE_WIDTH = 1280
+private const val CAPTURE_HEIGHT = 960
+private const val MAX_DISPLAY_EDGE = 1080

@@ -11,7 +11,7 @@ Soma aims to:
 
 - keep note, transcript, Important, suggestion, and recording content confidential
   and authenticated at rest;
-- capture audio without creating a plaintext temporary or gallery file;
+- capture audio or photos without creating a plaintext temporary or gallery file;
 - operate without accounts, cloud services, analytics, advertising, crash
   reporting, update checks, Google Play Services, or outbound network clients;
 - make a user-created backup portable, authenticated, and confidential under a
@@ -28,11 +28,11 @@ backup.
 ## Assets
 
 The primary assets are note and transcript text, Important items and their source links,
-Important suggestions, voice recordings, backup contents and passphrases, Android
+Important suggestions, voice recordings, photos, backup contents and passphrases, Android
 Keystore keys, and the temporary browser access code and session token.
 
 Dates, record counts, ordering, ids, state transitions, languages, timestamps,
-and audio sizes are sensitive metadata but are not all encrypted in the Room
+and media sizes are sensitive metadata but are not all encrypted in the Room
 database. Settings such as language and vibration are ordinary private app
 preferences, not secret material.
 
@@ -46,9 +46,10 @@ preferences, not secret material.
 3. Audio capture flows from `AudioRecord` directly into independently
    authenticated encrypted chunks. Playback and transcription decrypt streams
    in memory.
-4. Android Keystore protects separate keys for database text and audio-key
-   wrapping. Per-recording data keys are random and distinct.
-5. Portable backup export decrypts source audio only in memory, places portable
+4. Android Keystore protects separate keys for database text, audio-key
+   wrapping, and image-key wrapping. Per-recording and per-image data keys are
+   random and distinct.
+5. Portable backup export decrypts source media only in memory, places portable
    WAV bytes inside the passphrase-encrypted outer payload, and never writes a
    plaintext WAV. Import immediately re-encrypts PCM for the destination
    Keystore.
@@ -58,8 +59,9 @@ preferences, not secret material.
 
 ## At-rest controls and limitations
 
-Room text BLOBs and audio containers use AES-256-GCM. The production aliases are
-`soma_storage_text_v1` and `soma_audio_wrap_v1`; separating them limits accidental
+Room text BLOBs, audio containers, and image containers use AES-256-GCM. The
+production aliases are `soma_storage_text_v1`, `soma_audio_wrap_v1`, and
+`soma_image_wrap_v1`; separating them limits accidental
 cross-feature key reuse. Audio wrapping attempts StrongBox when available.
 
 GCM authenticates content but does not hide database structure or stop rollback
@@ -94,7 +96,7 @@ erased. The system document provider chosen for export is outside Soma's trust
 boundary once it receives the encrypted backup.
 
 The backup screen asks Android to block screenshots. Restore gives every
-imported recording a fresh random file id and stages complete, authenticated
+imported recording and image a fresh random file id and stages complete, authenticated
 files alongside the live generation before replacing Room rows in one
 transaction. A crash before the commit leaves the old data plus harmless
 orphans; a crash after it leaves a complete new generation plus harmless old
@@ -164,7 +166,7 @@ window. It cannot carry `Secure` because the intentionally local endpoint is
 plain HTTP. Comparisons use constant-time digest comparison. Five wrong codes
 stop the server; starting again creates a new code and token.
 
-Authenticated routes support only days, entries, Important items, and ranged audio
+Authenticated routes support only days, entries, Important items, ranged audio, and images
 playback. Mutation and export routes do not exist. Pages contain at most five
 records. Responses send `Cache-Control: no-store`, a restrictive content
 security policy, framing and MIME-sniffing protections, no-referrer policy, and
@@ -190,7 +192,10 @@ hostile and do not by themselves provide a trustworthy identity.
 
 ## Capture, transcription, and failure handling
 
-`RECORD_AUDIO` is requested only when recording is first invoked.
+`RECORD_AUDIO` is requested only when recording is first invoked. `CAMERA` is
+requested only when photo capture is deliberately opened. CameraX returns a
+JPEG buffer that is encrypted directly into the no-backup directory; Soma does
+not create a MediaStore/gallery row or plaintext photo file.
 `POST_NOTIFICATIONS`, required on current Android targets, is requested only
 when the user enables the optional reminder or starts Browser view; denial
 leaves that feature off. A voice entry is inserted before recording starts, and
@@ -212,7 +217,7 @@ therefore create a dismissible suggestion, not an automatic commitment.
 
 ## Data loss and recovery
 
-Uninstall removes the app database, audio, preferences, and Keystore keys.
+Uninstall removes the app database, audio, images, preferences, and Keystore keys.
 Keystore invalidation can likewise make local ciphertext unrecoverable. Android
 cloud backup and device transfer will not restore Soma. Export and verify a
 portable encrypted backup before uninstalling or moving devices; there is no

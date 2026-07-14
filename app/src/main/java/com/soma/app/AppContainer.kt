@@ -8,6 +8,7 @@ import com.soma.core.model.EntrySource
 import com.soma.core.model.EntryRevision
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.ImportantKind
+import com.soma.core.model.ImageAttachment
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.SupportedLanguage
@@ -30,6 +31,8 @@ import com.soma.core.repository.TranscriptionJobRepository
 import com.soma.storage.repository.RoomSomaRepository
 import com.soma.voice.AndroidAudioWrappingKeyProvider
 import com.soma.voice.AudioWrappingKeyProvider
+import com.soma.media.AndroidImageWrappingKeyProvider
+import com.soma.media.ImageWrappingKeyProvider
 import java.io.File
 import java.time.Duration
 import java.time.Instant
@@ -56,6 +59,8 @@ class SomaApplication : Application() {
 
     val audioKeyProvider: AudioWrappingKeyProvider by lazy { AndroidAudioWrappingKeyProvider() }
     val audioDirectory: File by lazy { File(noBackupFilesDir, "audio").apply { mkdirs() } }
+    val imageKeyProvider: ImageWrappingKeyProvider by lazy { AndroidImageWrappingKeyProvider() }
+    val imageDirectory: File by lazy { File(noBackupFilesDir, "images").apply { mkdirs() } }
 
     override fun onCreate() {
         super.onCreate()
@@ -77,6 +82,11 @@ class SomaApplication : Application() {
     fun encryptedAudioFile(fileId: String): File {
         require(AudioAttachment.isValidFileId(fileId)) { "Unsafe audio file id" }
         return File(audioDirectory, "$fileId.sma")
+    }
+
+    fun encryptedImageFile(fileId: String): File {
+        require(ImageAttachment.isValidFileId(fileId)) { "Unsafe image file id" }
+        return File(imageDirectory, "$fileId.smi")
     }
 }
 
@@ -175,7 +185,7 @@ class InMemorySomaRepository private constructor(
             require(current.id == previous.id && current.noteDate == previous.noteDate) {
                 "An entry mutation cannot change identity or date"
             }
-            if (previous.kind == com.soma.core.model.EntryKind.VOICE && current.kind == com.soma.core.model.EntryKind.TEXT) {
+            if (previous.kind == com.soma.core.model.EntryKind.VOICE && current.kind != com.soma.core.model.EntryKind.VOICE) {
                 jobs.value = jobs.value.filterValues { it.entryId != entryId }
             }
             notes.value = notes.value + (
@@ -201,8 +211,8 @@ class InMemorySomaRepository private constructor(
 
     override fun observeDeleted(): Flow<List<NoteEntry>> = notes.map { all ->
         all.values.flatMap(DailyNote::entries)
-            .filter { it.deletedAt != null || it.audioDeletedAt != null }
-            .sortedByDescending { it.deletedAt ?: it.audioDeletedAt }
+            .filter { it.deletedAt != null || it.audioDeletedAt != null || it.imageDeletedAt != null }
+            .sortedByDescending { it.deletedAt ?: it.audioDeletedAt ?: it.imageDeletedAt }
     }
 
     override suspend fun datesWithEntries(from: LocalDate, to: LocalDate): List<LocalDate> =

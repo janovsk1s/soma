@@ -7,6 +7,8 @@ import com.soma.core.model.AudioAttachment
 import com.soma.core.model.AudioFormat
 import com.soma.core.model.EntrySource
 import com.soma.core.model.ImportantKind
+import com.soma.core.model.ImageAttachment
+import com.soma.core.model.ImageFormat
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
@@ -144,6 +146,23 @@ class RoomSomaRepositoryTest {
         assertEquals(start, visible.createdAt)
         assertEquals(start, visible.updatedAt)
         assertEquals("voice-1", repository.observeDeleted().first().single().id)
+    }
+
+    @Test
+    fun `image attachment and tombstone round trip without changing authored time`() = runBlocking {
+        repository.getOrCreate(date, start)
+        val image = ImageAttachment("image-1", ImageFormat.JPEG, 1280, 960, 90, 4_096)
+        repository.insertEntry(NoteEntry.image("photo-1", date, 0, image, start, "train window"))
+
+        assertEquals(image, repository.getEntry("photo-1")?.activeImage)
+        repository.mutateEntry("photo-1") { it.copy(imageDeletedAt = start.plusSeconds(20)) }
+
+        val visible = requireNotNull(repository.getEntry("photo-1"))
+        assertNull(visible.activeImage)
+        assertEquals(image, visible.image)
+        assertEquals(start, visible.createdAt)
+        assertEquals("photo-1", repository.observeDeleted().first().single().id)
+        assertEquals(setOf("image-1"), repository.referencedImageFileIds())
     }
 
     @Test

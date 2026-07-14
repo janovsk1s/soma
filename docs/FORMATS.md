@@ -7,7 +7,7 @@ are rejected rather than guessed.
 
 ## On-device Room database
 
-The Room database is `soma.db`, schema version 6, using write-ahead logging. Its
+The Room database is `soma.db`, schema version 7, using write-ahead logging. Its
 exported schemas are checked in under
 `storage/schemas/com.soma.storage.db.SomaDatabase/`.
 
@@ -24,7 +24,7 @@ The seven tables are:
 User-authored entry text, todo text, suggestion text and matched rule, and
 transcription failure diagnostics are stored as encrypted BLOBs. Structural
 metadata needed for queries—dates, ordering, states, ids, timestamps, language
-names, Important kinds, audio metadata, deletion tombstones, and relationships—is not encrypted. SQLite page layout,
+names, Important kinds, media metadata, deletion tombstones, and relationships—is not encrypted. SQLite page layout,
 row counts, and timing therefore remain visible to an attacker who can read the
 app's private files. There is no full-text index in version 1; a later search
 migration can add one without changing the domain model.
@@ -123,6 +123,34 @@ stream decrypted PCM after it. No plaintext audio cache is written to disk.
 The authenticated audio id must also match the owning attachment and `.sma`
 filename, preventing valid containers from being swapped between entries.
 
+## Encrypted image container (`.smi`)
+
+CameraX returns a bounded JPEG buffer in memory. Soma encrypts it directly into
+an app-private `.smi` file in the no-backup directory and never creates a
+plaintext temporary file or MediaStore/gallery item. Every image has a fresh
+random 256-bit data key, wrapped by the separate non-exportable Android
+Keystore alias `soma_image_wrap_v1` (StrongBox is attempted when available).
+
+The version 1 container is written with `DataOutputStream`:
+
+| Field | Encoding |
+| --- | --- |
+| Magic | 4 ASCII bytes: `SMIG` |
+| Version | unsigned byte, currently `1` |
+| Image id | Java `writeUTF` string |
+| Width, height | two positive 32-bit integers |
+| Display rotation | 32-bit integer: `0`, `90`, `180`, or `270` |
+| Plain JPEG length | positive 32-bit integer, capped at 24 MiB |
+| Key-wrap nonce | unsigned-byte length followed by nonce bytes |
+| Wrapped-key length and key | 32-bit length followed by AES-GCM ciphertext/tag |
+| Data nonce | unsigned-byte length followed by nonce bytes |
+| Ciphertext length and JPEG | 32-bit length followed by AES-GCM ciphertext/tag |
+
+Both the wrapped key and image ciphertext authenticate the version, dimensions,
+rotation, plaintext length, and UTF-8 image id. Readers require the attachment
+id and exact end-of-file to match. Display, export, and LAN serving decrypt into
+bounded memory only and never create a plaintext disk cache.
+
 ## Portable encrypted backup
 
 A portable backup is a binary `SOMABACK` container with MIME type
@@ -138,7 +166,7 @@ so identical snapshots produce different files.
 | --- | --- |
 | Magic | 8 ASCII bytes: `SOMABACK` |
 | Container version | 32-bit integer, currently `1` |
-| Payload version | 32-bit integer, currently `7` |
+| Payload version | 32-bit integer, currently `8` |
 | KDF id | 32-bit length + ASCII `PBKDF2-HMAC-SHA256` |
 | PBKDF2 iterations | 32-bit integer, `600000` |
 | Derived key size | 32-bit integer, `256` bits |
@@ -154,13 +182,13 @@ authentication. Trailing bytes and truncated inputs are rejected. A wrong
 passphrase and authenticated-byte corruption intentionally report the same
 authentication error.
 
-### Plaintext payload, versions 1 through 7
+### Plaintext payload, versions 1 through 8
 
 The encrypted payload is a deterministic `DataOutputStream` serialization in
 this order:
 
 1. payload version and export instant;
-2. daily notes and their ordered text or voice entries;
+2. daily notes and their ordered text, voice, or image entries;
 3. Important items and optional source links;
 4. Important suggestions and their rule/language/decision state;
 5. per-day still-open dismissals;
@@ -171,20 +199,23 @@ this order:
 10. in payload version 4, the user-controlled transcription vocabulary; and
 11. in payload version 5, the Important kind for items and suggestions;
 12. in payload version 6, the optional Important resurface date; and
-13. in payload version 7, entry and audio soft-delete tombstones.
+13. in payload version 7, entry and audio soft-delete tombstones; and
+14. in payload version 8, image attachments, image tombstones, and optional
+    portable JPEG byte sequences.
 
 Each list begins with a 32-bit count. Strings use a 32-bit byte length followed
 by strict UTF-8, not Java modified UTF. Instants use epoch seconds plus
 nanoseconds; dates use epoch days. Nullable values have a strict one-byte `0`
 or `1` marker, and enums are stored by name.
 
-When audio is included, export authenticates and decrypts each device-bound
-`.sma` stream into a standard WAV byte sequence held only in memory. The WAV is
+When media is included, export authenticates and decrypts each device-bound
+`.sma` or `.smi` container into standard WAV or JPEG bytes held only in memory. The media is
 inside the passphrase-encrypted, authenticated outer payload and is never
 written as plaintext to disk. Import immediately records its PCM into a fresh
 `.sma` container whose new random data key is wrapped by the destination
-device's Keystore key. A text-only export leaves the audio list empty while
-retaining voice-entry metadata.
+device's Keystore key. A text-only export leaves both media lists empty; restore
+keeps available text/captions and replaces missing attachments with an explicit
+plain-text placeholder.
 
 The codec clears mutable passphrase copies, derived keys, plaintext serialization
 buffers, and temporary byte arrays where the JVM permits. Domain strings are
@@ -198,14 +229,14 @@ unencrypted ZIP intended for long-term independence from Soma. It contains:
 - `README.txt` and `manifest.json`;
 - one `notes/YYYY-MM-DD.md` file per daily note;
 - `todos.csv`, including the portable `action`, `list`, or `excerpt` kind;
-- `data/notes.json` with exact ids, order, types, timestamps, text, and audio metadata;
+- `data/notes.json` with exact ids, order, types, timestamps, text, and media metadata;
 - `data/history.jsonl` with every preserved user edit revision; and
 - `settings/transcription-vocabulary.txt` with user-provided speech spellings; and
-- optional standard 16 kHz mono `audio/*.wav` files.
+- optional standard 16 kHz mono `audio/*.wav` and `images/*.jpg` files.
 
 Structured timestamps are ISO-8601 UTC instants. The archive can be consumed by
-ordinary text, spreadsheet, JSON, and audio tools without an app-specific codec.
-Readable archive format 6 excludes soft-deleted entries and audio while keeping
+ordinary text, spreadsheet, JSON, image, and audio tools without an app-specific codec.
+Readable archive format 7 excludes soft-deleted entries and media while keeping
 the editable transcript and its transcription provenance. The encrypted
 portable backup retains tombstones so deleted content can still be restored.
 Because it is not encrypted, exporting it moves plaintext outside Soma's trust
@@ -215,7 +246,7 @@ boundary. It is not accepted by the restore flow; use `.soma` for restoration.
 
 The optional `Soma-vault-YYYY-MM-DD.zip` export is a standard, deliberately
 unencrypted, one-way Markdown vault. It is intended for Obsidian, Logseq, plain
-text editors, and long-term use without Soma. Format version 1 contains:
+text editors, and long-term use without Soma. Format version 2 contains:
 
 - `README.md` with the portability, privacy, and one-way-export contract;
 - `.soma/manifest.json` with format version, export instant, time zone, and
@@ -223,7 +254,7 @@ text editors, and long-term use without Soma. Format version 1 contains:
 - one root-level `YYYY-MM-DD.md` file per daily note;
 - `Important.md`, with open, done, and let-go items as Markdown checklists;
 - one `history/YYYY-MM-DD-<token>.md` file for each edited entry; and
-- optional standard WAV files under `media/`, embedded from the owning day.
+- optional standard WAV and JPEG files under `media/`, embedded from the owning day.
 
 Daily-file YAML frontmatter contains `date`, `created`, `last_edited`, `tags`,
 and `soma_timezone`. `created` and `last_edited` are ISO-8601 UTC instants;
@@ -237,9 +268,9 @@ history file. File paths and anchors use a truncated SHA-256 token rather than
 the raw entry id, so legacy or imported ids cannot inject paths. ZIP members are
 written in deterministic order with fixed member timestamps.
 
-Format version 1 excludes entry and audio tombstones. It retains current text,
+Format version 2 excludes entry and media tombstones. It retains current text,
 editable voice transcripts, all earlier wordings, Important state/kind/source,
-show-again dates, and optional playable audio. No API keys or encrypted
+show-again dates, and optional playable audio and viewable photos. No API keys or encrypted
 credential stores are part of a backup snapshot, so they cannot enter the
 vault. The vault is not accepted by the restore flow; use `.soma` for a
 restorable backup.

@@ -10,6 +10,8 @@ import com.soma.core.model.EntrySource
 import com.soma.core.model.EntryKind
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.ImportantKind
+import com.soma.core.model.ImageAttachment
+import com.soma.core.model.ImageFormat
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.SupportedLanguage
@@ -24,6 +26,7 @@ import com.soma.core.model.TranscriptionJob
 import com.soma.core.policy.TodoStalenessPolicy
 import com.soma.core.todo.RuleBasedTodoDetector
 import com.soma.storage.repository.RoomSomaRepository
+import com.soma.media.EncryptedImageContainer
 import com.soma.voice.AudioMetadata
 import com.soma.voice.EncryptedAudioPlayer
 import com.soma.voice.EncryptedAudioReader
@@ -274,6 +277,61 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun addPhoto(photo: CapturedPhoto, onSaved: (Boolean) -> Unit = {}) {
+        if (isDemo) {
+            photo.jpegBytes.fill(0)
+            messages.trySend(app.getString(R.string.photo_demo_disabled))
+            onSaved(false)
+            return
+        }
+        val id = UUID.randomUUID().toString()
+        viewModelScope.launch {
+            val file = app.encryptedImageFile(id)
+            val saved = runCatching {
+                withContext(Dispatchers.IO) {
+                    EncryptedImageContainer.write(
+                        finalFile = file,
+                        imageId = id,
+                        jpegBytes = photo.jpegBytes,
+                        width = photo.width,
+                        height = photo.height,
+                        rotationDegrees = photo.rotationDegrees,
+                        keyProvider = app.imageKeyProvider,
+                    )
+                }
+                val now = clock.instant()
+                val date = selectedDate.value
+                val inserted = entryAppendMutex.withLock {
+                    repositories.notes.getOrCreate(date, now)
+                    repositories.notes.insertEntry(
+                        NoteEntry.image(
+                            id = id,
+                            noteDate = date,
+                            position = repositories.notes.nextEntryPosition(date),
+                            image = ImageAttachment(
+                                fileId = id,
+                                format = ImageFormat.JPEG,
+                                width = photo.width,
+                                height = photo.height,
+                                rotationDegrees = photo.rotationDegrees,
+                                byteCount = file.length(),
+                            ),
+                            createdAt = now,
+                        ),
+                    )
+                }
+                check(inserted) { "Could not insert photo entry" }
+                true
+            }.getOrElse {
+                withContext(Dispatchers.IO) { file.delete() }
+                false
+            }
+            photo.jpegBytes.fill(0)
+            if (!saved) messages.trySend(app.getString(R.string.photo_save_failed))
+            onSaved(saved)
+        }
+    }
+
     fun editEntry(entry: NoteEntry, text: String, onSaved: (Boolean) -> Unit = {}) {
         val clean = text.trim()
         if (clean.isEmpty() || recordingOperationEntryId == entry.id) {
@@ -331,6 +389,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                     entryId = entry.id,
                     previousDeletedAt = mutation.previous.deletedAt,
                     previousAudioDeletedAt = mutation.previous.audioDeletedAt,
+                    previousImageDeletedAt = mutation.previous.imageDeletedAt,
                 )
             }
         }
@@ -359,6 +418,31 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                     entryId = entry.id,
                     previousDeletedAt = mutation.previous.deletedAt,
                     previousAudioDeletedAt = mutation.previous.audioDeletedAt,
+                    previousImageDeletedAt = mutation.previous.imageDeletedAt,
+                )
+            }
+        }
+    }
+
+    fun deleteImage(entry: NoteEntry) {
+        if (recordingOperationEntryId == entry.id) return
+        viewModelScope.launch {
+            val deletedAt = maxOf(entry.createdAt, clock.instant())
+            val mutation = repositories.notes.mutateEntry(entry.id) { current ->
+                if (current.activeImage == null) {
+                    current
+                } else if (current.text.isBlank()) {
+                    current.copy(deletedAt = deletedAt)
+                } else {
+                    current.copy(imageDeletedAt = deletedAt)
+                }
+            }
+            if (mutation != null && mutation.current != mutation.previous) {
+                mutableDeletionUndo.value = DeletionUndo(
+                    entryId = entry.id,
+                    previousDeletedAt = mutation.previous.deletedAt,
+                    previousAudioDeletedAt = mutation.previous.audioDeletedAt,
+                    previousImageDeletedAt = mutation.previous.imageDeletedAt,
                 )
             }
         }
@@ -371,6 +455,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                 current.copy(
                     deletedAt = undo.previousDeletedAt,
                     audioDeletedAt = undo.previousAudioDeletedAt,
+                    imageDeletedAt = undo.previousImageDeletedAt,
                 )
             }
             if (mutation?.current != null && mutableDeletionUndo.value == undo) {
@@ -382,9 +467,11 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     fun restoreDeleted(entry: NoteEntry, onRestored: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             val mutation = repositories.notes.mutateEntry(entry.id) { current ->
-                current.copy(deletedAt = null, audioDeletedAt = null)
+                current.copy(deletedAt = null, audioDeletedAt = null, imageDeletedAt = null)
             }
-            val restored = mutation?.current?.let { !it.isDeleted && it.audioDeletedAt == null } == true
+            val restored = mutation?.current?.let {
+                !it.isDeleted && it.audioDeletedAt == null && it.imageDeletedAt == null
+            } == true
             if (restored && mutableDeletionUndo.value?.entryId == entry.id) {
                 mutableDeletionUndo.value = null
             }
@@ -407,12 +494,18 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                         transcription = null,
                         audioDeletedAt = null,
                     )
+                    current.imageDeletedAt != null -> current.copy(
+                        kind = EntryKind.TEXT,
+                        image = null,
+                        imageDeletedAt = null,
+                    )
                     else -> current
                 }
             }
             val changed = mutation != null && mutation.current != mutation.previous
             if (changed && !isDemo) {
                 mutation.previous.audio?.let { app.encryptedAudioFile(it.fileId).delete() }
+                mutation.previous.image?.let { app.encryptedImageFile(it.fileId).delete() }
             }
             if (changed && mutableDeletionUndo.value?.entryId == entry.id) {
                 mutableDeletionUndo.value = null
@@ -819,6 +912,15 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
             when {
                 file.name.endsWith(".importing") -> runCatching { file.delete() }
                 file.name.endsWith(".sma") && file.name.removeSuffix(".sma") !in referenced ->
+                    runCatching { file.delete() }
+            }
+        }
+        val referencedImages = room.referencedImageFileIds()
+        app.imageDirectory.listFiles().orEmpty().forEach { file ->
+            when {
+                file.name.endsWith(".partial") -> runCatching { file.delete() }
+                file.name.endsWith(".importing") -> runCatching { file.delete() }
+                file.name.endsWith(".smi") && file.name.removeSuffix(".smi") !in referencedImages ->
                     runCatching { file.delete() }
             }
         }

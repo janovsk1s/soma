@@ -31,6 +31,7 @@ data class DailyNoteEntity(
         Index(value = ["note_id"]),
         Index(value = ["note_id", "position"], unique = true),
         Index(value = ["audio_file_id"], unique = true),
+        Index(value = ["image_file_id"], unique = true),
     ],
 )
 data class EntryEntity(
@@ -65,6 +66,13 @@ data class EntryEntity(
     @ColumnInfo(name = "revision") val revision: Long,
     @ColumnInfo(name = "deleted_at_millis") val deletedAtMillis: Long? = null,
     @ColumnInfo(name = "audio_deleted_at_millis") val audioDeletedAtMillis: Long? = null,
+    @ColumnInfo(name = "image_file_id") val imageFileId: String? = null,
+    @ColumnInfo(name = "image_format") val imageFormat: String? = null,
+    @ColumnInfo(name = "image_width") val imageWidth: Int? = null,
+    @ColumnInfo(name = "image_height") val imageHeight: Int? = null,
+    @ColumnInfo(name = "image_rotation_degrees") val imageRotationDegrees: Int? = null,
+    @ColumnInfo(name = "image_byte_count") val imageByteCount: Long? = null,
+    @ColumnInfo(name = "image_deleted_at_millis") val imageDeletedAtMillis: Long? = null,
 )
 
 @Entity(
@@ -204,6 +212,7 @@ data class TranscriptionJobEntity(
 object EntryTypeValue {
     const val TEXT = "TEXT"
     const val VOICE = "VOICE"
+    const val IMAGE = "IMAGE"
 }
 
 object TranscriptionStateValue {

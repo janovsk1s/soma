@@ -10,7 +10,7 @@ an emulator or a development Mac.
 - Long-press to the first accepted microphone sample: target below 150 ms once
   Android permission has already been granted.
 - Text save to the entry appearing in Today: target below 100 ms at p95.
-- Text and audio persistence complete before rule detection, transcription, or
+- Text, audio, and photo persistence complete before rule detection, transcription, or
   any optional cloud work begins.
 - Recording never waits for transcription and an audio failure never removes
   an already inserted entry.
@@ -40,11 +40,15 @@ and 20 candidates, and emits at most one bounded list block.
 
 - Home observes only the selected day and packs immutable entry blocks with
   stable ids. Fixed lists page five records at a time.
+- CameraX is created only after a deliberate photo gesture and unbound when the
+  capture screen leaves. Capture uses the latency-optimized mode at a bounded
+  1280×960 target; the camera is never kept warm in the background. Visible
+  encrypted photos are downsampled to at most 1080 px for display.
 - Room uses write-ahead logging; encryption, database access, export, audio,
   and transcription never run synchronously inside a Compose draw callback.
 - Important detection runs only after Save or after a transcript lands, never
   for every typed character.
-- The readable archive remains streaming ZIP output. Optional audio is handled
+- The readable archive remains streaming ZIP output. Optional media is handled
   one recording at a time rather than cached permanently as plaintext.
 
 ## Verification before a stable release

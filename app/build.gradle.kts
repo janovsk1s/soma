@@ -18,8 +18,8 @@ android {
         applicationId = "com.soma.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 17
-        versionName = "0.1.0-preview.17"
+        versionCode = 18
+        versionName = "0.1.0-preview.18"
     }
 
     flavorDimensions += "network"
@@ -112,16 +112,22 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":storage"))
     implementation(project(":voice"))
+    implementation(project(":media"))
     implementation(project(":whisper"))
     "browserImplementation"(project(":lanserver"))
     "cloudImplementation"(project(":lanserver"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.work.runtime)
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
     implementation(libs.kotlinx.coroutines.android)
 
     implementation(platform(libs.androidx.compose.bom))

@@ -16,6 +16,9 @@ cloud API keys only when explicitly enabled in Developer settings.
 - Opens a focused capture editor when the bottom line or `+` is tapped, and
   starts a 16 kHz mono voice note when the bottom line is deliberately held;
   neither waits for sync or transcription.
+- Long-pressing `+` opens a one-shutter photo capture. The JPEG is encrypted
+  directly from CameraX memory, appears inline in the daily note, and never
+  enters the gallery or a plaintext temporary file.
 - Keeps encrypted audio playable even if transcription fails.
 - Transcribes locally with whisper.cpp and a bundled multilingual tiny Q5_1
   model; pause-based VAD performs language detection per utterance. Local
@@ -34,7 +37,7 @@ cloud API keys only when explicitly enabled in Developer settings.
 - Makes that provenance visible: edit history lists the original, every prior
   wording, and the current wording. Restoring an older version creates another
   revision, so it never destroys the wording it replaces.
-- Soft-deletes entries and recordings with one-tap Undo. Deleted items remain
+- Soft-deletes entries, recordings, and photos with one-tap Undo. Deleted items remain
   recoverable from Settings until the user deliberately chooses delete forever;
   normal notes, transcription, LAN browsing, and readable exports ignore them.
 - Long-pressing the bottom input starts voice capture; the bar immediately shows
@@ -54,7 +57,7 @@ cloud API keys only when explicitly enabled in Developer settings.
   explicitly marked for return.
 - Pages Important and settings in fixed groups of five, matching Paka. The daily note
   instead packs its timestamped entries continuously into full pages, breaking
-  only at entry boundaries. Tap `+` for quick entry; long-press it for details;
+  only at entry boundaries. Tap `+` for quick text entry; long-press it for a photo;
   long-press a row for deliberate secondary actions.
 - Uses Paka's native black-screen palette and exact settings gear. Light mode is
   available only from the hidden Developer screen.
@@ -64,7 +67,7 @@ cloud API keys only when explicitly enabled in Developer settings.
 - Exports a restorable encrypted `.soma` backup, a complete readable ZIP with
   CSV/JSON/JSONL, or a clean one-way Markdown vault for Obsidian and Logseq.
   The vault keeps daily files, linked Important checklists, earlier wordings,
-  and optional standard WAV audio useful even if Soma no longer exists.
+  and optional standard WAV audio and JPEG originals useful even if Soma no longer exists.
 
 Transcription is intentionally modest. The small local model can be inaccurate,
 especially during dense mid-sentence language switching. Transcripts remain
@@ -81,18 +84,21 @@ editable. The `browser` and `purist` builds never send audio or text elsewhere.
 - Recordings go directly from `AudioRecord` into crash-recoverable encrypted
   chunks. A separate Keystore key wraps a fresh random key for each recording;
   no plaintext WAV or gallery item is created on disk.
+- Camera JPEGs are captured in memory and immediately authenticated into an
+  app-private `.smi` container. A separate Keystore wrapping key and a fresh
+  per-photo data key isolate images from text and audio encryption.
 - Android cloud backup and device transfer are disabled. Portable backups are
   encrypted and authenticated offline with a key derived from the user's
-  passphrase. Audio is optional and stays plaintext only in memory inside the
+  passphrase. Media is optional and stays plaintext only in memory inside the
   passphrase-encrypted export/import path.
 - Readable and Markdown-vault ZIPs are deliberately not encrypted and leave
   Soma's trust boundary. Store them only somewhere you trust; only the encrypted
   `.soma` format can be imported back into the app.
 - Developer demo data lives only in memory and never opens the real Room or
-  audio stores.
+  audio or image stores.
 
 The Room database encrypts user-authored content, not every piece of metadata.
-Dates, ordering, states, deletion timestamps, ids, relationships, and audio sizes remain
+Dates, ordering, states, deletion timestamps, ids, relationships, and media sizes remain
 queryable and can be visible to someone who can read the private database. See
 the [threat model](docs/THREAT_MODEL.md) for the exact boundary.
 
@@ -105,6 +111,7 @@ recover a forgotten backup passphrase.
 | Permission | Flavor | When and why |
 | --- | --- | --- |
 | `RECORD_AUDIO` | all | Requested only when the user first starts a recording. |
+| `CAMERA` | all | Requested only when the user first deliberately opens photo capture. Photos stay app-private. |
 | `POST_NOTIFICATIONS` | all | Requested only when enabling the optional reminder or starting Browser view. Android 13+ requires it; denial leaves the requested feature off. |
 | `INTERNET` | `browser` | Allows the explicitly started inbound LAN HTTP server. No runtime code makes outbound connections. |
 | `INTERNET`, `ACCESS_NETWORK_STATE` | `cloud` | Adds Browser view plus opt-in provider requests. Cloud requests may use Wi-Fi or cellular; Developer settings can restrict them to Wi-Fi. |
@@ -155,7 +162,7 @@ between them. Export a portable encrypted backup before uninstalling a preview.
 
 ## Browser view and build flavors
 
-The standard `browser` flavor can serve notes, Important items, and authenticated audio to
+The standard `browser` flavor can serve notes, Important items, authenticated audio, and photos to
 a browser on the same trusted Wi-Fi network. It is off by default. Starting it
 selects a concrete Wi-Fi site-local address—never a wildcard, loopback, mobile,
 or public address—and shows a URL plus a single-use six-digit code. A successful
@@ -169,7 +176,7 @@ explicitly stopping, or 15 minutes without authenticated activity closes it.
 
 Browser view uses plain HTTP. Anyone able to observe or actively interfere with
 that Wi-Fi can read or alter the session's traffic, including the access code,
-cookie, notes, and audio. The short lifetime, one-time code, ephemeral token, and
+cookie, notes, audio, and photos. The short lifetime, one-time code, ephemeral token, and
 read-only routes reduce exposure but do not make an untrusted LAN safe. Use a
 trusted private network or install `purist`. Self-signed TLS is deferred because
 browser certificate warnings would undermine the intended simple workflow.
@@ -182,6 +189,7 @@ browser certificate warnings would undermine the intended simple workflow.
 | `core` | Platform-neutral models, paging, date/policy logic, repositories, and rule-based Important detection |
 | `storage` | Room schema/repositories, field encryption, and portable passphrase-encrypted backups |
 | `voice` | Direct encrypted recording, interrupted-tail recovery, WAV streaming, and playback |
+| `media` | Per-photo Keystore wrapping, authenticated image containers, and in-memory JPEG recovery |
 | `whisper` | Isolated `Transcriber` interface, energy VAD, JNI bridge, vendored whisper.cpp, and bundled model |
 | `lanserver` | Dependency-free, inbound-only, read-only HTTP/1.1 server used by the `browser` and `cloud` flavors |
 

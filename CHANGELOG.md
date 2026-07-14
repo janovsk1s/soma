@@ -2,6 +2,32 @@
 
 Notable changes to Soma are documented here.
 
+## 0.1.0-preview.18 — 2026-07-14
+
+### Added
+
+- Long-pressing the Paka-style `+` opens a minimal CameraX screen; one shutter
+  press saves a photo entry and returns to the continuous daily note.
+- Photos render inline in the paged day flow and on the full entry screen. They
+  keep the same subtle creation timestamp, immutable position, optional caption,
+  return-later action, and recoverable deletion behavior as other entries.
+- Portable encrypted backups rewrap JPEG originals with a fresh per-device
+  image key on import. Readable and Markdown-vault ZIPs export ordinary JPEGs,
+  while the authenticated LAN view decrypts only the requested image in memory.
+
+### Changed
+
+- Database schema 7, encrypted backup payload 8, readable archive format 7,
+  and Markdown-vault format 2 add image attachment metadata and media payloads.
+- The backup toggle now describes all optional media rather than audio alone.
+
+### Security
+
+- Camera permission is requested only on first use. Camera JPEG bytes are
+  encrypted before any disk write, using a dedicated Keystore wrapping key and
+  a fresh AES-256-GCM data key per photo. Soma never writes to the gallery or a
+  plaintext cache.
+
 ## 0.1.0-preview.17 — 2026-07-14
 
 ### Added

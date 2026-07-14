@@ -114,6 +114,7 @@ data class BrowserDay(
 enum class BrowserEntryKind {
     TEXT,
     VOICE,
+    IMAGE,
 }
 
 data class BrowserEntry(
@@ -121,6 +122,7 @@ data class BrowserEntry(
     val text: String,
     val kind: BrowserEntryKind,
     val audioId: String? = null,
+    val imageId: String? = null,
     val transcriptionPending: Boolean = false,
     val markedForReturn: Boolean = false,
     val history: List<BrowserEntryVersion> = emptyList(),
@@ -177,6 +179,17 @@ class AudioResource(
     }
 }
 
+class ImageResource(
+    val contentType: String,
+    val contentLength: Long,
+    val openStream: () -> InputStream,
+) {
+    init {
+        require(contentLength > 0L) { "Image length must be positive" }
+        require(contentType == "image/jpeg") { "Only portable JPEG images are served" }
+    }
+}
+
 /** Data exposed by the read-only browser flavor. Implementations may decrypt on demand. */
 interface ReadOnlySomaDataSource {
     fun listDays(request: PageRequest): PagedResult<BrowserDay>
@@ -187,4 +200,6 @@ interface ReadOnlySomaDataSource {
     fun listTodos(filter: BrowserTodoFilter, request: PageRequest): PagedResult<BrowserTodo>
 
     fun openAudio(audioId: String): AudioResource?
+
+    fun openImage(imageId: String): ImageResource? = null
 }

@@ -53,7 +53,9 @@ Soma is unusually well-aligned with the Tool Library ethos:
 1. **API/library allowlist audit.** Check Soma's runtime surface against the SDK's
    permitted-API list and request allowlisting where needed. Notable items to verify:
    the native NDK whisper.cpp/ggml transcription, the `WorkManager` transcription drain,
-   Room, `kotlinx-coroutines`, `AudioRecord`, and Android Keystore.
+   Room, `kotlinx-coroutines`, `AudioRecord`, and Android Keystore. Camera capture
+   already uses the SDK catalog's CameraX 1.5.0 stack and its allowlisted `CAMERA`
+   permission rather than a custom Camera2 or gallery intent path.
 2. **Adopt `:sdk:client`.** Port Soma's screen layer to `LightScreen` /
    `LightScreenViewModel` and the SDK's `navigateTo()`. Soma's hand-rolled `AppRoute`
    `when`-based navigation (`MainActivity.kt`) and per-screen `BackHandler`s map cleanly

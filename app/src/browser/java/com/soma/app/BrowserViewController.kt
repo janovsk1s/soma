@@ -14,6 +14,7 @@ import com.soma.lanserver.BrowserEntryVersion
 import com.soma.lanserver.BrowserTodo
 import com.soma.lanserver.BrowserTodoFilter
 import com.soma.lanserver.BrowserTodoState
+import com.soma.lanserver.ImageResource
 import com.soma.lanserver.LanBrowserServer
 import com.soma.lanserver.LanServerConfig
 import com.soma.lanserver.LanServerEndpoint
@@ -25,6 +26,8 @@ import com.soma.lanserver.PagedResult
 import com.soma.lanserver.ReadOnlySomaDataSource
 import com.soma.voice.AudioWrappingKeyProvider
 import com.soma.voice.EncryptedAudioReader
+import com.soma.media.EncryptedImageContainer
+import com.soma.media.ImageWrappingKeyProvider
 import java.io.File
 import java.io.InputStream
 import java.net.Inet4Address
@@ -62,6 +65,7 @@ data class BrowserViewDay(
 enum class BrowserViewEntryKind {
     TEXT,
     VOICE,
+    IMAGE,
 }
 
 data class BrowserViewEntry(
@@ -69,6 +73,7 @@ data class BrowserViewEntry(
     val text: String,
     val kind: BrowserViewEntryKind,
     val audioId: String?,
+    val imageId: String? = null,
     val transcriptionPending: Boolean,
     val markedForReturn: Boolean,
     val history: List<BrowserViewEntryVersion> = emptyList(),
@@ -123,6 +128,67 @@ interface BrowserViewAudioProvider {
     }
 }
 
+class BrowserViewImage(
+    val contentType: String,
+    val contentLength: Long,
+    val openStream: () -> InputStream,
+)
+
+interface BrowserViewImageProvider {
+    suspend fun open(imageId: String): BrowserViewImage?
+
+    companion object {
+        val NONE: BrowserViewImageProvider = object : BrowserViewImageProvider {
+            override suspend fun open(imageId: String): BrowserViewImage? = null
+        }
+    }
+}
+
+class EncryptedBrowserViewImageProvider(
+    private val fileForImageId: (String) -> File,
+    private val keyProvider: ImageWrappingKeyProvider,
+) : BrowserViewImageProvider {
+    override suspend fun open(imageId: String): BrowserViewImage? {
+        val file = fileForImageId(imageId)
+        if (!file.isFile) return null
+        val (metadata, probe) = EncryptedImageContainer.read(file, imageId, keyProvider)
+        probe.fill(0)
+        return BrowserViewImage(
+            contentType = JPEG_MEDIA_TYPE,
+            contentLength = metadata.jpegByteCount.toLong(),
+            openStream = {
+                val (_, bytes) = EncryptedImageContainer.read(file, imageId, keyProvider)
+                WipingByteArrayInputStream(bytes)
+            },
+        )
+    }
+
+    private companion object {
+        const val JPEG_MEDIA_TYPE = "image/jpeg"
+    }
+}
+
+private class WipingByteArrayInputStream(private val bytes: ByteArray) : InputStream() {
+    private var position = 0
+
+    override fun read(): Int = if (position >= bytes.size) -1 else bytes[position++].toInt() and 0xff
+
+    override fun read(target: ByteArray, offset: Int, length: Int): Int {
+        require(offset >= 0 && length >= 0 && offset + length <= target.size)
+        if (length == 0) return 0
+        if (position >= bytes.size) return -1
+        val count = minOf(length, bytes.size - position)
+        bytes.copyInto(target, offset, position, position + count)
+        position += count
+        return count
+    }
+
+    override fun close() {
+        bytes.fill(0)
+        position = bytes.size
+    }
+}
+
 /** Opens a fresh authenticated decryption stream for every browser audio request. */
 class EncryptedBrowserViewAudioProvider(
     private val fileForAudioId: (String) -> File,
@@ -161,6 +227,8 @@ interface BrowserViewDataSource {
     ): BrowserViewPage<BrowserViewTodo>
 
     suspend fun openAudio(audioId: String): BrowserViewAudio?
+
+    suspend fun openImage(imageId: String): BrowserViewImage? = null
 }
 
 /**
@@ -171,6 +239,7 @@ class RepositoryBrowserViewDataSource(
     private val notes: DailyNoteRepository,
     private val todos: TodoRepository,
     private val audioProvider: BrowserViewAudioProvider = BrowserViewAudioProvider.NONE,
+    private val imageProvider: BrowserViewImageProvider = BrowserViewImageProvider.NONE,
     private val zoneId: ZoneId = ZoneId.systemDefault(),
     private val today: () -> LocalDate = { LocalDate.now(zoneId) },
 ) : BrowserViewDataSource {
@@ -199,12 +268,13 @@ class RepositoryBrowserViewDataSource(
             BrowserViewEntry(
                 id = entry.id,
                 text = entry.text,
-                kind = if (entry.kind == EntryKind.VOICE) {
-                    BrowserViewEntryKind.VOICE
-                } else {
-                    BrowserViewEntryKind.TEXT
+                kind = when (entry.kind) {
+                    EntryKind.TEXT -> BrowserViewEntryKind.TEXT
+                    EntryKind.VOICE -> BrowserViewEntryKind.VOICE
+                    EntryKind.IMAGE -> BrowserViewEntryKind.IMAGE
                 },
                 audioId = entry.activeAudio?.fileId,
+                imageId = entry.activeImage?.fileId,
                 transcriptionPending = entry.transcription?.state in PENDING_TRANSCRIPTION_STATES,
                 markedForReturn = entry.returnLater,
                 history = history.map { version ->
@@ -251,9 +321,15 @@ class RepositoryBrowserViewDataSource(
 
     override suspend fun openAudio(audioId: String): BrowserViewAudio? = audioProvider.open(audioId)
 
+    override suspend fun openImage(imageId: String): BrowserViewImage? = imageProvider.open(imageId)
+
     private fun DailyNote.preview(): String {
         val text = entries.firstOrNull { it.text.isNotBlank() }?.text
-            ?: if (entries.any { it.kind == EntryKind.VOICE }) "Voice note" else ""
+            ?: when {
+                entries.any { it.kind == EntryKind.IMAGE } -> "Photo"
+                entries.any { it.kind == EntryKind.VOICE } -> "Voice note"
+                else -> ""
+            }
         return text.lineSequence().firstOrNull().orEmpty().take(PREVIEW_CHARACTERS)
     }
 
@@ -487,12 +563,13 @@ private class LanDataSourceAdapter(
             BrowserEntry(
                 id = entry.id,
                 text = entry.text,
-                kind = if (entry.kind == BrowserViewEntryKind.VOICE) {
-                    BrowserEntryKind.VOICE
-                } else {
-                    BrowserEntryKind.TEXT
+                kind = when (entry.kind) {
+                    BrowserViewEntryKind.TEXT -> BrowserEntryKind.TEXT
+                    BrowserViewEntryKind.VOICE -> BrowserEntryKind.VOICE
+                    BrowserViewEntryKind.IMAGE -> BrowserEntryKind.IMAGE
                 },
                 audioId = entry.audioId,
+                imageId = entry.imageId,
                 transcriptionPending = entry.transcriptionPending,
                 markedForReturn = entry.markedForReturn,
                 history = entry.history.map { version ->
@@ -536,6 +613,11 @@ private class LanDataSourceAdapter(
     override fun openAudio(audioId: String): AudioResource? {
         val audio = await { delegate.openAudio(audioId) } ?: return null
         return AudioResource(audio.contentType, audio.contentLength, audio.openStream)
+    }
+
+    override fun openImage(imageId: String): ImageResource? {
+        val image = await { delegate.openImage(imageId) } ?: return null
+        return ImageResource(image.contentType, image.contentLength, image.openStream)
     }
 
     private fun PageRequest.toBrowserRequest(): BrowserViewPageRequest =

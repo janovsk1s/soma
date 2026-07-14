@@ -64,7 +64,9 @@ private fun DeletedItemRow(
     ) {
         Column(Modifier.weight(1f)) {
             Text(
-                entry.text.ifBlank { stringResource(R.string.voice_note) },
+                entry.text.ifBlank {
+                    stringResource(if (entry.image != null) R.string.photo_title else R.string.voice_note)
+                },
                 color = Ink,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Normal,
@@ -73,7 +75,11 @@ private fun DeletedItemRow(
             )
             Text(
                 stringResource(
-                    if (entry.deletedAt != null) R.string.entry_removed else R.string.audio_removed,
+                    when {
+                        entry.deletedAt != null -> R.string.entry_removed
+                        entry.imageDeletedAt != null -> R.string.image_removed
+                        else -> R.string.audio_removed
+                    },
                 ),
                 color = DimInk,
                 fontSize = 12.sp,

@@ -7,6 +7,8 @@ import com.soma.core.model.EntryRevision
 import com.soma.core.model.EntrySource
 import com.soma.core.model.EntryTranscriptionState
 import com.soma.core.model.ImportantKind
+import com.soma.core.model.ImageAttachment
+import com.soma.core.model.ImageFormat
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.SupportedLanguage
 import com.soma.core.model.Todo
@@ -40,6 +42,7 @@ internal class EntityMapper(
     fun entryToEntity(entry: NoteEntry, noteId: String, revision: Long): EntryEntity {
         val audio = entry.audio
         val transcription = entry.transcription
+        val image = entry.image
         val failure = transcription?.failure
         return EntryEntity(
             id = entry.id,
@@ -73,6 +76,13 @@ internal class EntityMapper(
             revision = revision,
             deletedAtMillis = entry.deletedAt?.toEpochMilli(),
             audioDeletedAtMillis = entry.audioDeletedAt?.toEpochMilli(),
+            imageFileId = image?.fileId,
+            imageFormat = image?.format?.name,
+            imageWidth = image?.width,
+            imageHeight = image?.height,
+            imageRotationDegrees = image?.rotationDegrees,
+            imageByteCount = image?.byteCount,
+            imageDeletedAtMillis = entry.imageDeletedAt?.toEpochMilli(),
         )
     }
 
@@ -119,6 +129,16 @@ internal class EntityMapper(
         } else {
             null
         }
+        val image = entity.imageFileId?.let { fileId ->
+            ImageAttachment(
+                fileId = fileId,
+                format = ImageFormat.valueOf(requireNotNull(entity.imageFormat)),
+                width = requireNotNull(entity.imageWidth),
+                height = requireNotNull(entity.imageHeight),
+                rotationDegrees = requireNotNull(entity.imageRotationDegrees),
+                byteCount = requireNotNull(entity.imageByteCount),
+            )
+        }
         return NoteEntry(
             id = entity.id,
             noteDate = noteDate,
@@ -132,9 +152,11 @@ internal class EntityMapper(
             lastUserEditedAt = entity.lastUserEditedAtMillis?.let(Instant::ofEpochMilli),
             returnLater = entity.returnLater,
             audio = audio,
+            image = image,
             transcription = transcription,
             deletedAt = entity.deletedAtMillis?.let(Instant::ofEpochMilli),
             audioDeletedAt = entity.audioDeletedAtMillis?.let(Instant::ofEpochMilli),
+            imageDeletedAt = entity.imageDeletedAtMillis?.let(Instant::ofEpochMilli),
         )
     }
 

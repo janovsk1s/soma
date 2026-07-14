@@ -95,6 +95,9 @@ interface EntryDao {
     @Query("SELECT audio_file_id FROM entries WHERE audio_file_id IS NOT NULL")
     suspend fun listAudioFileIds(): List<String>
 
+    @Query("SELECT image_file_id FROM entries WHERE image_file_id IS NOT NULL")
+    suspend fun listImageFileIds(): List<String>
+
     @Query("SELECT COALESCE(MAX(position), -1) + 1 FROM entries WHERE note_id = :noteId")
     suspend fun nextPosition(noteId: String): Int
 
@@ -108,7 +111,8 @@ interface EntryDao {
         """
         SELECT * FROM entries
         WHERE deleted_at_millis IS NOT NULL OR audio_deleted_at_millis IS NOT NULL
-        ORDER BY COALESCE(deleted_at_millis, audio_deleted_at_millis) DESC, id ASC
+           OR image_deleted_at_millis IS NOT NULL
+        ORDER BY COALESCE(deleted_at_millis, audio_deleted_at_millis, image_deleted_at_millis) DESC, id ASC
         """,
     )
     fun observeDeleted(): Flow<List<EntryEntity>>

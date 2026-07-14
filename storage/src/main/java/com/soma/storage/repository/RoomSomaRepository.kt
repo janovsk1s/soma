@@ -529,6 +529,10 @@ class RoomSomaRepository(
         entryDao.listAudioFileIds().toSet()
     }
 
+    suspend fun referencedImageFileIds(): Set<String> = database.withTransaction {
+        entryDao.listImageFileIds().toSet()
+    }
+
     /** A point-in-time, relationally validated snapshot for portable export. */
     suspend fun createBackupSnapshot(
         exportedAt: Instant,

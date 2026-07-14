@@ -70,6 +70,7 @@ fun HomeScreen(
     onSettings: () -> Unit,
     onCalendar: () -> Unit,
     onCapture: () -> Unit,
+    onPhotoRequested: () -> Unit,
     onReadEntry: (NoteEntry) -> Unit,
     onEntryOptions: (NoteEntry) -> Unit,
     onRecordRequested: () -> Unit,
@@ -207,7 +208,7 @@ fun HomeScreen(
             if (recordingUiState == RecordingUiState.Idle) {
                 PlusButton(
                     onClick = onCapture,
-                    onLongClick = onCapture,
+                    onLongClick = onPhotoRequested,
                     modifier = Modifier.offset(x = 8.dp),
                 )
             } else {
@@ -403,21 +404,33 @@ fun EntryReadScreen(
                 .then(longPressModifier(onOptions, "entry options")),
             contentAlignment = Alignment.CenterStart,
         ) {
-            Text(
-                entry.text.ifBlank {
-                    stringResource(
-                        if (entry.transcription?.state == EntryTranscriptionState.FAILED) {
-                            R.string.voice_failed
-                        } else {
-                            R.string.voice_transcribing
-                        },
+            Column(Modifier.fillMaxWidth()) {
+                if (entry.activeImage != null) {
+                    EncryptedEntryImage(
+                        entry = entry,
+                        modifier = Modifier.fillMaxWidth().height(420.dp),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                     )
-                },
-                color = Ink,
-                fontSize = 26.sp,
-                lineHeight = 34.sp,
-                fontWeight = FontWeight.Normal,
-            )
+                }
+                if (entry.text.isNotBlank() || entry.activeImage == null) {
+                    Text(
+                        entry.text.ifBlank {
+                            stringResource(
+                                if (entry.transcription?.state == EntryTranscriptionState.FAILED) {
+                                    R.string.voice_failed
+                                } else {
+                                    R.string.voice_transcribing
+                                },
+                            )
+                        },
+                        color = Ink,
+                        fontSize = 26.sp,
+                        lineHeight = 34.sp,
+                        fontWeight = FontWeight.Normal,
+                        modifier = Modifier.padding(top = if (entry.activeImage != null) 18.dp else 0.dp),
+                    )
+                }
+            }
         }
         if (entry.activeAudio != null) {
             Box(Modifier.fillMaxWidth().padding(bottom = 18.dp), contentAlignment = Alignment.Center) {
@@ -554,6 +567,7 @@ private enum class EntryAction {
     PLAY,
     RETRANSCRIBE,
     DELETE_AUDIO,
+    DELETE_IMAGE,
     DELETE_ENTRY,
 }
 
@@ -567,6 +581,7 @@ fun EntryOptionsScreen(
     onPlay: () -> Unit,
     onRetranscribe: () -> Unit,
     onDeleteAudio: () -> Unit,
+    onDeleteImage: () -> Unit,
     onDeleteEntry: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -593,6 +608,7 @@ fun EntryOptionsScreen(
             }
             add(EntryAction.DELETE_AUDIO)
         }
+        if (entry.activeImage != null) add(EntryAction.DELETE_IMAGE)
         add(EntryAction.DELETE_ENTRY)
     }
     Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding().padding(horizontal = 28.dp)) {
@@ -608,6 +624,7 @@ fun EntryOptionsScreen(
                         EntryAction.PLAY -> stringResource(R.string.play_original)
                         EntryAction.RETRANSCRIBE -> stringResource(R.string.transcribe_again)
                         EntryAction.DELETE_AUDIO -> stringResource(R.string.delete_audio)
+                        EntryAction.DELETE_IMAGE -> stringResource(R.string.delete_photo)
                         EntryAction.DELETE_ENTRY -> stringResource(R.string.delete)
                     },
                     onClick = when (action) {
@@ -618,6 +635,7 @@ fun EntryOptionsScreen(
                         EntryAction.PLAY -> onPlay
                         EntryAction.RETRANSCRIBE -> onRetranscribe
                         EntryAction.DELETE_AUDIO -> onDeleteAudio
+                        EntryAction.DELETE_IMAGE -> onDeleteImage
                         EntryAction.DELETE_ENTRY -> onDeleteEntry
                     },
                 )

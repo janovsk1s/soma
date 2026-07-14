@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         StillOpenDismissalEntity::class,
         TranscriptionJobEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class SomaDatabase : RoomDatabase() {
@@ -40,6 +40,7 @@ abstract class SomaDatabase : RoomDatabase() {
                     MIGRATION_3_4,
                     MIGRATION_4_5,
                     MIGRATION_5_6,
+                    MIGRATION_6_7,
                 )
                 .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
                 .build()
@@ -93,6 +94,21 @@ abstract class SomaDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE entries ADD COLUMN deleted_at_millis INTEGER")
                 db.execSQL("ALTER TABLE entries ADD COLUMN audio_deleted_at_millis INTEGER")
+            }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE entries ADD COLUMN image_file_id TEXT")
+                db.execSQL("ALTER TABLE entries ADD COLUMN image_format TEXT")
+                db.execSQL("ALTER TABLE entries ADD COLUMN image_width INTEGER")
+                db.execSQL("ALTER TABLE entries ADD COLUMN image_height INTEGER")
+                db.execSQL("ALTER TABLE entries ADD COLUMN image_rotation_degrees INTEGER")
+                db.execSQL("ALTER TABLE entries ADD COLUMN image_byte_count INTEGER")
+                db.execSQL("ALTER TABLE entries ADD COLUMN image_deleted_at_millis INTEGER")
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_entries_image_file_id ON entries(image_file_id)",
+                )
             }
         }
     }

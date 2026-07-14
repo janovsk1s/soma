@@ -5,6 +5,8 @@ import com.soma.core.model.AudioFormat
 import com.soma.core.model.DailyNote
 import com.soma.core.model.EntrySource
 import com.soma.core.model.ImportantKind
+import com.soma.core.model.ImageAttachment
+import com.soma.core.model.ImageFormat
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.StillOpenDismissal
 import com.soma.core.model.SupportedLanguage
@@ -42,6 +44,10 @@ class PortableBackupCodecTest {
             SNAPSHOT.audioContainers.single().portableWavBytes(),
             decoded.audioContainers.single().portableWavBytes(),
         )
+        assertArrayEquals(
+            SNAPSHOT.imageContainers.single().portableJpegBytes(),
+            decoded.imageContainers.single().portableJpegBytes(),
+        )
     }
 
     @Test
@@ -78,11 +84,12 @@ class PortableBackupCodecTest {
 
     @Test
     fun `text-only snapshot carries no audio containers`() {
-        val textOnly = SNAPSHOT.copy(audioContainers = emptyList())
+        val textOnly = SNAPSHOT.copy(audioContainers = emptyList(), imageContainers = emptyList())
         val encoded = encode(textOnly, PASSPHRASE)
         val decoded = decode(encoded, PASSPHRASE)
 
         assertTrue(decoded.audioContainers.isEmpty())
+        assertTrue(decoded.imageContainers.isEmpty())
         assertEquals(textOnly, decoded)
     }
 
@@ -131,6 +138,14 @@ class PortableBackupCodecTest {
             sampleRateHz = 16_000,
             channelCount = 1,
         )
+        private val IMAGE = ImageAttachment(
+            fileId = "image-1",
+            format = ImageFormat.JPEG,
+            width = 1280,
+            height = 960,
+            rotationDegrees = 90,
+            byteCount = 4_096,
+        )
         private val TEXT_ENTRY = NoteEntry.text(
             id = "entry-1",
             noteDate = DATE,
@@ -164,9 +179,17 @@ class PortableBackupCodecTest {
             ),
             audioDeletedAt = START.plusSeconds(50),
         )
+        private val IMAGE_ENTRY = NoteEntry.image(
+            id = "image-entry-1",
+            noteDate = DATE,
+            position = 2,
+            image = IMAGE,
+            createdAt = START.plusSeconds(4),
+            caption = "Train window",
+        )
         private val SNAPSHOT = BackupSnapshot(
             exportedAt = START.plusSeconds(600),
-            notes = listOf(DailyNote(DATE, START, listOf(TEXT_ENTRY, VOICE_ENTRY))),
+            notes = listOf(DailyNote(DATE, START, listOf(TEXT_ENTRY, VOICE_ENTRY, IMAGE_ENTRY))),
             todos = listOf(
                 Todo(
                     id = "todo-open",
@@ -217,6 +240,9 @@ class PortableBackupCodecTest {
             ),
             audioContainers = listOf(
                 BackupAudioContainer(AUDIO.fileId, ByteArray(257) { (it * 17).toByte() }),
+            ),
+            imageContainers = listOf(
+                BackupImageContainer(IMAGE.fileId, byteArrayOf(0xff.toByte(), 0xd8.toByte(), 1, 0xff.toByte(), 0xd9.toByte())),
             ),
             transcriptionVocabulary = listOf("Milchreis", "Rīga"),
         )

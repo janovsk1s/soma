@@ -225,6 +225,7 @@ class LanBrowserServer(
                 request.path.startsWith("/day/") -> dayResponse(request)
                 request.path == "/todos" -> todosResponse(request)
                 request.path.startsWith("/audio/") -> audioResponse(request)
+                request.path.startsWith("/image/") -> imageResponse(request)
                 else -> errorResponse(404, "That page does not exist.")
             },
         )
@@ -366,6 +367,18 @@ class LanBrowserServer(
                 )
             }
         }
+    }
+
+    private fun imageResponse(request: HttpRequest): HttpResponse {
+        val imageId = request.path.removePrefix("/image/")
+        if (imageId.isBlank() || '/' in imageId) return errorResponse(404, "That image does not exist.")
+        val resource = dataSource.openImage(imageId)
+            ?: return errorResponse(404, "That image does not exist.")
+        return secureResponse(
+            status = 200,
+            headers = mapOf("Content-Type" to resource.contentType),
+            body = ResponseBody.Stream(resource.contentLength, 0, resource.openStream),
+        )
     }
 
     private fun pageNumber(request: HttpRequest): Int {

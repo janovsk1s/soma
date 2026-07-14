@@ -44,6 +44,19 @@ class MarkdownVaultExporter(
                 }
             }
             .toMap()
+        val includedImageIds = visible.imageContainers.mapTo(hashSetOf(), BackupImageContainer::fileId)
+        val imagePaths = visible.notes.asSequence()
+            .flatMap { it.entries.asSequence() }
+            .mapNotNull { entry ->
+                entry.activeImage?.fileId?.let { fileId ->
+                    if (fileId in includedImageIds) {
+                        fileId to "media/${entry.noteDate}-$fileId.jpg"
+                    } else {
+                        null
+                    }
+                }
+            }
+            .toMap()
 
         val output = ByteArrayOutputStream()
         ZipOutputStream(output, Charsets.UTF_8).use { zip ->
@@ -53,7 +66,7 @@ class MarkdownVaultExporter(
             visible.notes.sortedBy(DailyNote::date).forEach { note ->
                 zip.putText(
                     "${note.date}.md",
-                    noteMarkdown(note, revisions, historyPaths, audioPaths),
+                    noteMarkdown(note, revisions, historyPaths, audioPaths, imagePaths),
                 )
                 note.entries.forEach { entry ->
                     val earlier = revisions[entry.id].orEmpty().sortedBy(EntryRevision::revision)
@@ -74,6 +87,15 @@ class MarkdownVaultExporter(
                     bytes.fill(0)
                 }
             }
+            visible.imageContainers.sortedBy(BackupImageContainer::fileId).forEach { image ->
+                val path = imagePaths[image.fileId] ?: return@forEach
+                val bytes = image.portableJpegBytes()
+                try {
+                    zip.putBytes(path, bytes)
+                } finally {
+                    bytes.fill(0)
+                }
+            }
         }
         return output.toByteArray()
     }
@@ -87,7 +109,7 @@ class MarkdownVaultExporter(
         appendLine("Daily notes are the `YYYY-MM-DD.md` files in this folder.")
         appendLine("`Important.md` is a portable checklist linked back to source entries.")
         appendLine("`history/` preserves earlier wordings after deliberate edits.")
-        appendLine("`media/` contains standard WAV recordings when audio was included.")
+        appendLine("`media/` contains standard WAV recordings and JPEG originals when media was included.")
         appendLine()
         appendLine("Unzip this folder and open it as an Obsidian vault, a Logseq graph, or plain text.")
         appendLine("This is a one-way export: Soma does not import Markdown vaults.")
@@ -104,7 +126,8 @@ class MarkdownVaultExporter(
         appendLine("  \"entryCount\": ${snapshot.notes.sumOf { it.entries.size }},")
         appendLine("  \"importantCount\": ${snapshot.todos.size},")
         appendLine("  \"revisionCount\": ${snapshot.entryRevisions.size},")
-        appendLine("  \"audioCount\": ${snapshot.audioContainers.size}")
+        appendLine("  \"audioCount\": ${snapshot.audioContainers.size},")
+        appendLine("  \"imageCount\": ${snapshot.imageContainers.size}")
         appendLine("}")
     }
 
@@ -113,6 +136,7 @@ class MarkdownVaultExporter(
         revisions: Map<String, List<EntryRevision>>,
         historyPaths: Map<String, String>,
         audioPaths: Map<String, String>,
+        imagePaths: Map<String, String>,
     ): String = buildString {
         val lastEdited = note.entries.mapNotNull(NoteEntry::lastUserEditedAt).maxOrNull()
         appendLine("---")
@@ -129,9 +153,12 @@ class MarkdownVaultExporter(
         note.entries.sortedBy(NoteEntry::position).forEach { entry ->
             append("## ${LOCAL_TIME.format(entry.createdAt.atZone(zoneId))}")
             if (entry.kind == EntryKind.VOICE) append(" · voice")
+            if (entry.kind == EntryKind.IMAGE) append(" · photo")
             appendLine()
             appendLine()
-            appendLine(entry.text.ifBlank { "_(no transcript)_" })
+            appendLine(entry.text.ifBlank {
+                if (entry.kind == EntryKind.IMAGE) "_(photo)_" else "_(no transcript)_"
+            })
             appendLine()
             appendLine("^soma-${entryToken(entry.id)}")
             entry.lastUserEditedAt?.let {
@@ -152,6 +179,12 @@ class MarkdownVaultExporter(
             }
             entry.activeAudio?.fileId?.let { fileId ->
                 audioPaths[fileId]?.let { path ->
+                    appendLine()
+                    appendLine("![[${path}]]")
+                }
+            }
+            entry.activeImage?.fileId?.let { fileId ->
+                imagePaths[fileId]?.let { path ->
                     appendLine()
                     appendLine("![[${path}]]")
                 }
@@ -253,7 +286,7 @@ class MarkdownVaultExporter(
     }
 
     private companion object {
-        const val FORMAT_VERSION = 1
+        const val FORMAT_VERSION = 2
         const val TOKEN_BYTES = 8
         // 1980-01-01T00:00:00Z stays inside the DOS timestamp range understood by old ZIP tools.
         const val FIXED_ZIP_TIME_MILLIS = 315_532_800_000L

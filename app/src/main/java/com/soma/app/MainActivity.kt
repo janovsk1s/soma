@@ -138,6 +138,7 @@ private sealed interface AppRoute {
     data object Language : AppRoute
     data object AddTodo : AppRoute
     data object Capture : AppRoute
+    data object Photo : AppRoute
     data object Calendar : AppRoute
     data object SpeechLanguages : AppRoute
     data object TranscriptionVocabulary : AppRoute
@@ -188,6 +189,20 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
+    val cameraPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) route = AppRoute.Photo
+        else Toast.makeText(context, R.string.photo_permission_needed, Toast.LENGTH_LONG).show()
+    }
+    val requestPhoto = {
+        viewModel.stopRecording()
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            route = AppRoute.Photo
+        } else {
+            cameraPermission.launch(Manifest.permission.CAMERA)
+        }
+    }
 
     LaunchedEffect(homeResetSignal) {
         if (homeResetSignal > 0) route = AppRoute.Home
@@ -216,6 +231,7 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
                 route = AppRoute.Calendar
             },
             onCapture = { route = AppRoute.Capture },
+            onPhotoRequested = requestPhoto,
             onReadEntry = {
                 viewModel.stopRecording()
                 route = AppRoute.ReadEntry(it)
@@ -374,6 +390,21 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
                 onBack = { route = AppRoute.Home },
             )
         }
+        AppRoute.Photo -> {
+            var saving by remember { mutableStateOf(false) }
+            CameraCaptureScreen(
+                saving = saving,
+                onCaptured = { photo ->
+                    if (!saving) {
+                        saving = true
+                        viewModel.addPhoto(photo) { route = AppRoute.Home }
+                    } else {
+                        photo.jpegBytes.fill(0)
+                    }
+                },
+                onBack = { route = AppRoute.Home },
+            )
+        }
         AppRoute.Calendar -> CalendarScreen(
             viewModel = viewModel,
             onSelect = { picked ->
@@ -446,6 +477,10 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
                 },
                 onDeleteAudio = {
                     viewModel.deleteAudio(entry)
+                    route = origin
+                },
+                onDeleteImage = {
+                    viewModel.deleteImage(entry)
                     route = origin
                 },
                 onDeleteEntry = {
@@ -646,6 +681,7 @@ private val AppRouteSaver: Saver<AppRoute, String> = Saver(
             AppRoute.Language -> "language"
             AppRoute.AddTodo -> "addTodo"
             AppRoute.Capture -> "capture"
+            AppRoute.Photo -> "home"
             AppRoute.Calendar -> "calendar"
             AppRoute.SpeechLanguages -> "speechLanguages"
             AppRoute.TranscriptionVocabulary -> "transcriptionVocabulary"
