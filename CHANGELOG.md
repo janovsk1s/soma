@@ -2,6 +2,14 @@
 
 Notable changes to Soma are documented here.
 
+## 0.1.0-preview.25 — 2026-07-14
+
+### Fixed
+
+- Audio playback now stops automatically when leaving the entry reader/options
+  flow, so returning to Today or another screen can never leave an invisible
+  recording playing without a stop control.
+
 ## 0.1.0-preview.24 — 2026-07-14
 
 ### Changed

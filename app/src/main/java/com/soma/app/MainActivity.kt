@@ -177,6 +177,14 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
     // Saved so an interrupted, no-payload editor (Capture, add-todo) is restored
     // after process death; entry-carrying routes fall back to Home (see AppRouteSaver).
     var route: AppRoute by rememberSaveable(stateSaver = AppRouteSaver) { mutableStateOf(AppRoute.Home) }
+    LaunchedEffect(route) {
+        // The reader and its options screen both expose a visible play/stop
+        // control. Everywhere else, especially Today, must not inherit audio
+        // that the user can hear but no longer control.
+        if (route !is AppRoute.ReadEntry && route !is AppRoute.EntryOptions) {
+            viewModel.stopPlayback()
+        }
+    }
     var pendingRecordingComment by remember { mutableStateOf<NoteEntry?>(null) }
     val microphonePermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),

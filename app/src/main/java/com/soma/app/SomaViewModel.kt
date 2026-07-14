@@ -866,6 +866,10 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun stopPlayback() {
+        viewModelScope.launch { player.stop() }
+    }
+
     fun retryTranscription(entry: NoteEntry) {
         if (isDemo || entry.activeAudio == null) return
         SomaPrefs.setTranscription(app, true)
