@@ -165,9 +165,11 @@ Whisper and never deletes the encrypted recording.
 
 Browser view is off by default and must be started from its dedicated screen.
 The Android bridge accepts only an active interface whose name is Wi-Fi-like and
-selects a concrete site-local address. The server then rejects wildcard,
-loopback, link-local, and public bind addresses, rejects non-site-local peers,
-and validates the exact `Host` value. It never binds to `0.0.0.0`. The bridge
+selects a concrete private address: IPv4 site-local (RFC 1918) or IPv6
+unique-local (fc00::/7), so IPv6-only Wi-Fi networks work too. The server then
+rejects wildcard, loopback, link-local, and public bind addresses, rejects
+peers outside those private ranges, and validates the exact `Host` value. It
+never binds to `0.0.0.0`. The bridge
 prefers fixed port `8787` for a repeatable bookmark and falls back to an ephemeral
 port only after a bind failure. A fixed port does not broaden the accepted
 interfaces or peers, and the Wi-Fi address can still be reassigned by the router.

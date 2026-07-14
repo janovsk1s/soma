@@ -133,7 +133,7 @@ class LanBrowserServer(
         while (running) {
             try {
                 val socket = serverSocket?.accept() ?: break
-                if (!socket.inetAddress.isSiteLocalAddress) {
+                if (!isPrivateLanAddress(socket.inetAddress)) {
                     runCatching { socket.close() }
                     continue
                 }

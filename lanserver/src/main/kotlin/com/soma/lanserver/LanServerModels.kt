@@ -8,6 +8,17 @@ import java.time.Instant
 import java.time.LocalDate
 
 /**
+ * True for addresses in the private LAN ranges Browser view accepts: IPv4
+ * site-local (RFC 1918), deprecated IPv6 site-local (fec0::/10), and IPv6
+ * unique-local (fc00::/7, RFC 4193). Wi-Fi routers commonly assign fd00::/8
+ * unique-local addresses, which [InetAddress.isSiteLocalAddress] alone does
+ * not match, so an IPv6-only LAN would otherwise be rejected.
+ */
+fun isPrivateLanAddress(address: InetAddress): Boolean =
+    address.isSiteLocalAddress ||
+        (address is Inet6Address && (address.address[0].toInt() and 0xfe) == 0xfc)
+
+/**
  * Configuration for the deliberately short-lived, read-only LAN server.
  *
  * [bindAddress] must be the concrete Wi-Fi address selected by the caller. The
@@ -30,7 +41,7 @@ data class LanServerConfig(
     init {
         require(!bindAddress.isAnyLocalAddress) { "A concrete LAN address is required" }
         require(!bindAddress.isLoopbackAddress) { "Loopback addresses are not allowed" }
-        require(bindAddress.isSiteLocalAddress) { "Only site-local LAN addresses are allowed" }
+        require(isPrivateLanAddress(bindAddress)) { "Only private LAN addresses are allowed" }
         require(port in 0..65_535) { "Port must be between 0 and 65535" }
         require(!idleTimeout.isZero && !idleTimeout.isNegative) {
             "Idle timeout must be positive"

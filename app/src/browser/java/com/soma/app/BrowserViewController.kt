@@ -41,6 +41,7 @@ import com.soma.lanserver.ImageResource
 import com.soma.lanserver.ForestBackground
 import com.soma.lanserver.LanBrowserServer
 import com.soma.lanserver.LanServerConfig
+import com.soma.lanserver.isPrivateLanAddress
 import com.soma.lanserver.LanServerEndpoint
 import com.soma.lanserver.LanServerState
 import com.soma.lanserver.LanServerStateListener
@@ -1300,7 +1301,7 @@ private object ActiveWlanAddress {
             .filter { network -> network.isUp && !network.isLoopback && network.isWifiName() }
             .flatMap { network -> network.inetAddresses.asSequence() }
             .filter { address ->
-                address.isSiteLocalAddress && !address.isAnyLocalAddress &&
+                isPrivateLanAddress(address) && !address.isAnyLocalAddress &&
                     !address.isLoopbackAddress && !address.isLinkLocalAddress
             }
             .sortedBy { address -> if (address is Inet4Address) 0 else 1 }
