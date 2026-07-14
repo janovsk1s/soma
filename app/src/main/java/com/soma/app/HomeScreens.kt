@@ -603,6 +603,7 @@ private enum class EntryAction {
     HISTORY,
     IMPORTANT,
     RETURN,
+    RECORD_ABOUT_PHOTO,
     PLAY,
     RETRANSCRIBE,
     DELETE_AUDIO,
@@ -617,6 +618,7 @@ fun EntryOptionsScreen(
     onHistory: () -> Unit,
     onMarkImportant: () -> Unit,
     onReturn: () -> Unit,
+    onRecordAboutPhoto: () -> Unit,
     onPlay: () -> Unit,
     onRetranscribe: () -> Unit,
     onDeleteAudio: () -> Unit,
@@ -636,6 +638,9 @@ fun EntryOptionsScreen(
         if (entry.lastUserEditedAt != null) add(EntryAction.HISTORY)
         if (entry.text.isNotBlank()) add(EntryAction.IMPORTANT)
         add(EntryAction.RETURN)
+        if (entry.activeImage != null && entry.activeAudio == null && entry.text.isBlank()) {
+            add(EntryAction.RECORD_ABOUT_PHOTO)
+        }
         if (entry.activeAudio != null) {
             add(EntryAction.PLAY)
             if (entry.transcription?.state !in setOf(
@@ -660,6 +665,7 @@ fun EntryOptionsScreen(
                         EntryAction.HISTORY -> stringResource(R.string.entry_history)
                         EntryAction.IMPORTANT -> stringResource(R.string.mark_important)
                         EntryAction.RETURN -> stringResource(if (entry.returnLater) R.string.returned else R.string.return_later)
+                        EntryAction.RECORD_ABOUT_PHOTO -> stringResource(R.string.record_about_photo)
                         EntryAction.PLAY -> stringResource(R.string.play_original)
                         EntryAction.RETRANSCRIBE -> stringResource(R.string.transcribe_again)
                         EntryAction.DELETE_AUDIO -> stringResource(R.string.delete_audio)
@@ -671,6 +677,7 @@ fun EntryOptionsScreen(
                         EntryAction.HISTORY -> onHistory
                         EntryAction.IMPORTANT -> onMarkImportant
                         EntryAction.RETURN -> onReturn
+                        EntryAction.RECORD_ABOUT_PHOTO -> onRecordAboutPhoto
                         EntryAction.PLAY -> onPlay
                         EntryAction.RETRANSCRIBE -> onRetranscribe
                         EntryAction.DELETE_AUDIO -> onDeleteAudio

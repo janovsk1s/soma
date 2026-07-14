@@ -22,6 +22,8 @@ cloud API keys only when explicitly enabled in Developer settings.
 - After capture, the bottom line offers one calm follow-up: tap to type about
   that photo or hold to attach an encrypted spoken comment. Spoken comments use
   the selected local/cloud transcription engine and remain playable on the photo.
+  The same attachment action remains available later in the photo's long-press
+  options until a comment has been added.
 - Keeps encrypted audio playable even if transcription fails.
 - Transcribes locally with whisper.cpp and a bundled multilingual tiny Q5_1
   model; pause-based VAD performs language detection per utterance. Local

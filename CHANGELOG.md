@@ -2,6 +2,15 @@
 
 Notable changes to Soma are documented here.
 
+## 0.1.0-preview.26 — 2026-07-14
+
+### Changed
+
+- A photo with no comment now has a persistent "record about photo" action in
+  its long-press options. The recording, original audio, and later transcript
+  attach to the existing photo entry and keep the photo's single creation
+  timestamp instead of creating a second voice entry.
+
 ## 0.1.0-preview.25 — 2026-07-14
 
 ### Fixed

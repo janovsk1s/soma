@@ -49,6 +49,7 @@
     <string name="settings">asetukset</string>
     <string name="todos">Tärkeät</string>
     <string name="record">nauhoita</string>
+    <string name="record_about_photo">nauhoita kuvasta</string>
     <string name="stop_recording">lopeta</string>
     <string name="play">toista</string>
     <string name="stop_playback">lopeta toisto</string>

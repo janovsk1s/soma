@@ -49,6 +49,7 @@
     <string name="settings">nustatymai</string>
     <string name="todos">Svarbu</string>
     <string name="record">įrašyti</string>
+    <string name="record_about_photo">įrašyti apie nuotrauką</string>
     <string name="stop_recording">sustabdyti</string>
     <string name="play">paleisti</string>
     <string name="stop_playback">sustabdyti atkūrimą</string>

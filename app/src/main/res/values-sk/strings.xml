@@ -49,6 +49,7 @@
     <string name="settings">nastavenia</string>
     <string name="todos">Dôležité</string>
     <string name="record">nahrať</string>
+    <string name="record_about_photo">nahrať k fotografii</string>
     <string name="stop_recording">zastaviť</string>
     <string name="play">prehrať</string>
     <string name="stop_playback">zastaviť prehrávanie</string>

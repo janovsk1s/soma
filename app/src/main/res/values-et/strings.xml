@@ -49,6 +49,7 @@
     <string name="settings">seaded</string>
     <string name="todos">Oluline</string>
     <string name="record">lindista</string>
+    <string name="record_about_photo">lindista foto juurde</string>
     <string name="stop_recording">peata</string>
     <string name="play">esita</string>
     <string name="stop_playback">peata esitus</string>

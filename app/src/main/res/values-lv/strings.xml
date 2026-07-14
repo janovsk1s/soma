@@ -49,6 +49,7 @@
     <string name="settings">iestatījumi</string>
     <string name="todos">Svarīgais</string>
     <string name="record">ierakstīt</string>
+    <string name="record_about_photo">ierakstīt par foto</string>
     <string name="stop_recording">apturēt</string>
     <string name="play">atskaņot</string>
     <string name="stop_playback">apturēt atskaņošanu</string>

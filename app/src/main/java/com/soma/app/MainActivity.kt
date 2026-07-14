@@ -497,6 +497,11 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
                     viewModel.toggleReturnLater(entry)
                     route = origin
                 },
+                onRecordAboutPhoto = {
+                    viewModel.showDay(entry.noteDate)
+                    route = AppRoute.Home
+                    requestRecording(entry)
+                },
                 onPlay = { viewModel.togglePlayback(entry) },
                 onRetranscribe = {
                     viewModel.retryTranscription(entry)

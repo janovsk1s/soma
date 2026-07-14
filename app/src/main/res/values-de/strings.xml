@@ -49,6 +49,7 @@
     <string name="settings">Einstellungen</string>
     <string name="todos">Wichtiges</string>
     <string name="record">aufnehmen</string>
+    <string name="record_about_photo">zum Foto aufnehmen</string>
     <string name="stop_recording">stoppen</string>
     <string name="play">abspielen</string>
     <string name="stop_playback">Wiedergabe stoppen</string>

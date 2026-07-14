@@ -49,6 +49,7 @@
     <string name="settings">inställningar</string>
     <string name="todos">Viktigt</string>
     <string name="record">spela in</string>
+    <string name="record_about_photo">spela in om fotot</string>
     <string name="stop_recording">stoppa</string>
     <string name="play">spela upp</string>
     <string name="stop_playback">stoppa uppspelning</string>
