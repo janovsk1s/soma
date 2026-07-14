@@ -40,7 +40,7 @@ class AndroidKeystoreTextCipher(
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), GCMParameterSpec(TAG_BITS, iv))
         cipher.updateAAD(aad)
-        cipher.doFinal(encrypted).toString(Charsets.UTF_8)
+        cipher.doFinal(encrypted).decodeToString(throwOnInvalidSequence = true)
     }
 
     private fun getOrCreateKey(): SecretKey = synchronized(KEY_LOCK) {
@@ -65,6 +65,8 @@ class AndroidKeystoreTextCipher(
         block()
     } catch (error: GeneralSecurityException) {
         throw CryptoException("Android Keystore AES-GCM operation failed", error)
+    } catch (error: java.nio.charset.CharacterCodingException) {
+        throw CryptoException("Decrypted bytes are not valid UTF-8", error)
     }
 
     companion object {
