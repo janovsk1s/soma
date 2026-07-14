@@ -151,8 +151,14 @@ tasks.register("verifyNoHttpClients") {
         configurations
             .filter { it.isCanBeResolved && it.name.endsWith("RuntimeClasspath") }
             .forEach { configuration ->
-                val found = configuration.resolvedConfiguration.resolvedArtifacts
-                    .map { "${it.moduleVersion.id.group}:${it.name}" }
+                // Inspect the resolved dependency graph rather than artifacts: artifact
+                // selection on AGP project dependencies is ambiguous without an
+                // artifactType view, and coordinates are all this guard needs.
+                val found = configuration.incoming.resolutionResult.allComponents
+                    .mapNotNull { component ->
+                        (component.id as? org.gradle.api.artifacts.component.ModuleComponentIdentifier)
+                            ?.let { id -> "${id.group}:${id.module}" }
+                    }
                     .filter { coordinate -> forbidden.any(coordinate::contains) }
                 check(found.isEmpty()) {
                     "Outbound HTTP client dependency found in ${configuration.name}: ${found.joinToString()}"

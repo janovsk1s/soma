@@ -2,6 +2,24 @@
 
 Notable changes to Soma are documented here.
 
+## Unreleased
+
+### Fixed
+
+- Browser view now works on IPv6-only Wi-Fi networks: bind-address selection,
+  configuration validation, and the peer check accept IPv6 unique-local
+  addresses (fc00::/7) alongside IPv4 site-local ranges.
+- Keystore text decryption now rejects invalid UTF-8 the same way the portable
+  cipher does, instead of silently substituting replacement characters.
+- `verifyNoHttpClients` failed on AGP artifact-variant ambiguity whenever it
+  actually ran (it is part of `check`), so the guard was unenforceable. It now
+  inspects resolved dependency graph coordinates and passes.
+
+### Added
+
+- GitHub Actions CI runs every module's unit tests and the outbound
+  HTTP-client guard on pushes and pull requests.
+
 ## 0.1.0-preview.33 — 2026-07-14
 
 ### Added
