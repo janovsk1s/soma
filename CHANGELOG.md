@@ -4,6 +4,15 @@ Notable changes to Soma are documented here.
 
 ## 0.1.0-preview.35 — 2026-07-14
 
+### Fixed
+
+- Important and Logs rows with two-line text no longer clip their date and
+  metadata line inside the fixed five-slot page; wrapped titles use a tighter
+  line height so both lines and the metadata always fit.
+- The new cloud-error diagnostics row uses a compact label in all eight
+  languages so its value (reason and time) never crowds the label into
+  ellipsis.
+
 ### Added
 
 - A quiet "last cloud error" row in Developer → cloud experiments shows the

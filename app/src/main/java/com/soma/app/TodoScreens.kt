@@ -185,7 +185,11 @@ private fun TodoRow(
             Text(
                 todo.text,
                 color = if (todo.state == TodoState.OPEN) Ink else DimInk,
-                fontSize = 24.sp,
+                fontSize = 22.sp,
+                // Two wrapped lines plus the metadata row must fit one fixed
+                // ~190px PagedList slot; the default line height clips the
+                // metadata line mid-glyph.
+                lineHeight = 24.sp,
                 fontWeight = FontWeight.Normal,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -228,6 +232,7 @@ private fun TodoRow(
                     ),
                     color = DimInk,
                     fontSize = 12.sp,
+                    lineHeight = 13.sp,
                 )
             }
             todo.source?.takeIf { it.noteDate != today }?.let { source ->
@@ -235,6 +240,7 @@ private fun TodoRow(
                     source.noteDate.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT)),
                     color = DimInk,
                     fontSize = 12.sp,
+                    lineHeight = 13.sp,
                     modifier = Modifier.then(tapModifier(onSource, "source note")),
                 )
             }
@@ -246,11 +252,12 @@ private fun TodoRow(
                     ),
                     color = DimInk,
                     fontSize = 12.sp,
+                    lineHeight = 13.sp,
                 )
             }
             if (stalePrompt) {
-                Text(stringResource(R.string.keep), color = DimInk, fontSize = 14.sp, modifier = Modifier.then(tapModifier(onKeep, "keep")))
-                Text(stringResource(R.string.let_go), color = DimInk, fontSize = 14.sp, modifier = Modifier.then(tapModifier(onLetGo, "let go")))
+                Text(stringResource(R.string.keep), color = DimInk, fontSize = 14.sp, lineHeight = 15.sp, modifier = Modifier.then(tapModifier(onKeep, "keep")))
+                Text(stringResource(R.string.let_go), color = DimInk, fontSize = 14.sp, lineHeight = 15.sp, modifier = Modifier.then(tapModifier(onLetGo, "let go")))
             }
         }
     }

@@ -207,7 +207,7 @@
     <string name="developer_key_missing">saknas</string>
     <string name="developer_cloud_privacy">Använd din egen leverantörsnyckel; Soma har inget konto eller server och leverantören debiterar ditt konto. Av som standard. Transkribering skickar ljud och ordlista till vald leverantör. Viktigt-förslag och taggar skickar postens text till Groq. Förslag för mat, träning och kvitton skickar vald text och, bara när den finns, bilden till Groq. Groqs behandling och lagrade kunddata finns i USA; aktivera Zero Data Retention hos Groq. ElevenLabs kräver Enterprise för nollagring. Förfrågningar kan använda mobildata om endast Wi-Fi inte är aktiverat.</string>
     <string name="developer_cloud_data">molndata och integritet</string>
-    <string name="developer_last_cloud_error">senaste molnfel</string>
+    <string name="developer_last_cloud_error">molnfel</string>
     <string name="cloud_error_none">inget</string>
     <string name="cloud_error_key_missing">nyckel saknas</string>
     <string name="cloud_error_key_rejected">nyckeln avvisades</string>

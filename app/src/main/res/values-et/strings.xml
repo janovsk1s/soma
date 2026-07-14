@@ -207,7 +207,7 @@
     <string name="developer_key_missing">puudub</string>
     <string name="developer_cloud_privacy">Kasuta oma teenusevõtit; Somal pole kontot ega serverit ja teenusepakkuja arveldab sinu kontot. Vaikimisi väljas. Transkriptsioon saadab heli ja sõnavara valitud teenusele. Olulise soovitused ja sildid saadavad kirje teksti Groqi. Toidu-, treeningu- ja kviitungiettepanekud saadavad valitud teksti ning ainult olemasolul foto Groqi. Groqi töötlus ja säilitatavad kliendiandmed asuvad USAs; lülita Groqis sisse Zero Data Retention. ElevenLabsi nullsäilitus nõuab Enterprise’i. Päringud võivad kasutada mobiilivõrku, kui ainult Wi-Fi pole sisse lülitatud.</string>
     <string name="developer_cloud_data">pilveandmed ja privaatsus</string>
-    <string name="developer_last_cloud_error">viimane pilveviga</string>
+    <string name="developer_last_cloud_error">pilveviga</string>
     <string name="cloud_error_none">puudub</string>
     <string name="cloud_error_key_missing">võti puudub</string>
     <string name="cloud_error_key_rejected">võti lükati tagasi</string>

@@ -207,7 +207,7 @@
     <string name="developer_key_missing">chýba</string>
     <string name="developer_cloud_privacy">Použi vlastný kľúč služby; Soma nemá účet ani server a služba účtuje priamo tvoj účet. Predvolene vypnuté. Prepis posiela zvuk a slovník vybranej službe. Návrhy Dôležitého a značky posielajú text záznamu do Groq. Návrhy jedál, tréningov a účteniek posielajú vybraný text a iba ak existuje, aj fotografiu do Groq. Spracovanie Groq a uchované zákaznícke údaje sú v USA; zapni Zero Data Retention v Groq. ElevenLabs vyžaduje Enterprise pre nulové uchovávanie. Požiadavky môžu použiť mobilné dáta, ak nie je zapnuté iba Wi-Fi.</string>
     <string name="developer_cloud_data">cloudové údaje a súkromie</string>
-    <string name="developer_last_cloud_error">posledná chyba cloudu</string>
+    <string name="developer_last_cloud_error">chyba cloudu</string>
     <string name="cloud_error_none">žiadna</string>
     <string name="cloud_error_key_missing">chýba kľúč</string>
     <string name="cloud_error_key_rejected">kľúč odmietnutý</string>

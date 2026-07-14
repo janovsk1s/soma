@@ -303,7 +303,7 @@
     <string name="suggesting_with_groq">asking Groq…</string>
     <string name="tracking_suggestion_failed">No proposal returned. Your original entry is unchanged.</string>
     <string name="developer_cloud_data">cloud data &amp; privacy</string>
-    <string name="developer_last_cloud_error">last cloud error</string>
+    <string name="developer_last_cloud_error">cloud error</string>
     <string name="cloud_error_none">none</string>
     <string name="cloud_error_key_missing">key missing</string>
     <string name="cloud_error_key_rejected">key rejected</string>

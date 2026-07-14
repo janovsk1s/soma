@@ -152,15 +152,19 @@ private fun TrackingLogRow(log: LogRecord, onDetail: () -> Unit, onOptions: () -
         Text(
             text = displayLogTitle(log),
             color = Ink,
-            fontSize = 24.sp,
+            fontSize = 22.sp,
+            // Two wrapped lines plus the metadata row must fit one fixed
+            // ~190px PagedList slot; the default line height clips the
+            // metadata line mid-glyph.
+            lineHeight = 24.sp,
             fontWeight = FontWeight.Normal,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(logKindLabel(log.kind), color = DimInk, fontSize = 12.sp)
-            Text(formatLogTime(log), color = DimInk, fontSize = 12.sp)
-            logSummary(log)?.let { Text(it, color = DimInk, fontSize = 12.sp, maxLines = 1) }
+            Text(logKindLabel(log.kind), color = DimInk, fontSize = 12.sp, lineHeight = 13.sp)
+            Text(formatLogTime(log), color = DimInk, fontSize = 12.sp, lineHeight = 13.sp)
+            logSummary(log)?.let { Text(it, color = DimInk, fontSize = 12.sp, lineHeight = 13.sp, maxLines = 1) }
         }
     }
 }

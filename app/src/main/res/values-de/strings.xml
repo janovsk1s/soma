@@ -207,7 +207,7 @@
     <string name="developer_key_missing">fehlt</string>
     <string name="developer_cloud_privacy">Verwende deinen eigenen Anbieterschlüssel; Soma hat kein Konto und keinen Server, der Anbieter rechnet direkt mit deinem Konto ab. Standardmäßig aus. Transkription sendet Audio und Vokabular an den gewählten Anbieter. Wichtig-Vorschläge und Tags senden Eintragstext an Groq. Essens-, Trainings- und Kassenbonvorschläge senden den gewählten Text und nur bei vorhandenem Foto auch das Foto an Groq. Groq verarbeitet und speichert Kundendaten in den USA; aktiviere Zero Data Retention bei Groq. ElevenLabs erfordert Enterprise für Nullspeicherung. Anfragen können Mobilfunk nutzen, sofern „nur WLAN“ aus ist.</string>
     <string name="developer_cloud_data">Cloud-Daten &amp; Datenschutz</string>
-    <string name="developer_last_cloud_error">letzter Cloud-Fehler</string>
+    <string name="developer_last_cloud_error">Cloud-Fehler</string>
     <string name="cloud_error_none">keiner</string>
     <string name="cloud_error_key_missing">Schlüssel fehlt</string>
     <string name="cloud_error_key_rejected">Schlüssel abgelehnt</string>
