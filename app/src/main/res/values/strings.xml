@@ -3,6 +3,7 @@
     <string name="app_name">Soma</string>
     <string name="product_name" translatable="false">Soma</string>
     <string name="app_description">A calm, offline place to drop thoughts and return to what matters.</string>
+    <string name="app_description_networked">A calm place to drop thoughts and return to what matters.</string>
     <string name="today">Today</string>
     <string name="demo_title">Soma · demo</string>
     <string name="entries_empty">Drop a thought here.</string>
@@ -79,9 +80,10 @@
     <string name="returned">remove return marker</string>
     <string name="todo_suggestion">→ important?</string>
     <string name="todo_created">added to Important</string>
-    <string name="open_todos">Current</string>
-    <string name="done_todos">Completed / let go</string>
+    <string name="open_todos">Important</string>
+    <string name="done_todos">Done</string>
     <string name="todos_empty">Nothing important yet.</string>
+    <string name="done_empty">Nothing done yet.</string>
     <string name="todo_quick_hint">Add something important…</string>
     <string name="mark_important">mark important</string>
     <string name="select_important_phrase">Adjust the selection to the word or phrase you want to keep.</string>
@@ -158,7 +160,8 @@
     <string name="photo_permission_needed">Camera permission is needed to take a photo.</string>
     <string name="photo_demo_disabled">Photos are unavailable in demo mode.</string>
     <string name="photo_save_failed">The photo could not be saved.</string>
-    <string name="photo_comment_hint">add a note about the photo…</string>
+    <string name="photo_comment_hint">tap to write · hold to record</string>
+    <string name="photo_retry">couldn’t take photo · try again</string>
     <string name="photo_comment_unavailable">This photo already has a note.</string>
     <string name="image_removed">photo removed</string>
     <string name="backup_demo_disabled">Backups are unavailable in demo mode.</string>
@@ -204,6 +207,7 @@
     <string name="developer_key_saved">saved</string>
     <string name="developer_key_missing">missing</string>
     <string name="developer_cloud_privacy">Bring your own provider key; Soma has no account or server, and the provider bills your account directly. Off by default. Cloud transcription sends audio and any transcription vocabulary to the selected provider. AI Important suggestions and automatic tags/links send only the new or edited entry to Groq. For lower retention, enable Zero Data Retention in Groq; ElevenLabs zero retention requires Enterprise. Requests use your active connection, including cellular, unless you turn on Wi-Fi only.</string>
+    <string name="developer_cloud_data">cloud data &amp; privacy</string>
     <string name="developer_enabled">Developer options enabled</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">Latviešu</string>

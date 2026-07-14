@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_description">Pokojné miesto bez internetu, kam môžete odložiť myšlienky a vrátiť sa k dôležitému.</string>
+    <string name="app_description_networked">Pokojné miesto, kam môžete odložiť myšlienky a vrátiť sa k dôležitému.</string>
     <string name="today">Dnes</string>
     <string name="demo_title">Soma · demo</string>
     <string name="entries_empty">Odložte sem myšlienku.</string>
@@ -69,9 +70,10 @@
     <string name="returned">odstrániť značku návratu</string>
     <string name="todo_suggestion">→ dôležité?</string>
     <string name="todo_created">pridané do Dôležitých</string>
-    <string name="open_todos">Aktuálne</string>
-    <string name="done_todos">Hotové / odložené</string>
+    <string name="open_todos">Dôležité</string>
+    <string name="done_todos">Hotové</string>
     <string name="todos_empty">Zatiaľ nič dôležité.</string>
+    <string name="done_empty">Zatiaľ nič hotové.</string>
     <string name="todo_quick_hint">Pridať niečo dôležité…</string>
     <string name="mark_important">označiť ako dôležité</string>
     <string name="select_important_phrase">Upravte výber na slovo alebo frázu, ktorú chcete zachovať.</string>
@@ -147,7 +149,8 @@
     <string name="photo_permission_needed">Na fotografovanie je potrebné povolenie kamery.</string>
     <string name="photo_demo_disabled">Fotografie nie sú v demo režime dostupné.</string>
     <string name="photo_save_failed">Fotografiu sa nepodarilo uložiť.</string>
-    <string name="photo_comment_hint">pridajte poznámku k fotografii…</string>
+    <string name="photo_comment_hint">ťuknite na písanie · podržte na nahrávanie</string>
+    <string name="photo_retry">fotografiu sa nepodarilo vytvoriť · skúste znova</string>
     <string name="photo_comment_unavailable">Táto fotografia už má poznámku.</string>
     <string name="image_removed">fotografia odstránená</string>
     <string name="backup_demo_disabled">Zálohy nie sú v demo režime dostupné.</string>
@@ -193,6 +196,7 @@
     <string name="developer_key_saved">uložený</string>
     <string name="developer_key_missing">chýba</string>
     <string name="developer_cloud_privacy">Predvolene vypnuté. Cloudový prepis odošle zvuk vybranej službe. ElevenLabs je pre jazyky Soma predvolená voľba zameraná na presnosť. AI návrhy a automatické značky/odkazy odošlú Groq iba nový alebo upravený záznam. Pre kratšie uchovávanie zapnite Zero Data Retention v Groq; ElevenLabs ho ponúka iba pre Enterprise. Požiadavky používajú tvoje aktívne pripojenie vrátane mobilných dát, pokiaľ nezapneš možnosť iba Wi-Fi.</string>
+    <string name="developer_cloud_data">cloudové údaje a súkromie</string>
     <string name="developer_enabled">Možnosti pre vývojárov zapnuté</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">latviešu</string>

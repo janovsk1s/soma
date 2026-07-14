@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_description">Rauhallinen paikka, johon voit jättää ajatuksia ilman verkkoyhteyttä ja palata tärkeisiin asioihin.</string>
+    <string name="app_description_networked">Rauhallinen paikka, johon voit jättää ajatuksia ja palata tärkeisiin asioihin.</string>
     <string name="today">Tänään</string>
     <string name="demo_title">Soma · demo</string>
     <string name="entries_empty">Jätä ajatus tähän.</string>
@@ -69,9 +70,10 @@
     <string name="returned">poista paluumerkintä</string>
     <string name="todo_suggestion">→ tärkeä?</string>
     <string name="todo_created">lisätty Tärkeisiin</string>
-    <string name="open_todos">Nykyiset</string>
-    <string name="done_todos">Tehdyt / pois jätetyt</string>
+    <string name="open_todos">Tärkeät</string>
+    <string name="done_todos">Tehdyt</string>
     <string name="todos_empty">Ei vielä mitään tärkeää.</string>
+    <string name="done_empty">Ei vielä mitään tehtyä.</string>
     <string name="todo_quick_hint">Lisää jotain tärkeää…</string>
     <string name="mark_important">merkitse tärkeäksi</string>
     <string name="select_important_phrase">Säädä valinta sanaan tai lauseeseen, jonka haluat säilyttää.</string>
@@ -147,7 +149,8 @@
     <string name="photo_permission_needed">Kuvan ottamiseen tarvitaan kameran käyttöoikeus.</string>
     <string name="photo_demo_disabled">Kuvat eivät ole käytettävissä demotilassa.</string>
     <string name="photo_save_failed">Kuvaa ei voitu tallentaa.</string>
-    <string name="photo_comment_hint">lisää kuvasta muistiinpano…</string>
+    <string name="photo_comment_hint">napauta kirjoittaaksesi · pidä pohjassa äänittääksesi</string>
+    <string name="photo_retry">kuva epäonnistui · yritä uudelleen</string>
     <string name="photo_comment_unavailable">Kuvassa on jo muistiinpano.</string>
     <string name="image_removed">kuva poistettu</string>
     <string name="backup_demo_disabled">Varmuuskopiointi ei ole käytettävissä demotilassa.</string>
@@ -193,6 +196,7 @@
     <string name="developer_key_saved">tallennettu</string>
     <string name="developer_key_missing">puuttuu</string>
     <string name="developer_cloud_privacy">Oletuksena pois. Pilvilitterointi lähettää äänen valitulle palvelulle. ElevenLabs on Soman kielille tarkkuuspainotteinen oletus. Tekoälyehdotukset sekä automaattiset tunnisteet/linkit lähettävät Groqille vain uuden tai muokatun merkinnän. Pienempää säilytystä varten ota Zero Data Retention käyttöön Groqissa; ElevenLabsissa se vaatii Enterprise-tilin. Pyynnöt käyttävät aktiivista yhteyttäsi, myös mobiiliverkkoa, ellet ota käyttöön asetusta vain Wi-Fi.</string>
+    <string name="developer_cloud_data">pilvidata ja yksityisyys</string>
     <string name="developer_enabled">Kehittäjäasetukset käytössä</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">latviešu</string>

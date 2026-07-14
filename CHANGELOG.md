@@ -2,6 +2,27 @@
 
 Notable changes to Soma are documented here.
 
+## 0.1.0-preview.24 — 2026-07-14
+
+### Changed
+
+- Photo capture now has a labeled shutter, a retryable capture-failure state, and
+  a clear post-photo choice: tap the bottom bar to write or hold it to record.
+  Neither the keyboard nor microphone starts unexpectedly after taking a photo.
+- The entry detail view renders photos at their real rotated aspect ratio on the
+  app background, removing the fixed gray bands above and below portrait photos.
+  Detail text now uses the same compact 18/23 typography as the Today note.
+- Important items open into a full read view when tapped; their trailing mark is
+  the deliberate completion control and a long press still opens item options.
+- Deleted-item taps now open restore/delete options, the Today undo affordance
+  expires after five seconds, and Browser/Cloud/About screens have less duplicate
+  copy and clearer privacy wording.
+
+### Safety
+
+- Permanent deletion remains confined to Deleted Items, including development
+  APKs, so an ordinary entry-options tap cannot bypass the recoverable trash.
+
 ## 0.1.0-preview.23 — 2026-07-14
 
 ### Added

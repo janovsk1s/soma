@@ -26,7 +26,6 @@ import java.time.format.FormatStyle
 @Composable
 fun DeletedItemsScreen(
     entries: List<NoteEntry>,
-    onRestore: (NoteEntry) -> Unit,
     onOptions: (NoteEntry) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -40,7 +39,6 @@ fun DeletedItemsScreen(
                 PagedList(entries, resetKey = entries.map(NoteEntry::id)) { entry ->
                     DeletedItemRow(
                         entry = entry,
-                        onRestore = { onRestore(entry) },
                         onOptions = { onOptions(entry) },
                     )
                 }
@@ -52,21 +50,21 @@ fun DeletedItemsScreen(
 @Composable
 private fun DeletedItemRow(
     entry: NoteEntry,
-    onRestore: () -> Unit,
     onOptions: () -> Unit,
 ) {
+    val preview = entry.text.ifBlank {
+        stringResource(if (entry.image != null) R.string.photo_title else R.string.voice_note)
+    }
+    // A tap opens options (restore / delete forever) rather than restoring
+    // outright, so inspecting a deleted item can never silently un-delete it.
     Row(
-        modifier = Modifier.fillMaxWidth().then(
-            tapLongModifier(onRestore, onOptions, stringResource(R.string.restore_deleted_item)),
-        ),
+        modifier = Modifier.fillMaxWidth().then(tapModifier(onOptions, preview)),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
             Text(
-                entry.text.ifBlank {
-                    stringResource(if (entry.image != null) R.string.photo_title else R.string.voice_note)
-                },
+                preview,
                 color = Ink,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Normal,

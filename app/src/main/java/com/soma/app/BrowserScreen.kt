@@ -118,7 +118,9 @@ fun BrowserScreen(onBack: () -> Unit) {
         }
         Column(Modifier.weight(1f).fillMaxWidth()) {
             when (val current = state) {
-                BrowserViewState.Off -> BrowserStartAction(requestStart)
+                // The single start control lives in the bottom bar; the body just
+                // explains what browser view does (previously both said "start").
+                BrowserViewState.Off -> StatusText(stringResource(R.string.browser_security_note))
                 BrowserViewState.Starting -> StatusText(stringResource(R.string.browser_starting))
                 is BrowserViewState.Running -> {
                     Text(
@@ -187,13 +189,6 @@ fun BrowserScreen(onBack: () -> Unit) {
                 fontSize = 20.sp,
             )
         }
-    }
-}
-
-@Composable
-private fun BrowserStartAction(onStart: () -> Unit) {
-    Box(Modifier.fillMaxSize().then(tapModifier(onStart, stringResource(R.string.browser_start))), contentAlignment = Alignment.Center) {
-        Text(stringResource(R.string.browser_start), color = Ink, fontSize = 24.sp)
     }
 }
 

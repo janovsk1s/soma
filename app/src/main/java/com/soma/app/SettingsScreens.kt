@@ -220,7 +220,12 @@ fun AboutScreen(onDeveloper: () -> Unit, onLicenses: () -> Unit, onBack: () -> U
                     }
                 }
                 Text(
-                    stringResource(R.string.app_description),
+                    // Only the purist build is truly offline; networked builds
+                    // (browser/cloud) get a tagline that doesn't claim otherwise.
+                    stringResource(
+                        if (BuildConfig.BROWSER_VIEW_AVAILABLE) R.string.app_description_networked
+                        else R.string.app_description,
+                    ),
                     color = Ink,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Normal,
@@ -350,6 +355,7 @@ private enum class CloudDeveloperAction {
     AI_METADATA,
     GROQ_KEY,
     ELEVENLABS_KEY,
+    PRIVACY,
 }
 
 @Composable
@@ -359,13 +365,16 @@ fun CloudDeveloperScreen(onBack: () -> Unit) {
     var settings by remember { mutableStateOf(controller.settings()) }
     var editingKey by remember { mutableStateOf<CloudSpeechProvider?>(null) }
     var keyText by remember { mutableStateOf("") }
+    var showPrivacy by remember { mutableStateOf(false) }
 
     fun navigateBack() {
-        if (editingKey != null) {
-            keyText = ""
-            editingKey = null
-        } else {
-            onBack()
+        when {
+            editingKey != null -> {
+                keyText = ""
+                editingKey = null
+            }
+            showPrivacy -> showPrivacy = false
+            else -> onBack()
         }
     }
     BackHandler(onBack = ::navigateBack)
@@ -413,6 +422,21 @@ fun CloudDeveloperScreen(onBack: () -> Unit) {
             return@Column
         }
 
+        if (showPrivacy) {
+            Text(
+                stringResource(R.string.developer_cloud_privacy),
+                color = DimInk,
+                fontSize = 15.sp,
+                lineHeight = 22.sp,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(top = 20.dp)
+                    .verticalScroll(rememberScrollState()),
+            )
+            return@Column
+        }
+
         if (!settings.available) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Text(
@@ -437,6 +461,7 @@ fun CloudDeveloperScreen(onBack: () -> Unit) {
                         CloudDeveloperAction.AI_METADATA -> stringResource(R.string.developer_ai_metadata)
                         CloudDeveloperAction.GROQ_KEY -> stringResource(R.string.developer_groq_key)
                         CloudDeveloperAction.ELEVENLABS_KEY -> stringResource(R.string.developer_elevenlabs_key)
+                        CloudDeveloperAction.PRIVACY -> stringResource(R.string.developer_cloud_data)
                     },
                     trailing = when (action) {
                         CloudDeveloperAction.TRANSCRIPTION -> stringResource(if (settings.transcriptionEnabled) R.string.on else R.string.off)
@@ -449,6 +474,7 @@ fun CloudDeveloperScreen(onBack: () -> Unit) {
                         CloudDeveloperAction.AI_METADATA -> stringResource(if (settings.aiAutoMetadata) R.string.on else R.string.off)
                         CloudDeveloperAction.GROQ_KEY -> stringResource(if (settings.hasGroqKey) R.string.developer_key_saved else R.string.developer_key_missing)
                         CloudDeveloperAction.ELEVENLABS_KEY -> stringResource(if (settings.hasElevenLabsKey) R.string.developer_key_saved else R.string.developer_key_missing)
+                        CloudDeveloperAction.PRIVACY -> null
                     },
                     onClick = {
                         when (action) {
@@ -471,19 +497,13 @@ fun CloudDeveloperScreen(onBack: () -> Unit) {
                             CloudDeveloperAction.AI_METADATA -> controller.setAiAutoMetadata(!settings.aiAutoMetadata)
                             CloudDeveloperAction.GROQ_KEY -> editingKey = CloudSpeechProvider.GROQ
                             CloudDeveloperAction.ELEVENLABS_KEY -> editingKey = CloudSpeechProvider.ELEVENLABS
+                            CloudDeveloperAction.PRIVACY -> showPrivacy = true
                         }
                         refresh()
                     },
                 )
             }
         }
-        Text(
-            stringResource(R.string.developer_cloud_privacy),
-            color = DimInk,
-            fontSize = 13.sp,
-            lineHeight = 18.sp,
-            modifier = Modifier.padding(bottom = 16.dp),
-        )
     }
 }
 

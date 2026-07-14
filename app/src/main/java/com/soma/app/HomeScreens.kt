@@ -8,6 +8,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -89,6 +90,14 @@ fun HomeScreen(
     val photoComment = note?.entries?.firstOrNull { entry ->
         entry.id == photoCommentEntryId && entry.activeImage != null &&
             entry.audio == null && entry.text.isBlank()
+    }
+    // The one-tap Undo is a brief affordance, not a persistent banner: let it go
+    // after a short window so a stale "removed" line never lingers on Today.
+    LaunchedEffect(deletionUndo) {
+        if (deletionUndo != null) {
+            delay(UNDO_VISIBLE_MILLIS)
+            viewModel.clearDeletionUndo()
+        }
     }
     var stillOpenDismissed by remember(viewModel.today()) { mutableStateOf(false) }
     LaunchedEffect(viewModel.today()) {
@@ -264,6 +273,7 @@ private fun recordingBarLabel(state: RecordingUiState, idleLabel: String): Strin
 
 private const val MILLIS_PER_SECOND = 1_000L
 private const val RECORDING_TIMER_REFRESH_MILLIS = 250L
+private const val UNDO_VISIBLE_MILLIS = 5_000L
 
 /**
  * Looks like the familiar input line but never focuses inline: the Light Phone
@@ -418,14 +428,20 @@ fun EntryReadScreen(
             modifier = Modifier.weight(1f).fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .then(longPressModifier(onOptions, "entry options")),
-            contentAlignment = Alignment.CenterStart,
+            contentAlignment = Alignment.TopStart,
         ) {
-            Column(Modifier.fillMaxWidth()) {
-                if (entry.activeImage != null) {
+            Column(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 18.dp)) {
+                entry.activeImage?.let { image ->
+                    val rotated = image.rotationDegrees % 180 != 0
+                    val displayWidth = if (rotated) image.height else image.width
+                    val displayHeight = if (rotated) image.width else image.height
                     EncryptedEntryImage(
                         entry = entry,
-                        modifier = Modifier.fillMaxWidth().height(420.dp),
+                        modifier = Modifier.fillMaxWidth().aspectRatio(
+                            displayWidth.toFloat() / displayHeight.coerceAtLeast(1).toFloat(),
+                        ),
                         contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                        backgroundColor = Paper,
                     )
                 }
                 if (
@@ -447,8 +463,8 @@ fun EntryReadScreen(
                             )
                         },
                         color = Ink,
-                        fontSize = 26.sp,
-                        lineHeight = 34.sp,
+                        fontSize = 18.sp,
+                        lineHeight = 23.sp,
                         fontWeight = FontWeight.Normal,
                         modifier = Modifier.padding(top = if (entry.activeImage != null) 18.dp else 0.dp),
                     )

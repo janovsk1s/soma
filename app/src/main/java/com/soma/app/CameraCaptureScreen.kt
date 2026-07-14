@@ -16,6 +16,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -35,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -42,6 +45,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -84,7 +88,9 @@ fun CameraCaptureScreen(
             .build()
     }
     var ready by remember { mutableStateOf(false) }
-    var failed by remember { mutableStateOf(false) }
+    var bindingFailed by remember { mutableStateOf(false) }
+    var captureFailed by remember { mutableStateOf(false) }
+    var captured by remember { mutableStateOf(false) }
 
     DisposableEffect(lifecycleOwner, previewView, imageCapture) {
         val future = ProcessCameraProvider.getInstance(context)
@@ -104,7 +110,7 @@ fun CameraCaptureScreen(
                         imageCapture,
                     )
                     ready = true
-                }.onFailure { failed = true }
+                }.onFailure { bindingFailed = true }
             },
             mainExecutor,
         )
@@ -115,7 +121,8 @@ fun CameraCaptureScreen(
     }
 
     fun takePhoto() {
-        if (!ready || failed || saving) return
+        if (!ready || bindingFailed || saving || captured) return
+        captureFailed = false
         ready = false
         imageCapture.takePicture(
             cameraExecutor,
@@ -125,16 +132,19 @@ fun CameraCaptureScreen(
                         val plane = image.planes.firstOrNull() ?: error("Camera returned no JPEG plane")
                         val buffer = plane.buffer
                         val bytes = ByteArray(buffer.remaining()).also(buffer::get)
-                        val captured = CapturedPhoto(
+                        val capturedPhoto = CapturedPhoto(
                             jpegBytes = bytes,
                             width = image.width,
                             height = image.height,
                             rotationDegrees = image.imageInfo.rotationDegrees,
                         )
-                        mainExecutor.execute { onCaptured(captured) }
+                        mainExecutor.execute {
+                            captured = true
+                            onCaptured(capturedPhoto)
+                        }
                     } catch (_: Throwable) {
                         mainExecutor.execute {
-                            failed = true
+                            captureFailed = true
                             ready = true
                         }
                     } finally {
@@ -144,7 +154,7 @@ fun CameraCaptureScreen(
 
                 override fun onError(exception: ImageCaptureException) {
                     mainExecutor.execute {
-                        failed = true
+                        captureFailed = true
                         ready = true
                     }
                 }
@@ -158,32 +168,34 @@ fun CameraCaptureScreen(
         }
         Box(Modifier.weight(1f).fillMaxWidth().background(androidx.compose.ui.graphics.Color.Black)) {
             AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
-            if (!ready || failed || saving) {
+            if (!ready || bindingFailed || captureFailed || saving || captured) {
                 EmptyHint(
                     stringResource(
                         when {
-                            saving -> R.string.photo_saving
-                            failed -> R.string.photo_failed
+                            saving || captured -> R.string.photo_saving
+                            bindingFailed -> R.string.photo_failed
+                            captureFailed -> R.string.photo_retry
                             else -> R.string.photo_starting
                         },
                     ),
                 )
             }
         }
-        Box(
-            modifier = Modifier.fillMaxWidth().height(104.dp),
-            contentAlignment = Alignment.Center,
+        Column(
+            modifier = Modifier.fillMaxWidth().height(112.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
             Canvas(
-                Modifier.width(72.dp).height(72.dp).then(
-                    if (ready && !saving && !failed) {
+                Modifier.width(64.dp).height(64.dp).then(
+                    if (ready && !saving && !bindingFailed && !captured) {
                         tapModifier(::takePhoto, stringResource(R.string.photo_take))
                     } else {
                         Modifier
                     },
                 ),
             ) {
-                val color = if (ready && !saving && !failed) Ink else DimInk
+                val color = if (ready && !saving && !bindingFailed && !captured) Ink else DimInk
                 drawCircle(
                     color = color,
                     radius = size.minDimension * 0.36f,
@@ -194,6 +206,18 @@ fun CameraCaptureScreen(
                 )
                 drawCircle(color = color, radius = size.minDimension * 0.25f)
             }
+            Text(
+                stringResource(
+                    when {
+                        saving || captured -> R.string.photo_saving
+                        bindingFailed -> R.string.photo_failed
+                        captureFailed -> R.string.photo_retry
+                        else -> R.string.photo_take
+                    },
+                ),
+                color = if (ready && !bindingFailed && !captured) Ink else DimInk,
+                fontSize = 13.sp,
+            )
         }
     }
 }
@@ -204,6 +228,7 @@ fun EncryptedEntryImage(
     entry: NoteEntry,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
+    backgroundColor: Color = DimInk.copy(alpha = 0.16f),
 ) {
     val app = LocalContext.current.applicationContext as SomaApplication
     val attachment = entry.activeImage
@@ -227,7 +252,7 @@ fun EncryptedEntryImage(
             }
         }
     }
-    Box(modifier.clipToBounds().background(DimInk.copy(alpha = 0.16f))) {
+    Box(modifier.clipToBounds().background(backgroundColor)) {
         bitmap?.let {
             Image(
                 bitmap = it,

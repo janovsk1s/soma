@@ -290,7 +290,9 @@ private val FLOW_PAGE_VERTICAL_PADDING = 8.dp
 private val ENTRY_SPACING = 10.dp
 private val CHIP_ROW_HEIGHT = 22.dp
 private val MIN_TOUCH_TARGET = 48.dp
-private val TIME_LINE_HEIGHT = 16.dp
+// Taller than the timestamp glyphs so the centered time isn't glued to the
+// entry body directly beneath it (timeLinePx in the page budget tracks this).
+private val TIME_LINE_HEIGHT = 22.dp
 private val IMAGE_PREVIEW_HEIGHT = 190.dp
 private val IMAGE_CAPTION_SPACING = 8.dp
 private val FLOW_FONT_SIZE = 18.sp

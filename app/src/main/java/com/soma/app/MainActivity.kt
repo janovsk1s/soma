@@ -164,6 +164,7 @@ private sealed interface AppRoute {
     data class EditEntry(val entry: NoteEntry, val fromTodos: Boolean = false) : AppRoute
     data class SelectImportant(val entry: NoteEntry, val fromTodos: Boolean = false) : AppRoute
     data class TodoOptions(val todo: Todo) : AppRoute
+    data class TodoDetail(val todo: Todo) : AppRoute
     data class EditTodo(val todo: Todo) : AppRoute
     data class ResurfaceTodo(val todo: Todo) : AppRoute
 }
@@ -263,6 +264,7 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
         AppRoute.Todos -> TodosScreen(
             viewModel = viewModel,
             onTodoOptions = { route = AppRoute.TodoOptions(it) },
+            onTodoDetail = { route = AppRoute.TodoDetail(it) },
             onDetailedAdd = { route = AppRoute.AddTodo },
             onSource = { todo ->
                 todo.source?.let { source ->
@@ -291,7 +293,6 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             val deleted by viewModel.deletedEntries.collectAsState()
             DeletedItemsScreen(
                 entries = deleted,
-                onRestore = viewModel::restoreDeleted,
                 onOptions = { route = AppRoute.DeletedOptions(it) },
                 onBack = { route = AppRoute.Settings },
             )
@@ -626,6 +627,18 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             onLetGo = {
                 viewModel.letGo(current.todo)
                 route = AppRoute.Todos
+            },
+            onBack = { route = AppRoute.Todos },
+        )
+        is AppRoute.TodoDetail -> TodoDetailScreen(
+            todo = current.todo,
+            onSource = {
+                current.todo.source?.let { source ->
+                    viewModel.showDay(source.noteDate)
+                    viewModel.findEntry(source.entryId) {
+                        route = AppRoute.ReadEntry(it, fromTodos = true)
+                    }
+                }
             },
             onBack = { route = AppRoute.Todos },
         )

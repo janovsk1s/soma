@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_description">Rahulik võrguühenduseta koht mõtete talletamiseks ja olulise juurde naasmiseks.</string>
+    <string name="app_description_networked">Rahulik koht mõtete talletamiseks ja olulise juurde naasmiseks.</string>
     <string name="today">Täna</string>
     <string name="demo_title">Soma · demo</string>
     <string name="entries_empty">Jäta mõte siia.</string>
@@ -69,9 +70,10 @@
     <string name="returned">eemalda naasmismärge</string>
     <string name="todo_suggestion">→ oluline?</string>
     <string name="todo_created">lisatud Olulisse</string>
-    <string name="open_todos">Praegune</string>
-    <string name="done_todos">Tehtud / kõrvale jäetud</string>
+    <string name="open_todos">Oluline</string>
+    <string name="done_todos">Tehtud</string>
     <string name="todos_empty">Midagi olulist veel pole.</string>
+    <string name="done_empty">Veel pole midagi tehtud.</string>
     <string name="todo_quick_hint">Lisa midagi olulist…</string>
     <string name="mark_important">märgi oluliseks</string>
     <string name="select_important_phrase">Kohanda valik sõnale või fraasile, mida soovid säilitada.</string>
@@ -147,7 +149,8 @@
     <string name="photo_permission_needed">Foto tegemiseks on vaja kaamera luba.</string>
     <string name="photo_demo_disabled">Demorežiimis pole fotod saadaval.</string>
     <string name="photo_save_failed">Fotot ei saanud salvestada.</string>
-    <string name="photo_comment_hint">lisa foto kohta märkus…</string>
+    <string name="photo_comment_hint">puuduta kirjutamiseks · hoia salvestamiseks</string>
+    <string name="photo_retry">foto ebaõnnestus · proovi uuesti</string>
     <string name="photo_comment_unavailable">Sellel fotol on juba märkus.</string>
     <string name="image_removed">foto eemaldatud</string>
     <string name="backup_demo_disabled">Demorežiimis pole varukoopiad saadaval.</string>
@@ -193,6 +196,7 @@
     <string name="developer_key_saved">salvestatud</string>
     <string name="developer_key_missing">puudub</string>
     <string name="developer_cloud_privacy">Vaikimisi väljas. Pilvetranskriptsioon saadab heli valitud teenusele. Soma keelte jaoks on ElevenLabs täpsusele suunatud vaikevalik. AI soovitused ning automaatsed sildid/lingid saadavad Groqi ainult uue või muudetud sissekande. Väiksema säilitamise jaoks lülita Groqis sisse Zero Data Retention; ElevenLabsis nõuab see Enterprise’i. Päringud kasutavad sinu aktiivset ühendust, sealhulgas mobiilsidet, kui sa ei lülita sisse valikut ainult Wi-Fi.</string>
+    <string name="developer_cloud_data">pilveandmed ja privaatsus</string>
     <string name="developer_enabled">Arendaja valikud on lubatud</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">latviešu</string>

@@ -1,6 +1,7 @@
 package com.soma.app
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -86,6 +87,7 @@ fun SettingsItem(
         modifier = Modifier.fillMaxWidth().fillMaxHeight().then(
             onClick?.let { tapModifier(it, label) } ?: Modifier,
         ),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AutoFitText(

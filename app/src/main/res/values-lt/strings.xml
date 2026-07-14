@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_description">Rami vieta be interneto mintims palikti ir grįžti prie to, kas svarbu.</string>
+    <string name="app_description_networked">Rami vieta mintims palikti ir grįžti prie to, kas svarbu.</string>
     <string name="today">Šiandien</string>
     <string name="demo_title">Soma · demonstracija</string>
     <string name="entries_empty">Palik mintį čia.</string>
@@ -69,9 +70,10 @@
     <string name="returned">pašalinti grįžimo žymą</string>
     <string name="todo_suggestion">→ svarbu?</string>
     <string name="todo_created">pridėta prie Svarbu</string>
-    <string name="open_todos">Dabartiniai</string>
-    <string name="done_todos">Atliktos / atsisakytos</string>
+    <string name="open_todos">Svarbu</string>
+    <string name="done_todos">Atlikta</string>
     <string name="todos_empty">Kol kas nieko svarbaus.</string>
+    <string name="done_empty">Kol kas nieko neatlikta.</string>
     <string name="todo_quick_hint">Pridėk ką nors svarbaus…</string>
     <string name="mark_important">pažymėti kaip svarbų</string>
     <string name="select_important_phrase">Pakoreguok pasirinkimą iki žodžio ar frazės, kurią nori išsaugoti.</string>
@@ -147,7 +149,8 @@
     <string name="photo_permission_needed">Norint fotografuoti reikia kameros leidimo.</string>
     <string name="photo_demo_disabled">Demonstraciniu režimu nuotraukos nepasiekiamos.</string>
     <string name="photo_save_failed">Nuotraukos nepavyko išsaugoti.</string>
-    <string name="photo_comment_hint">pridėk pastabą apie nuotrauką…</string>
+    <string name="photo_comment_hint">paliesk rašyti · laikyk įrašyti</string>
+    <string name="photo_retry">nuotraukos padaryti nepavyko · bandyk dar kartą</string>
     <string name="photo_comment_unavailable">Ši nuotrauka jau turi pastabą.</string>
     <string name="image_removed">nuotrauka pašalinta</string>
     <string name="backup_demo_disabled">Demonstraciniu režimu atsarginės kopijos nepasiekiamos.</string>
@@ -193,6 +196,7 @@
     <string name="developer_key_saved">išsaugotas</string>
     <string name="developer_key_missing">trūksta</string>
     <string name="developer_cloud_privacy">Pagal nutylėjimą išjungta. Debesijos transkripcija siunčia garsą pasirinktai paslaugai. Soma kalboms ElevenLabs yra į tikslumą orientuotas numatytasis pasirinkimas. DI pasiūlymai bei automatinės žymos/nuorodos siunčia Groq tik naują ar redaguotą įrašą. Mažesniam saugojimui įjunkite Zero Data Retention Groq; ElevenLabs tam reikia Enterprise. Užklausos naudoja aktyvų ryšį, įskaitant mobiliojo ryšio duomenis, nebent įjungsite tik Wi-Fi.</string>
+    <string name="developer_cloud_data">debesų duomenys ir privatumas</string>
     <string name="developer_enabled">Kūrėjo parinktys įjungtos</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">latviešu</string>

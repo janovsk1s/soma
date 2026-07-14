@@ -479,6 +479,11 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Dismisses the one-tap Undo affordance once its short window has elapsed. */
+    fun clearDeletionUndo() {
+        mutableDeletionUndo.value = null
+    }
+
     fun restoreDeleted(entry: NoteEntry, onRestored: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             val mutation = repositories.notes.mutateEntry(entry.id) { current ->

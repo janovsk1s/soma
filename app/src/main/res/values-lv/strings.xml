@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_description">Mierīga vieta bezsaistē, kur nolikt domas un atgriezties pie svarīgā.</string>
+    <string name="app_description_networked">Mierīga vieta, kur nolikt domas un atgriezties pie svarīgā.</string>
     <string name="today">Šodien</string>
     <string name="demo_title">Soma · demonstrācija</string>
     <string name="entries_empty">Atstāj domu te.</string>
@@ -69,9 +70,10 @@
     <string name="returned">noņemt atgriešanās atzīmi</string>
     <string name="todo_suggestion">→ svarīgais?</string>
     <string name="todo_created">pievienots Svarīgajam</string>
-    <string name="open_todos">Aktuālais</string>
-    <string name="done_todos">Pabeigts / atlaists</string>
+    <string name="open_todos">Svarīgais</string>
+    <string name="done_todos">Pabeigts</string>
     <string name="todos_empty">Nav nekā svarīga.</string>
+    <string name="done_empty">Vēl nekas nav pabeigts.</string>
     <string name="todo_quick_hint">Pievieno svarīgo…</string>
     <string name="mark_important">atzīmēt kā svarīgu</string>
     <string name="select_important_phrase">Pielāgo iezīmējumu vārdam vai frāzei, ko vēlies paturēt.</string>
@@ -147,7 +149,8 @@
     <string name="photo_permission_needed">Lai uzņemtu foto, vajadzīga kameras atļauja.</string>
     <string name="photo_demo_disabled">Demo režīmā foto nav pieejami.</string>
     <string name="photo_save_failed">Foto neizdevās saglabāt.</string>
-    <string name="photo_comment_hint">pievieno piezīmi par foto…</string>
+    <string name="photo_comment_hint">pieskaries, lai rakstītu · turi, lai ierakstītu</string>
+    <string name="photo_retry">foto neizdevās · mēģini vēlreiz</string>
     <string name="photo_comment_unavailable">Šim foto jau ir piezīme.</string>
     <string name="image_removed">foto dzēsts</string>
     <string name="backup_demo_disabled">Demo režīmā dublējumi nav pieejami.</string>
@@ -193,6 +196,7 @@
     <string name="developer_key_saved">saglabāta</string>
     <string name="developer_key_missing">trūkst</string>
     <string name="developer_cloud_privacy">Pēc noklusējuma izslēgts. Mākoņa transkripcija nosūta audio izvēlētajam pakalpojumam. Soma valodām ElevenLabs ir noklusējuma izvēle precizitātei. MI ieteikumi un automātiskās birkas/saites nosūta Groq tikai jauno vai laboto ierakstu. Mazākai datu glabāšanai ieslēdz Zero Data Retention Groq; ElevenLabs tas prasa Enterprise. Pieprasījumi izmanto tavu aktīvo savienojumu, tostarp mobilos datus, ja vien neieslēdz tikai Wi-Fi.</string>
+    <string name="developer_cloud_data">mākoņa dati un privātums</string>
     <string name="developer_enabled">Izstrādātāja iespējas ieslēgtas</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">latviešu</string>

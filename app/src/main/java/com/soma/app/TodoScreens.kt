@@ -2,6 +2,8 @@ package com.soma.app
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,6 +42,7 @@ import java.time.format.FormatStyle
 fun TodosScreen(
     viewModel: SomaViewModel,
     onTodoOptions: (Todo) -> Unit,
+    onTodoDetail: (Todo) -> Unit,
     onDetailedAdd: () -> Unit,
     onSource: (Todo) -> Unit,
     onBack: () -> Unit,
@@ -70,7 +73,7 @@ fun TodosScreen(
         )
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             if (items.isEmpty()) {
-                EmptyHint(stringResource(if (showClosed) R.string.done_todos else R.string.todos_empty))
+                EmptyHint(stringResource(if (showClosed) R.string.done_empty else R.string.todos_empty))
             } else {
                 PagedList(
                     items = items,
@@ -79,8 +82,10 @@ fun TodosScreen(
                 ) { todo ->
                     TodoRow(
                         todo = todo,
+                        today = viewModel.today(),
                         stalePrompt = todo.id in prompted,
                         onToggle = { viewModel.toggleTodo(todo) },
+                        onDetail = { onTodoDetail(todo) },
                         onOptions = { onTodoOptions(todo) },
                         onKeep = { viewModel.keepTodo(todo) },
                         onLetGo = { viewModel.letGo(todo) },
@@ -157,22 +162,22 @@ private fun TodoHeader(showClosed: Boolean, onToggle: () -> Unit, onBack: () -> 
 @Composable
 private fun TodoRow(
     todo: Todo,
+    today: LocalDate,
     stalePrompt: Boolean,
     onToggle: () -> Unit,
+    onDetail: () -> Unit,
     onOptions: () -> Unit,
     onKeep: () -> Unit,
     onLetGo: () -> Unit,
     onSource: () -> Unit,
 ) {
+    // Tapping a row opens the full item (rows are truncated to two lines); the
+    // options menu is a long-press, and only the trailing mark completes it — so
+    // a tap reveals the text instead of a delete/edit menu or a stray completion.
+    val toggleable = todo.kind in ACTIONABLE_KINDS
     Column(
         modifier = Modifier.fillMaxSize().then(
-            tapLongModifier(
-                if (todo.kind in SOURCE_KINDS && todo.source != null) onSource
-                else if (todo.kind in ACTIONABLE_KINDS) onToggle
-                else onOptions,
-                onOptions,
-                "important item",
-            ),
+            tapLongModifier(onDetail, onOptions, "important item"),
         ),
         verticalArrangement = Arrangement.Center,
     ) {
@@ -196,7 +201,19 @@ private fun TodoRow(
                 },
                 color = DimInk,
                 fontSize = 22.sp,
-                modifier = Modifier.padding(start = 8.dp),
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .then(
+                        if (toggleable) {
+                            tapModifier(
+                                onToggle,
+                                stringResource(if (todo.state == TodoState.OPEN) R.string.mark_done else R.string.mark_open),
+                            )
+                        } else {
+                            Modifier
+                        },
+                    )
+                    .padding(12.dp),
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -213,7 +230,7 @@ private fun TodoRow(
                     fontSize = 12.sp,
                 )
             }
-            todo.source?.let { source ->
+            todo.source?.takeIf { it.noteDate != today }?.let { source ->
                 Text(
                     source.noteDate.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT)),
                     color = DimInk,
@@ -320,6 +337,70 @@ fun TodoResurfaceScreen(
                     },
                     onClick = { onSelect(date) },
                 )
+            }
+        }
+    }
+}
+
+/** Read-only full view of a truncated Important item, opened by tapping its row. */
+@Composable
+fun TodoDetailScreen(
+    todo: Todo,
+    onSource: () -> Unit,
+    onBack: () -> Unit,
+) {
+    BackHandler(onBack = onBack)
+    Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding().padding(horizontal = 28.dp)) {
+        SimpleTopBar(stringResource(R.string.todos), onBack)
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(top = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(
+                todo.text,
+                color = if (todo.state == TodoState.OPEN) Ink else DimInk,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Normal,
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (todo.kind != ImportantKind.ACTION) {
+                    Text(
+                        stringResource(
+                            when (todo.kind) {
+                                ImportantKind.LIST -> R.string.important_list
+                                ImportantKind.REFERENCE -> R.string.important_reference
+                                else -> R.string.important_excerpt
+                            },
+                        ),
+                        color = DimInk,
+                        fontSize = 13.sp,
+                    )
+                }
+                todo.source?.let { source ->
+                    Text(
+                        source.noteDate.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)),
+                        color = DimInk,
+                        fontSize = 13.sp,
+                        modifier = Modifier.then(tapModifier(onSource, "source note")),
+                    )
+                }
+                todo.resurfaceOn?.let { date ->
+                    Text(
+                        stringResource(
+                            R.string.show_again_date,
+                            date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)),
+                        ),
+                        color = DimInk,
+                        fontSize = 13.sp,
+                    )
+                }
             }
         }
     }

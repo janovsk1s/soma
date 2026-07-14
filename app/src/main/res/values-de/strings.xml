@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_description">Ein ruhiger Offline-Ort, um Gedanken abzulegen und zum Wesentlichen zurückzukehren.</string>
+    <string name="app_description_networked">Ein ruhiger Ort, um Gedanken abzulegen und zum Wesentlichen zurückzukehren.</string>
     <string name="today">Heute</string>
     <string name="demo_title">Soma · Demo</string>
     <string name="entries_empty">Gedanken hier ablegen.</string>
@@ -69,9 +70,10 @@
     <string name="returned">Rückkehrmarkierung entfernen</string>
     <string name="todo_suggestion">→ wichtig?</string>
     <string name="todo_created">zu Wichtiges hinzugefügt</string>
-    <string name="open_todos">Aktuell</string>
-    <string name="done_todos">Erledigt / losgelassen</string>
+    <string name="open_todos">Wichtiges</string>
+    <string name="done_todos">Erledigt</string>
     <string name="todos_empty">Noch nichts Wichtiges.</string>
+    <string name="done_empty">Noch nichts erledigt.</string>
     <string name="todo_quick_hint">Wichtiges hinzufügen…</string>
     <string name="mark_important">als wichtig markieren</string>
     <string name="select_important_phrase">Passe die Auswahl an das Wort oder den Satzteil an, den du behalten möchtest.</string>
@@ -147,7 +149,8 @@
     <string name="photo_permission_needed">Zum Fotografieren ist die Kameraberechtigung erforderlich.</string>
     <string name="photo_demo_disabled">Fotos sind im Demo-Modus nicht verfügbar.</string>
     <string name="photo_save_failed">Das Foto konnte nicht gespeichert werden.</string>
-    <string name="photo_comment_hint">Notiz zum Foto hinzufügen…</string>
+    <string name="photo_comment_hint">Tippen zum Schreiben · halten zum Aufnehmen</string>
+    <string name="photo_retry">Foto fehlgeschlagen · erneut versuchen</string>
     <string name="photo_comment_unavailable">Dieses Foto hat bereits eine Notiz.</string>
     <string name="image_removed">Foto entfernt</string>
     <string name="backup_demo_disabled">Sicherungen sind im Demo-Modus deaktiviert.</string>
@@ -193,6 +196,7 @@
     <string name="developer_key_saved">gespeichert</string>
     <string name="developer_key_missing">fehlt</string>
     <string name="developer_cloud_privacy">Standardmäßig aus. Cloud-Transkription sendet Audio an den gewählten Anbieter. ElevenLabs ist für Somas Sprachen die auf Genauigkeit ausgerichtete Voreinstellung. KI-Vorschläge und automatische Tags/Links senden nur den neuen oder bearbeiteten Eintrag an Groq. Für geringere Speicherung aktiviere Zero Data Retention bei Groq; bei ElevenLabs erfordert dies Enterprise. Anfragen nutzen deine aktive Verbindung, auch Mobilfunk, sofern du nicht „nur WLAN“ aktivierst.</string>
+    <string name="developer_cloud_data">Cloud-Daten &amp; Datenschutz</string>
     <string name="developer_enabled">Entwickleroptionen aktiviert</string>
     <string name="language_name_english">English</string>
     <string name="language_name_latvian">latviešu</string>
