@@ -135,6 +135,7 @@ class TranscriptionDrainWorker(
                         // A successful replacement transcript invalidates only
                         // metadata derived from the previous wording.
                         repositories.metadata.delete(job.entryId, MetadataSource.AI)
+                        repositories.metadata.delete(job.entryId, MetadataSource.LOCAL)
                         persistSuggestions(app, job.entryId, result)
                         val completedEntry = repositories.notes.getEntry(job.entryId)
                         if (completedEntry != null) {
@@ -151,6 +152,18 @@ class TranscriptionDrainWorker(
                             } catch (_: Exception) {
                                 // Transcription is already complete. Optional
                                 // metadata failure cannot change that outcome.
+                            }
+                            try {
+                                deriveAndPersistLocalMetadata(
+                                    app = app,
+                                    repositories = repositories,
+                                    entry = completedEntry,
+                                    clock = clock,
+                                )
+                            } catch (error: CancellationException) {
+                                throw error
+                            } catch (_: Exception) {
+                                // Deterministic local metadata is best-effort too.
                             }
                         }
                     }

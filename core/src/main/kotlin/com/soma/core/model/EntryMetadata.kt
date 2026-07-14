@@ -7,6 +7,9 @@ import java.util.Locale
 enum class MetadataSource {
     MANUAL,
     AI,
+
+    /** Deterministic on-device enrichment (hashtags, dates); no network or model. */
+    LOCAL,
 }
 
 enum class EntryLinkKind {

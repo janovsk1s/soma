@@ -1,10 +1,12 @@
 package com.soma.app
 
+import com.soma.core.metadata.LocalMetadataDeriver
 import com.soma.core.model.EntryMetadata
 import com.soma.core.model.MetadataSource
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.SupportedLanguage
 import java.time.Clock
+import java.time.ZoneId
 
 /**
  * Derivation is deliberately outside capture persistence. The text is checked
@@ -35,6 +37,39 @@ internal suspend fun deriveAndPersistAiMetadata(
             links = result.links,
             derivedAt = clock.instant(),
             source = MetadataSource.AI,
+        ),
+    )
+}
+
+/**
+ * The offline counterpart: a deterministic LOCAL layer derived on-device in every
+ * flavor, with no network or model. It is independent of the AI layer and, like
+ * it, re-checks the text after deriving so a later edit is never overwritten.
+ */
+internal suspend fun deriveAndPersistLocalMetadata(
+    app: SomaApplication,
+    repositories: SomaRepositories,
+    entry: NoteEntry,
+    clock: Clock,
+): Boolean {
+    if (!SomaPrefs.localAutoMetadata(app)) return false
+    if (entry.isDeleted || entry.text.isBlank()) return false
+    val sourceText = entry.text
+    val today = clock.instant().atZone(ZoneId.systemDefault()).toLocalDate()
+    val result = LocalMetadataDeriver.derive(sourceText, SomaPrefs.language(app), today)
+    val current = repositories.notes.getEntry(entry.id)
+    if (current == null || current.isDeleted || current.text != sourceText) return false
+    if (result.tags.isEmpty() && result.links.isEmpty()) {
+        repositories.metadata.delete(entry.id, MetadataSource.LOCAL)
+        return true
+    }
+    return repositories.metadata.upsert(
+        EntryMetadata(
+            entryId = entry.id,
+            tags = result.tags,
+            links = result.links,
+            derivedAt = clock.instant(),
+            source = MetadataSource.LOCAL,
         ),
     )
 }

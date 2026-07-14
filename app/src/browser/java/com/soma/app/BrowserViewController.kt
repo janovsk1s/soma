@@ -918,6 +918,7 @@ private class LanDataSourceAdapter(
                     metadataSource = when (edge.metadataSource) {
                         MetadataSource.MANUAL -> BrowserMetadataSource.MANUAL
                         MetadataSource.AI -> BrowserMetadataSource.AI
+                        MetadataSource.LOCAL -> BrowserMetadataSource.LOCAL
                     },
                 )
             },

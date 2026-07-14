@@ -259,7 +259,13 @@ internal object HtmlRenderer {
                     append("</text><text class=\"edge-source\" x=\"440\" y=\"")
                     append(centerY + 17)
                     append("\" text-anchor=\"middle\">")
-                    append(if (edge.metadataSource == BrowserMetadataSource.MANUAL) "manual" else "AI")
+                    append(
+                        when (edge.metadataSource) {
+                            BrowserMetadataSource.MANUAL -> "manual"
+                            BrowserMetadataSource.AI -> "AI"
+                            BrowserMetadataSource.LOCAL -> "local"
+                        },
+                    )
                     append("</text>")
                     if (edge.targetKind == BrowserGraphNodeKind.ENTRY && edge.targetDate != null) {
                         svgDayLink(edge.targetDate, edge.targetLabel, 620, centerY - 7)

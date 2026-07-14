@@ -22,6 +22,7 @@ object SomaPrefs {
     private const val KEY_AI_TODOS = "cloud_ai_todo_suggestions"
     private const val KEY_AI_AUTO_METADATA = "cloud_ai_auto_metadata"
     private const val KEY_AI_TRACKING = "cloud_ai_tracking_suggestions"
+    private const val KEY_LOCAL_AUTO_METADATA = "local_auto_metadata"
 
     private fun values(context: Context) = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
@@ -105,6 +106,12 @@ object SomaPrefs {
 
     fun setAiAutoMetadata(context: Context, enabled: Boolean) =
         values(context).edit().putBoolean(KEY_AI_AUTO_METADATA, enabled).apply()
+
+    /** On by default: local metadata never leaves the device and costs nothing. */
+    fun localAutoMetadata(context: Context): Boolean = values(context).getBoolean(KEY_LOCAL_AUTO_METADATA, true)
+
+    fun setLocalAutoMetadata(context: Context, enabled: Boolean) =
+        values(context).edit().putBoolean(KEY_LOCAL_AUTO_METADATA, enabled).apply()
 
     fun aiTrackingSuggestions(context: Context): Boolean = values(context).getBoolean(KEY_AI_TRACKING, false)
 

@@ -1131,6 +1131,18 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
             // never turn a successful capture into a visible failure.
         }
         try {
+            deriveAndPersistLocalMetadata(
+                app = app,
+                repositories = repositories,
+                entry = entry,
+                clock = clock,
+            )
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            // The deterministic local layer is additive and best-effort too.
+        }
+        try {
             deriveAndPersistAiMetadata(
                 app = app,
                 repositories = repositories,

@@ -207,6 +207,7 @@ enum class BrowserGraphNodeKind {
 enum class BrowserMetadataSource {
     MANUAL,
     AI,
+    LOCAL,
 }
 
 data class BrowserGraphEdge(
