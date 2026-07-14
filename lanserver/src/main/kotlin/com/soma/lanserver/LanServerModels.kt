@@ -22,6 +22,8 @@ data class LanServerConfig(
     val lightMode: Boolean = false,
     /** Enables the explicit, off-by-default data-export routes for this session. */
     val exportEnabled: Boolean = false,
+    /** BCP-47 application language used for the sensitive export confirmation. */
+    val languageTag: String = "en",
 ) {
     init {
         require(!bindAddress.isAnyLocalAddress) { "A concrete LAN address is required" }
@@ -183,6 +185,7 @@ data class BrowserInsights(
     val annotatedEntryCount: Int,
     val manualLayerCount: Int,
     val aiLayerCount: Int,
+    val localLayerCount: Int,
     val tagOccurrenceCount: Int,
     val linkCount: Int,
     val connections: PagedResult<BrowserInsight>,
@@ -193,6 +196,7 @@ data class BrowserInsights(
                 annotatedEntryCount,
                 manualLayerCount,
                 aiLayerCount,
+                localLayerCount,
                 tagOccurrenceCount,
                 linkCount,
             ).all { it >= 0 },
@@ -285,6 +289,7 @@ interface ReadOnlySomaDataSource {
         annotatedEntryCount = 0,
         manualLayerCount = 0,
         aiLayerCount = 0,
+        localLayerCount = 0,
         tagOccurrenceCount = 0,
         linkCount = 0,
         connections = PagedResult(emptyList(), 0),

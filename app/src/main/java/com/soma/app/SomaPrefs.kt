@@ -23,7 +23,8 @@ object SomaPrefs {
     private const val KEY_AI_AUTO_METADATA = "cloud_ai_auto_metadata"
     private const val KEY_AI_TRACKING = "cloud_ai_tracking_suggestions"
     private const val KEY_LOCAL_AUTO_METADATA = "local_auto_metadata"
-    private const val KEY_BROWSER_EXPORT = "browser_export_enabled"
+    private const val KEY_LOCAL_METADATA_BACKFILL_VERSION = "local_metadata_backfill_version"
+    private const val KEY_LOCAL_METADATA_BACKFILL_CURSOR = "local_metadata_backfill_cursor"
 
     private fun values(context: Context) = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
@@ -114,11 +115,28 @@ object SomaPrefs {
     fun setLocalAutoMetadata(context: Context, enabled: Boolean) =
         values(context).edit().putBoolean(KEY_LOCAL_AUTO_METADATA, enabled).apply()
 
-    /** Off by default: bulk export over the LAN crosses Soma's trust boundary. */
-    fun browserExportEnabled(context: Context): Boolean = values(context).getBoolean(KEY_BROWSER_EXPORT, false)
+    fun localMetadataBackfillVersion(context: Context): Int =
+        values(context).getInt(KEY_LOCAL_METADATA_BACKFILL_VERSION, 0)
 
-    fun setBrowserExportEnabled(context: Context, enabled: Boolean) =
-        values(context).edit().putBoolean(KEY_BROWSER_EXPORT, enabled).apply()
+    fun localMetadataBackfillCursor(context: Context): Long? = values(context).let { preferences ->
+        preferences.getLong(KEY_LOCAL_METADATA_BACKFILL_CURSOR, Long.MIN_VALUE)
+            .takeUnless { it == Long.MIN_VALUE }
+    }
+
+    fun setLocalMetadataBackfillCursor(context: Context, epochDay: Long) =
+        values(context).edit().putLong(KEY_LOCAL_METADATA_BACKFILL_CURSOR, epochDay).apply()
+
+    fun completeLocalMetadataBackfill(context: Context, version: Int) =
+        values(context).edit()
+            .putInt(KEY_LOCAL_METADATA_BACKFILL_VERSION, version)
+            .remove(KEY_LOCAL_METADATA_BACKFILL_CURSOR)
+            .apply()
+
+    fun resetLocalMetadataBackfill(context: Context) =
+        values(context).edit()
+            .putInt(KEY_LOCAL_METADATA_BACKFILL_VERSION, 0)
+            .remove(KEY_LOCAL_METADATA_BACKFILL_CURSOR)
+            .apply()
 
     fun aiTrackingSuggestions(context: Context): Boolean = values(context).getBoolean(KEY_AI_TRACKING, false)
 

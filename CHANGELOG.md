@@ -2,6 +2,35 @@
 
 Notable changes to Soma are documented here.
 
+## 0.1.0-preview.29 — 2026-07-14
+
+### Added
+
+- Deterministic on-device metadata turns authored hashtags and explicit dates in
+  enabled languages into a separate encrypted LOCAL layer without changing note
+  text. Existing notes are enriched incrementally while the battery is not low.
+- Accepted Important suggestions can quietly prefill a clearable show-again date
+  from explicit dates, weekdays, or “tomorrow” in the user's enabled languages.
+- Browser view can optionally create a text-only Markdown vault for use with the
+  user's own tools. Export authority is off by default and lasts for one running
+  Browser-view session only.
+
+### Security
+
+- The export confirmation names every included category, including food/workout
+  logs and all earlier wordings. It is localized in all eight Soma languages and
+  clearly identifies the archive as plaintext over local HTTP.
+- Export remains behind the one-time-code session, accepts only an explicit GET,
+  permits one export at a time, excludes audio/photos, and wipes the completed
+  archive buffer after the response closes. HEAD cannot trigger archive work.
+
+### Fixed
+
+- Local metadata runs before optional cloud Important or metadata calls, so a
+  slow network cannot prevent offline enrichment.
+- Insights now reports LOCAL layers separately, and code-switched notes are
+  checked against the selected speech-language set.
+
 ## 0.1.0-preview.28 — 2026-07-14
 
 ### Fixed

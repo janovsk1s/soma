@@ -20,7 +20,7 @@ The ten tables are:
 - `still_open_dismissals`, keyed by day; and
 - `transcription_jobs`, including retry and lease state; and
 - `entry_revisions`, containing encrypted previous text for deliberate user edits; and
-- `entry_metadata`, containing independently replaceable manual or AI layers
+- `entry_metadata`, containing independently replaceable manual, LOCAL, or AI layers
   whose tags and links are encrypted;
 - `tracking_logs`, containing queryable type/time/source fields and one encrypted
   structured payload for each meal, recipe, or workout; and
@@ -247,7 +247,7 @@ unencrypted ZIP intended for long-term independence from Soma. It contains:
 - `logs.csv`, with spreadsheet-friendly meal, recipe, and workout rows;
 - `data/notes.json` with exact ids, order, types, timestamps, text, and media metadata;
 - `data/history.jsonl` with every preserved user edit revision; and
-- `data/metadata.json` with manual and AI metadata layers, tags, and typed links;
+- `data/metadata.json` with manual, LOCAL, and AI metadata layers, tags, and typed links;
 - `data/logs.json` with complete food quantities, nutrition provenance, and workout sets;
 - `data/log-history.jsonl` with every earlier structured-log snapshot;
 - `settings/transcription-vocabulary.txt` with user-provided speech spellings; and
@@ -297,6 +297,12 @@ photos. No API keys or encrypted
 credential stores are part of a backup snapshot, so they cannot enter the
 vault. The vault is not accepted by the restore flow; use `.soma` for a
 restorable backup.
+
+Browser view can generate this same text-only vault when Data export was enabled
+for that single LAN session. The browser route never includes WAV or JPEG media,
+requires the authenticated session and an explicit GET, and sends the ZIP directly
+from memory with `no-store`. It remains a deliberately unencrypted one-way export;
+the LAN confirmation lists logs and complete edit history before download.
 
 ## Bundled transcription model
 

@@ -12,6 +12,9 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.Collections
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -222,6 +225,7 @@ class LanBrowserServerTest {
                 annotatedEntryCount = 4,
                 manualLayerCount = 1,
                 aiLayerCount = 3,
+                localLayerCount = 2,
                 tagOccurrenceCount = 9,
                 linkCount = 2,
                 connections = PagedResult(items, items.size),
@@ -275,6 +279,70 @@ class LanBrowserServerTest {
         assertTrue(page.text.contains("1 / 2"))
         assertFalse(page.text.contains("<script"))
         assertEquals(405, request(endpoint, "POST", "/graph", cookie = cookie).status)
+    }
+
+    @Test
+    fun `export is session gated authenticated localized and GET only`() {
+        val disabledData = FakeDataSource(export = "disabled".toByteArray())
+        val disabledServer = server(disabledData)
+        val disabledEndpoint = disabledServer.start()
+        val disabledCookie = authenticate(disabledEndpoint).cookie
+        assertEquals(404, request(disabledEndpoint, "GET", "/export", cookie = disabledCookie).status)
+        assertEquals(404, request(disabledEndpoint, "GET", "/export/vault.zip", cookie = disabledCookie).status)
+        assertEquals(0, disabledData.exportCount)
+
+        val export = "portable-vault".toByteArray()
+        val data = FakeDataSource(export = export)
+        val enabledServer = server(data, exportEnabled = true, languageTag = "lv")
+        val endpoint = enabledServer.start()
+        assertEquals(401, request(endpoint, "GET", "/export/vault.zip").status)
+        assertEquals(0, data.exportCount)
+        val cookie = authenticate(endpoint).cookie
+
+        val confirmation = request(endpoint, "GET", "/export", cookie = cookie)
+        assertEquals(200, confirmation.status)
+        assertTrue(confirmation.text.contains("Eksports analīzei"))
+        assertTrue(confirmation.text.contains("pilna labojumu vēsture"))
+        assertTrue(confirmation.text.contains("ēdienreižu un treniņu žurnāli"))
+        assertTrue(confirmation.text.contains("lang=\"lv\""))
+
+        assertEquals(405, request(endpoint, "HEAD", "/export/vault.zip", cookie = cookie).status)
+        assertEquals(0, data.exportCount)
+        val download = request(endpoint, "GET", "/export/vault.zip", cookie = cookie)
+        assertEquals(200, download.status)
+        assertEquals("application/zip", download.headers["content-type"])
+        assertArrayEquals("portable-vault".toByteArray(), download.body)
+        assertEquals(1, data.exportCount)
+        assertTrue(export.all { it == 0.toByte() })
+    }
+
+    @Test
+    fun `only one authenticated export can run at a time`() {
+        val started = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val data = FakeDataSource(
+            export = "one-export".toByteArray(),
+            exportStarted = started,
+            exportRelease = release,
+        )
+        val server = server(data, exportEnabled = true)
+        val endpoint = server.start()
+        val cookie = authenticate(endpoint).cookie
+        val first = AtomicReference<TestResponse>()
+        val thread = Thread {
+            first.set(request(endpoint, "GET", "/export/vault.zip", cookie = cookie))
+        }
+        thread.start()
+        assertTrue(started.await(5, TimeUnit.SECONDS))
+
+        val overlapping = request(endpoint, "GET", "/export/vault.zip", cookie = cookie)
+        assertEquals(429, overlapping.status)
+        assertEquals(1, data.exportCount)
+
+        release.countDown()
+        thread.join(5_000)
+        assertFalse(thread.isAlive)
+        assertEquals(200, first.get().status)
     }
 
     @Test
@@ -412,8 +480,15 @@ class LanBrowserServerTest {
         listener: LanServerStateListener = LanServerStateListener {},
         clock: Clock = Clock.systemUTC(),
         lightMode: Boolean = false,
+        exportEnabled: Boolean = false,
+        languageTag: String = "en",
     ): LanBrowserServer = LanBrowserServer(
-        config = LanServerConfig(address, lightMode = lightMode),
+        config = LanServerConfig(
+            address,
+            lightMode = lightMode,
+            exportEnabled = exportEnabled,
+            languageTag = languageTag,
+        ),
         dataSource = data,
         stateListener = listener,
         clock = clock,
@@ -456,10 +531,14 @@ class LanBrowserServerTest {
             append("\r\n")
             append(body)
         }
-        return rawRequest(endpoint, raw)
+        return rawRequest(endpoint, raw, expectOmittedBody = method == "HEAD")
     }
 
-    private fun rawRequest(endpoint: LanServerEndpoint, raw: String): TestResponse {
+    private fun rawRequest(
+        endpoint: LanServerEndpoint,
+        raw: String,
+        expectOmittedBody: Boolean = false,
+    ): TestResponse {
         val bytes = Socket(endpoint.address, endpoint.port).use { socket ->
             socket.soTimeout = 5_000
             socket.getOutputStream().write(raw.toByteArray(Charsets.UTF_8))
@@ -477,7 +556,11 @@ class LanBrowserServerTest {
             line.substring(0, colon).lowercase() to line.substring(colon + 1).trim()
         }
         val body = bytes.copyOfRange(split + separator.size, bytes.size)
-        assertEquals(headers["content-length"]?.toLong(), body.size.toLong())
+        if (expectOmittedBody) {
+            assertTrue(body.isEmpty())
+        } else {
+            assertEquals(headers["content-length"]?.toLong(), body.size.toLong())
+        }
         return TestResponse(status, headers, body)
     }
 
@@ -535,11 +618,15 @@ class LanBrowserServerTest {
             annotatedEntryCount = 0,
             manualLayerCount = 0,
             aiLayerCount = 0,
+            localLayerCount = 0,
             tagOccurrenceCount = 0,
             linkCount = 0,
             connections = PagedResult(emptyList(), 0),
         ),
         private val graph: PagedResult<BrowserGraphEdge> = PagedResult(emptyList(), 0),
+        private val export: ByteArray? = null,
+        private val exportStarted: CountDownLatch? = null,
+        private val exportRelease: CountDownLatch? = null,
     ) : ReadOnlySomaDataSource {
         val daysRequests = CopyOnWriteArrayList<PageRequest>()
 
@@ -548,6 +635,9 @@ class LanBrowserServerTest {
 
         @Volatile
         var imageOpenCount = 0
+
+        @Volatile
+        var exportCount = 0
 
         override fun listDays(request: PageRequest): PagedResult<BrowserDay> {
             daysRequests += request
@@ -584,6 +674,13 @@ class LanBrowserServerTest {
             imageOpenCount++
             val content = image ?: return null
             return ImageResource("image/jpeg", content.size.toLong()) { ByteArrayInputStream(content) }
+        }
+
+        override fun exportBundle(): ExportBundle? {
+            exportCount++
+            exportStarted?.countDown()
+            exportRelease?.await(5, TimeUnit.SECONDS)
+            return export?.let { ExportBundle("soma-vault.zip", it) }
         }
 
         private fun <T> page(values: List<T>, request: PageRequest): List<T> {

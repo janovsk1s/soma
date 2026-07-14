@@ -77,6 +77,9 @@ class SomaApplication : Application() {
         if (!SomaPrefs.demoMode(this) && SomaPrefs.transcription(this)) {
             TranscriptionScheduler.enqueue(this)
         }
+        if (!SomaPrefs.demoMode(this) && SomaPrefs.localAutoMetadata(this)) {
+            LocalMetadataBackfillScheduler.enqueue(this)
+        }
         if (SomaPrefs.reminder(this)) DailyReminderScheduler.scheduleNext(this)
     }
 

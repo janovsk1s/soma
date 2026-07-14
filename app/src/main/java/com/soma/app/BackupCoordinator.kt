@@ -135,6 +135,8 @@ class BackupCoordinator(
         // Scheduling is recoverable (application start also drains queued jobs),
         // so a scheduler failure must not report a successfully committed restore as failed.
         runCatching { TranscriptionScheduler.enqueue(app) }
+        SomaPrefs.resetLocalMetadataBackfill(app)
+        runCatching { LocalMetadataBackfillScheduler.enqueue(app, replace = true) }
     }
 
     suspend fun createSnapshot(includeAudio: Boolean): BackupSnapshot = withContext(Dispatchers.IO) {

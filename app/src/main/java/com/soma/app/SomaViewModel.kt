@@ -380,9 +380,10 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
             val updated = mutation?.current
             onSaved(updated != null)
             if (mutation != null && updated != null && updated.text == clean && mutation.previous.text != clean) {
-                // AI metadata described the previous wording. Invalidate only
-                // that replaceable layer; manual organization stays intact.
+                // Automatic metadata described the previous wording. Manual
+                // organization remains independent and untouched.
                 repositories.metadata.delete(entry.id, MetadataSource.AI)
+                repositories.metadata.delete(entry.id, MetadataSource.LOCAL)
                 dismissPendingSuggestions(entry.id)
                 processEntryAfterSave(updated)
             }
@@ -580,7 +581,11 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
             // machinery. Local, deterministic, clearable; never touches the entry.
             val todo = if (suggestion.suggestedKind == ImportantKind.ACTION) {
                 val today = now.atZone(ZoneId.systemDefault()).toLocalDate()
-                ImportantResurfaceDeriver.deriveDate(suggestion.suggestedText, suggestion.language, today)
+                ImportantResurfaceDeriver.deriveDate(
+                    suggestion.suggestedText,
+                    SomaPrefs.speechLanguages(app) + suggestion.language,
+                    today,
+                )
                     ?.let { base.showAgainOn(it, now) } ?: base
             } else {
                 base
@@ -1123,14 +1128,7 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun processEntryAfterSave(entry: NoteEntry) {
         try {
-            detectSuggestions(entry)
-        } catch (error: CancellationException) {
-            throw error
-        } catch (_: Exception) {
-            // The authored entry is already durable; optional suggestions must
-            // never turn a successful capture into a visible failure.
-        }
-        try {
+            // This deterministic pass must never queue behind an optional network call.
             deriveAndPersistLocalMetadata(
                 app = app,
                 repositories = repositories,
@@ -1140,7 +1138,14 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
         } catch (error: CancellationException) {
             throw error
         } catch (_: Exception) {
-            // The deterministic local layer is additive and best-effort too.
+            // The authored entry is already durable; metadata is additive.
+        }
+        try {
+            detectSuggestions(entry)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            // Optional suggestions must never turn capture into a visible failure.
         }
         try {
             deriveAndPersistAiMetadata(

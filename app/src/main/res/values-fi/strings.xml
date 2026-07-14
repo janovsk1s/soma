@@ -224,4 +224,5 @@
     <string name="transcription_vocabulary_editing">Muokkaus · tallenna painamalla + tai Valmis</string>
     <string name="transcription_vocabulary_remove">poista sanastosta</string>
     <string name="browser_allow_export">Tietojen vienti</string>
+    <string name="browser_export_session_note">Vain tätä selainistuntoa varten. Sisältää lokit ja koko muokkaushistorian; ei ääntä eikä kuvia.</string>
 </resources>

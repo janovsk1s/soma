@@ -55,6 +55,29 @@ class ImportantResurfaceDeriverTest {
     }
 
     @Test
+    fun `a code switched note checks each selected language`() {
+        assertEquals(
+            LocalDate.of(2026, 7, 14),
+            ImportantResurfaceDeriver.deriveDate(
+                "piezvanīt dentist tomorrow",
+                setOf(SupportedLanguage.LATVIAN, SupportedLanguage.ENGLISH),
+                monday,
+            ),
+        )
+    }
+
+    @Test
+    fun `an unselected language is not inferred`() {
+        assertNull(
+            ImportantResurfaceDeriver.deriveDate(
+                "call tomorrow",
+                setOf(SupportedLanguage.LATVIAN),
+                monday,
+            ),
+        )
+    }
+
+    @Test
     fun `german tomorrow does not match the day-after-tomorrow word`() {
         assertNull(
             ImportantResurfaceDeriver.deriveDate("das mache ich übermorgen", SupportedLanguage.GERMAN, monday),

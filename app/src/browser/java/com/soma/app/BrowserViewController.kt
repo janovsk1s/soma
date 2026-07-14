@@ -133,6 +133,7 @@ data class BrowserViewInsights(
     val annotatedEntryCount: Int,
     val manualLayerCount: Int,
     val aiLayerCount: Int,
+    val localLayerCount: Int,
     val tagOccurrenceCount: Int,
     val linkCount: Int,
     val connectionCount: Int,
@@ -284,6 +285,7 @@ interface BrowserViewDataSource {
         annotatedEntryCount = 0,
         manualLayerCount = 0,
         aiLayerCount = 0,
+        localLayerCount = 0,
         tagOccurrenceCount = 0,
         linkCount = 0,
         connectionCount = 0,
@@ -431,6 +433,7 @@ class RepositoryBrowserViewDataSource(
             annotatedEntryCount = layers.mapTo(hashSetOf()) { it.entryId }.size,
             manualLayerCount = layers.count { it.source == MetadataSource.MANUAL },
             aiLayerCount = layers.count { it.source == MetadataSource.AI },
+            localLayerCount = layers.count { it.source == MetadataSource.LOCAL },
             tagOccurrenceCount = layers.sumOf { it.tags.size },
             linkCount = visibleLinks.size,
             connectionCount = allConnections.size,
@@ -658,7 +661,7 @@ sealed interface BrowserViewState {
 class BrowserViewController(
     dataSource: BrowserViewDataSource,
     private val lightMode: Boolean = false,
-    private val exportEnabled: () -> Boolean = { false },
+    private val languageTag: String = "en",
     exportProvider: (suspend () -> ByteArray?)? = null,
 ) : AutoCloseable {
     private val lock = Any()
@@ -675,7 +678,7 @@ class BrowserViewController(
     val endpoint: BrowserViewEndpoint?
         get() = (state.value as? BrowserViewState.Running)?.endpoint
 
-    suspend fun start(): BrowserViewStartResult {
+    suspend fun start(exportEnabled: Boolean = false): BrowserViewStartResult {
         val token = synchronized(lock) {
             currentEndpoint?.takeIf { server != null }?.let {
                 return BrowserViewStartResult.Started(it)
@@ -697,7 +700,12 @@ class BrowserViewController(
             }
 
             val candidate = LanBrowserServer(
-                config = LanServerConfig(bindAddress = address, lightMode = lightMode, exportEnabled = exportEnabled()),
+                config = LanServerConfig(
+                    bindAddress = address,
+                    lightMode = lightMode,
+                    exportEnabled = exportEnabled,
+                    languageTag = languageTag,
+                ),
                 dataSource = lanDataSource,
                 stateListener = LanServerStateListener { lanState -> onLanState(token, lanState) },
             )
@@ -885,6 +893,7 @@ private class LanDataSourceAdapter(
             annotatedEntryCount = insights.annotatedEntryCount,
             manualLayerCount = insights.manualLayerCount,
             aiLayerCount = insights.aiLayerCount,
+            localLayerCount = insights.localLayerCount,
             tagOccurrenceCount = insights.tagOccurrenceCount,
             linkCount = insights.linkCount,
             connections = PagedResult(

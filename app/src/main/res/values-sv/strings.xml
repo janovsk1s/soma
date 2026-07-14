@@ -224,4 +224,5 @@
     <string name="transcription_vocabulary_editing">Redigerar · tryck + eller Klar för att spara</string>
     <string name="transcription_vocabulary_remove">ta bort från ordlistan</string>
     <string name="browser_allow_export">Dataexport</string>
+    <string name="browser_export_session_note">Endast för den här webbläsarsessionen. Innehåller loggar och fullständig redigeringshistorik; ljud och foton ingår inte.</string>
 </resources>

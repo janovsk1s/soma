@@ -19,6 +19,18 @@ import java.util.Locale
 object ImportantResurfaceDeriver {
 
     fun deriveDate(text: String, language: SupportedLanguage, today: LocalDate): LocalDate? {
+        return deriveDate(text, setOf(language), today)
+    }
+
+    /**
+     * Code-switched notes are checked against every language the user selected.
+     * ISO dates are parsed once and the earliest strictly-future result wins.
+     */
+    fun deriveDate(
+        text: String,
+        languages: Set<SupportedLanguage>,
+        today: LocalDate,
+    ): LocalDate? {
         if (text.isBlank()) return null
         val haystack = text.take(MAX_INPUT_CHARS).lowercase(Locale.ROOT)
         val candidates = mutableListOf<LocalDate>()
@@ -27,12 +39,14 @@ object ImportantResurfaceDeriver {
             runCatching { LocalDate.parse(match.value) }.getOrNull()?.let(candidates::add)
         }
 
-        val lexicon = LEXICONS.getValue(language)
-        if (lexicon.tomorrow.any { haystack.containsWordStartingWith(it) }) {
-            candidates += today.plusDays(1)
-        }
-        lexicon.weekdays.forEach { (stem, dayOfWeek) ->
-            if (haystack.containsWordStartingWith(stem)) candidates += today.nextOccurrenceOf(dayOfWeek)
+        languages.ifEmpty { SupportedLanguage.entries.toSet() }.forEach { language ->
+            val lexicon = LEXICONS.getValue(language)
+            if (lexicon.tomorrow.any { haystack.containsWordStartingWith(it) }) {
+                candidates += today.plusDays(1)
+            }
+            lexicon.weekdays.forEach { (stem, dayOfWeek) ->
+                if (haystack.containsWordStartingWith(stem)) candidates += today.nextOccurrenceOf(dayOfWeek)
+            }
         }
 
         return candidates.filter { it.isAfter(today) }.minOrNull()

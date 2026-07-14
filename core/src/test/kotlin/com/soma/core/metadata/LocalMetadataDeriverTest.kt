@@ -31,6 +31,16 @@ class LocalMetadataDeriverTest {
     }
 
     @Test
+    fun `code switched dates use the enabled language set`() {
+        val result = LocalMetadataDeriver.derive(
+            "jāpiezvana tomorrow #darbs",
+            setOf(SupportedLanguage.LATVIAN, SupportedLanguage.ENGLISH),
+            monday,
+        )
+        assertEquals("2026-07-14", result.links.single().target)
+    }
+
+    @Test
     fun `plain text yields no tags or links`() {
         val result = LocalMetadataDeriver.derive("just thinking out loud", SupportedLanguage.ENGLISH, monday)
         assertTrue(result.tags.isEmpty())

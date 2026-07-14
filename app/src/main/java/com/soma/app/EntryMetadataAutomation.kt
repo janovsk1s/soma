@@ -6,6 +6,7 @@ import com.soma.core.model.MetadataSource
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.SupportedLanguage
 import java.time.Clock
+import java.time.LocalDate
 import java.time.ZoneId
 
 /**
@@ -53,10 +54,25 @@ internal suspend fun deriveAndPersistLocalMetadata(
     clock: Clock,
 ): Boolean {
     if (!SomaPrefs.localAutoMetadata(app)) return false
+    return deriveAndPersistLocalMetadata(
+        repositories = repositories,
+        entry = entry,
+        languages = SomaPrefs.speechLanguages(app) + SomaPrefs.language(app),
+        clock = clock,
+    )
+}
+
+/** Repository-only entry point used by the incremental upgrade backfill. */
+internal suspend fun deriveAndPersistLocalMetadata(
+    repositories: SomaRepositories,
+    entry: NoteEntry,
+    languages: Set<SupportedLanguage>,
+    clock: Clock,
+    referenceDate: LocalDate = clock.instant().atZone(ZoneId.systemDefault()).toLocalDate(),
+): Boolean {
     if (entry.isDeleted || entry.text.isBlank()) return false
     val sourceText = entry.text
-    val today = clock.instant().atZone(ZoneId.systemDefault()).toLocalDate()
-    val result = LocalMetadataDeriver.derive(sourceText, SomaPrefs.language(app), today)
+    val result = LocalMetadataDeriver.derive(sourceText, languages, referenceDate)
     val current = repositories.notes.getEntry(entry.id)
     if (current == null || current.isDeleted || current.text != sourceText) return false
     if (result.tags.isEmpty() && result.links.isEmpty()) {

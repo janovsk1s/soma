@@ -292,4 +292,5 @@
     <string name="transcription_vocabulary_editing">Editing · press + or Done to save</string>
     <string name="transcription_vocabulary_remove">remove from vocabulary</string>
     <string name="browser_allow_export">Data export</string>
+    <string name="browser_export_session_note">This Browser session only. Includes logs and complete edit history; excludes audio and photos.</string>
 </resources>

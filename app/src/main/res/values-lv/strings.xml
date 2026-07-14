@@ -224,4 +224,5 @@
     <string name="transcription_vocabulary_editing">Labo · spied + vai Gatavs, lai saglabātu</string>
     <string name="transcription_vocabulary_remove">noņemt no vārdnīcas</string>
     <string name="browser_allow_export">Datu eksports</string>
+    <string name="browser_export_session_note">Tikai šai pārlūka sesijai. Iekļauj žurnālus un pilnu labojumu vēsturi; neiekļauj audio un fotoattēlus.</string>
 </resources>

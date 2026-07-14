@@ -79,7 +79,7 @@ interface DailyNoteRepository {
 }
 
 interface EntryMetadataRepository {
-    /** Manual and AI layers for one entry, ordered by source for deterministic export. */
+    /** Manual, AI, and deterministic LOCAL layers, ordered by source for deterministic export. */
     suspend fun forEntry(entryId: String): List<EntryMetadata>
 
     suspend fun listAll(): List<EntryMetadata>

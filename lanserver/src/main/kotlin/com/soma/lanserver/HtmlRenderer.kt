@@ -177,16 +177,22 @@ internal object HtmlRenderer {
         insights: BrowserInsights,
         lightMode: Boolean = false,
         exportEnabled: Boolean = false,
+        languageTag: String = "en",
     ): String = page(
         title = "Insights",
         lightMode = lightMode,
         body = buildString {
             append("<main><header><h1>Insights</h1><p>Local metadata only</p></header>")
-            if (exportEnabled) append("<p><a href=\"/export\">Export for analysis →</a></p>")
+            if (exportEnabled) {
+                append("<p><a href=\"/export\">")
+                append(Html.escape(ExportCopy.forLanguage(languageTag).link))
+                append("</a></p>")
+            }
             append("<dl class=\"summary\">")
             metric("Entries", insights.annotatedEntryCount)
             metric("Manual", insights.manualLayerCount)
             metric("AI", insights.aiLayerCount)
+            metric("Local", insights.localLayerCount)
             metric("Tags", insights.tagOccurrenceCount)
             metric("Links", insights.linkCount)
             append("</dl><h2>Connections</h2>")
@@ -217,27 +223,26 @@ internal object HtmlRenderer {
         },
     )
 
-    fun export(lightMode: Boolean = false): String = page(
-        title = "Export",
-        lightMode = lightMode,
-        body = buildString {
-            append("<main><header><h1>Export for analysis</h1><p>Your data, your AI</p></header>")
-            append(
-                "<p>Download a plain-text Markdown copy of your notes, Important items, and their " +
-                    "tags, dates, and links. Open the folder in your own AI tool — for example " +
-                    "Claude Code, Codex, or another — to summarise or explore it. Soma never " +
-                    "sends anything to an AI itself.</p>",
-            )
-            append(
-                "<p><strong>This copy is not encrypted and leaves your phone.</strong> It travels " +
-                    "over the plain-HTTP LAN and is readable by anything on this network. Save it " +
-                    "only to a device you trust, and delete it when you are done.</p>",
-            )
-            append("<p><a class=\"download\" href=\"/export/vault.zip\" download>Download vault (.zip)</a></p>")
-            append("<p><a class=\"back\" href=\"/insights\">← Insights</a></p>")
-            append("</main>")
-        },
-    )
+    fun export(lightMode: Boolean = false, languageTag: String = "en"): String {
+        val copy = ExportCopy.forLanguage(languageTag)
+        return page(
+            title = copy.title,
+            lightMode = lightMode,
+            languageTag = languageTag,
+            body = buildString {
+                append("<main><header><h1>").append(Html.escape(copy.title)).append("</h1><p>")
+                    .append(Html.escape(copy.subtitle)).append("</p></header><p>")
+                    .append(Html.escape(copy.contents)).append("</p><p><strong>")
+                    .append(Html.escape(copy.warningTitle)).append("</strong> ")
+                    .append(Html.escape(copy.warningBody)).append("</p>")
+                append("<p><a class=\"download\" href=\"/export/vault.zip\" download>")
+                    .append(Html.escape(copy.download)).append("</a></p>")
+                append("<p><a class=\"back\" href=\"/insights\">")
+                    .append(Html.escape(copy.back)).append("</a></p>")
+                append("</main>")
+            },
+        )
+    }
 
     fun graph(
         pageNumber: Int,
@@ -407,8 +412,11 @@ internal object HtmlRenderer {
         body: String,
         navigation: Boolean = true,
         lightMode: Boolean = false,
+        languageTag: String = "en",
     ): String = buildString {
-        append("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">")
+        append("<!doctype html><html lang=\"")
+        append(Html.escape(ExportCopy.supportedLanguageTag(languageTag)))
+        append("\"><head><meta charset=\"utf-8\">")
         append("<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">")
         append("<title>")
         append(Html.escape(title))
@@ -452,6 +460,83 @@ internal object HtmlRenderer {
     """
 
     private const val GRAPH_EDGE_HEIGHT = 104
+}
+
+private data class ExportCopy(
+    val title: String,
+    val subtitle: String,
+    val link: String,
+    val contents: String,
+    val warningTitle: String,
+    val warningBody: String,
+    val download: String,
+    val back: String,
+) {
+    companion object {
+        fun forLanguage(tag: String): ExportCopy = COPIES[tag.substringBefore('-').lowercase()] ?: COPIES.getValue("en")
+
+        fun supportedLanguageTag(tag: String): String =
+            tag.substringBefore('-').lowercase().takeIf(COPIES::containsKey) ?: "en"
+
+        private val COPIES = mapOf(
+            "en" to ExportCopy(
+                "Export for analysis", "Your data, your AI", "Export for analysis →",
+                "The ZIP contains daily notes, Important items, meal and workout logs, tags, dates, links, and the complete edit history, including every earlier wording. Audio and photos are not included.",
+                "Plaintext export.",
+                "It is not encrypted and travels over plain HTTP on this local network. Anyone able to observe the network can read or replace it. Save it only to a device you trust and delete it when finished.",
+                "I understand — download vault (.zip)", "← Insights",
+            ),
+            "lv" to ExportCopy(
+                "Eksports analīzei", "Tavi dati, tavs MI", "Eksportēt analīzei →",
+                "ZIP failā ir dienas piezīmes, svarīgie ieraksti, ēdienreižu un treniņu žurnāli, atzīmes, datumi, saites un pilna labojumu vēsture, ieskaitot visus iepriekšējos teksta variantus. Audio un fotoattēli nav iekļauti.",
+                "Nešifrēts eksports.",
+                "Tas nav šifrēts un tiek pārsūtīts pa parastu HTTP šajā lokālajā tīklā. Ikviens, kas var novērot tīklu, var to izlasīt vai aizstāt. Saglabā tikai uzticamā ierīcē un pēc lietošanas izdzēs.",
+                "Es saprotu — lejupielādēt arhīvu (.zip)", "← Ieskati",
+            ),
+            "et" to ExportCopy(
+                "Eksport analüüsiks", "Sinu andmed, sinu tehisaru", "Ekspordi analüüsiks →",
+                "ZIP sisaldab päevamärkmeid, olulisi üksusi, söögi- ja treeningulogisid, silte, kuupäevi, linke ning täielikku muutmisajalugu koos kõigi varasemate sõnastustega. Heli ja fotosid ei lisata.",
+                "Krüpteerimata eksport.",
+                "See liigub selles kohalikus võrgus tavalise HTTP kaudu. Igaüks, kes võrku jälgib, võib seda lugeda või muuta. Salvesta ainult usaldusväärsesse seadmesse ja kustuta pärast kasutamist.",
+                "Saan aru — laadi varamu alla (.zip)", "← Ülevaade",
+            ),
+            "lt" to ExportCopy(
+                "Eksportas analizei", "Jūsų duomenys, jūsų DI", "Eksportuoti analizei →",
+                "ZIP faile yra dienos užrašai, svarbūs įrašai, maisto ir treniruočių žurnalai, žymos, datos, nuorodos ir visa taisymų istorija, įskaitant ankstesnes formuluotes. Garso įrašai ir nuotraukos neįtraukiami.",
+                "Nešifruotas eksportas.",
+                "Jis perduodamas paprastu HTTP šiame vietiniame tinkle. Tinklą stebintys asmenys gali jį perskaityti arba pakeisti. Saugokite tik patikimame įrenginyje ir panaudoję ištrinkite.",
+                "Suprantu — atsisiųsti saugyklą (.zip)", "← Įžvalgos",
+            ),
+            "fi" to ExportCopy(
+                "Vienti analyysiin", "Sinun tietosi, sinun tekoälysi", "Vie analyysiin →",
+                "ZIP sisältää päivämuistiinpanot, tärkeät kohteet, ruoka- ja harjoituslokit, tunnisteet, päivämäärät, linkit sekä koko muokkaushistorian kaikkine aiempine sanamuotoineen. Ääntä ja kuvia ei sisällytetä.",
+                "Salaamaton vienti.",
+                "Se siirtyy tavallisella HTTP-yhteydellä tässä lähiverkossa. Verkon liikennettä seuraava voi lukea tai muuttaa sitä. Tallenna vain luotettuun laitteeseen ja poista käytön jälkeen.",
+                "Ymmärrän — lataa holvi (.zip)", "← Kooste",
+            ),
+            "sv" to ExportCopy(
+                "Export för analys", "Dina data, din AI", "Exportera för analys →",
+                "ZIP-filen innehåller dagliga anteckningar, viktiga poster, mat- och träningsloggar, taggar, datum, länkar och fullständig redigeringshistorik med alla tidigare formuleringar. Ljud och foton ingår inte.",
+                "Okrypterad export.",
+                "Den skickas via vanlig HTTP i det lokala nätverket. Den som kan övervaka nätverket kan läsa eller ersätta den. Spara endast på en betrodd enhet och radera efter användning.",
+                "Jag förstår — hämta valv (.zip)", "← Insikter",
+            ),
+            "de" to ExportCopy(
+                "Export zur Analyse", "Deine Daten, deine KI", "Zur Analyse exportieren →",
+                "Die ZIP-Datei enthält Tagesnotizen, wichtige Einträge, Essens- und Trainingsprotokolle, Tags, Daten, Verknüpfungen und den vollständigen Bearbeitungsverlauf mit allen früheren Formulierungen. Audio und Fotos sind nicht enthalten.",
+                "Unverschlüsselter Export.",
+                "Die Übertragung erfolgt über einfaches HTTP in diesem lokalen Netzwerk. Wer den Netzwerkverkehr beobachten kann, kann die Datei lesen oder ersetzen. Nur auf einem vertrauenswürdigen Gerät speichern und danach löschen.",
+                "Verstanden — Vault herunterladen (.zip)", "← Einblicke",
+            ),
+            "sk" to ExportCopy(
+                "Export na analýzu", "Vaše údaje, vaša AI", "Exportovať na analýzu →",
+                "ZIP obsahuje denné poznámky, dôležité položky, záznamy jedál a tréningov, značky, dátumy, odkazy a úplnú históriu úprav vrátane všetkých predchádzajúcich znení. Zvuk a fotografie nie sú zahrnuté.",
+                "Nešifrovaný export.",
+                "Prenáša sa cez obyčajné HTTP v tejto lokálnej sieti. Kto môže sledovať sieť, môže ho čítať alebo nahradiť. Uložte ho iba do dôveryhodného zariadenia a po použití odstráňte.",
+                "Rozumiem — stiahnuť archív (.zip)", "← Prehľad",
+            ),
+        )
+    }
 }
 
 internal object Html {

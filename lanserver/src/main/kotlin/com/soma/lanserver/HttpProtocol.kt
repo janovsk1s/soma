@@ -6,6 +6,7 @@ import java.io.OutputStream
 import java.net.Socket
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
+import java.util.concurrent.atomic.AtomicBoolean
 
 internal data class HttpRequest(
     val method: String,
@@ -126,33 +127,37 @@ internal object HttpProtocol {
     }
 
     fun writeResponse(output: OutputStream, response: HttpResponse, omitBody: Boolean = false) {
-        val bodyLength = response.body.length
-        val headers = linkedMapOf<String, String>()
-        headers.putAll(response.headers)
-        headers["Content-Length"] = bodyLength.toString()
-        headers["Connection"] = "close"
-        headers.forEach { (name, value) ->
-            require(HEADER_NAME.matches(name) && '\r' !in value && '\n' !in value) {
-                "Unsafe response header"
-            }
-        }
-        val head = buildString {
-            append("HTTP/1.1 ")
-            append(response.status)
-            append(' ')
-            append(reason(response.status))
-            append("\r\n")
+        try {
+            val bodyLength = response.body.length
+            val headers = linkedMapOf<String, String>()
+            headers.putAll(response.headers)
+            headers["Content-Length"] = bodyLength.toString()
+            headers["Connection"] = "close"
             headers.forEach { (name, value) ->
-                append(name)
-                append(": ")
-                append(value)
-                append("\r\n")
+                require(HEADER_NAME.matches(name) && '\r' !in value && '\n' !in value) {
+                    "Unsafe response header"
+                }
             }
-            append("\r\n")
-        }.toByteArray(Charsets.ISO_8859_1)
-        output.write(head)
-        if (!omitBody) response.body.writeTo(output)
-        output.flush()
+            val head = buildString {
+                append("HTTP/1.1 ")
+                append(response.status)
+                append(' ')
+                append(reason(response.status))
+                append("\r\n")
+                headers.forEach { (name, value) ->
+                    append(name)
+                    append(": ")
+                    append(value)
+                    append("\r\n")
+                }
+                append("\r\n")
+            }.toByteArray(Charsets.ISO_8859_1)
+            output.write(head)
+            if (!omitBody) response.body.writeTo(output)
+            output.flush()
+        } finally {
+            response.body.close()
+        }
     }
 
     private fun parseParameters(encoded: String): Map<String, List<String>> {
@@ -256,11 +261,21 @@ internal sealed interface ResponseBody {
 
     fun writeTo(output: OutputStream)
 
-    class Bytes(private val value: ByteArray) : ResponseBody {
+    fun close() = Unit
+
+    class Bytes(
+        private val value: ByteArray,
+        private val onClose: (() -> Unit)? = null,
+    ) : ResponseBody {
+        private val closed = AtomicBoolean(false)
         override val length: Long = value.size.toLong()
 
         override fun writeTo(output: OutputStream) {
             output.write(value)
+        }
+
+        override fun close() {
+            if (closed.compareAndSet(false, true)) onClose?.invoke()
         }
     }
 

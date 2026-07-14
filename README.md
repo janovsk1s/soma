@@ -43,7 +43,8 @@ cloud API keys only when explicitly enabled in Developer settings.
   wording, and the current wording. Restoring an older version creates another
   revision, so it never destroys the wording it replaces.
 - Keeps tags and entry/date relationships in a separate additive metadata
-  layer, never inside or on top of authored text. Manual and AI-derived layers
+  layer, never inside or on top of authored text. Manual, deterministic LOCAL,
+  and AI-derived layers
   remain independent and export as portable JSON, Markdown tags, and wikilinks.
 - In the experimental cloud build, an independent Developer toggle can derive
   bounded topic tags and explicit date links from each new/edited entry with the
@@ -186,7 +187,8 @@ between them. Export a portable encrypted backup before uninstalling a preview.
 ## Browser view and build flavors
 
 The standard `browser` flavor can serve notes, Important items, authenticated audio,
-photos, local metadata Insights, and a connection graph to a browser on the same
+photos, local metadata Insights, a connection graph, and an optional text-only
+Markdown-vault export to a browser on the same
 trusted Wi-Fi network. Insights shows counts and five-per-page tag/date/entry
 connections. The graph is a server-rendered monochrome SVG with five edges per
 page—no cloud summary, JavaScript, or graph library. Browser view is off by default. Starting it
@@ -194,16 +196,22 @@ selects a concrete Wi-Fi site-local address—never a wildcard, loopback, mobile
 or public address—and shows a URL plus a single-use six-digit code. A successful
 login receives a random 256-bit session cookie. Five wrong codes stop the server.
 
-The HTTP surface is read-only: there are no edit, delete, backup, or export
-routes. It shows five records per page, decrypts data per request, uses `no-store`
-responses, and never writes a plaintext cache. A persistent notification is
+The HTTP surface cannot edit or delete app data. A plaintext export route exists
+only when the user enables Data export before starting that Browser-view session;
+the authority resets on stop or screen exit. The authenticated confirmation names
+the archive's daily notes, Important items, food/workout logs, metadata, and complete
+edit history. Audio and photos are excluded. Downloads require GET, are serialized
+one at a time, and wipe the in-memory ZIP after the response closes; HEAD never
+builds an archive. Normal pages show five records per page, decrypt data per request,
+use `no-store`, and never write a plaintext cache. A persistent notification is
 shown while the listener runs. Leaving the screen, backgrounding the app,
 explicitly stopping, or 15 minutes without authenticated activity closes it.
 
 Browser view uses plain HTTP. Anyone able to observe or actively interfere with
 that Wi-Fi can read or alter the session's traffic, including the access code,
-cookie, notes, audio, and photos. The short lifetime, one-time code, ephemeral token, and
-read-only routes reduce exposure but do not make an untrusted LAN safe. Use a
+cookie, notes, audio, photos, and any downloaded plaintext vault. The short lifetime,
+one-time code, ephemeral token, no-mutation routes, and session-only export authority
+reduce exposure but do not make an untrusted LAN safe. Use a
 trusted private network or install `purist`. Self-signed TLS is deferred because
 browser certificate warnings would undermine the intended simple workflow.
 

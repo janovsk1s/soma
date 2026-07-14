@@ -44,6 +44,9 @@ fun BrowserScreen(onBack: () -> Unit) {
     val app = context.applicationContext as SomaApplication
     val repositories = remember { app.repositories() }
     val lightMode = SomaPrefs.lightMode(context)
+    // Export authority is deliberately ephemeral. Leaving or stopping Browser
+    // view resets it, even if it was enabled for the previous LAN session.
+    var exportAllowed by remember { mutableStateOf(false) }
     val controller = remember(lightMode) {
         val audio = EncryptedBrowserViewAudioProvider(app::encryptedAudioFile, app.audioKeyProvider)
         val images = EncryptedBrowserViewImageProvider(app::encryptedImageFile, app.imageKeyProvider)
@@ -57,36 +60,30 @@ fun BrowserScreen(onBack: () -> Unit) {
         BrowserViewController(
             source,
             lightMode,
-            exportEnabled = { SomaPrefs.browserExportEnabled(context) },
-            exportProvider = {
-                if (SomaPrefs.browserExportEnabled(context)) {
-                    BackupCoordinator(app).exportMarkdown(includeAudio = false)
-                } else {
-                    null
-                }
-            },
+            languageTag = SomaPrefs.language(context).languageTag,
+            exportProvider = { BackupCoordinator(app).exportMarkdown(includeAudio = false) },
         )
     }
     val state by controller.state.collectAsState()
     val scope = rememberCoroutineScope()
     val running = state as? BrowserViewState.Running
     var permissionDenied by remember { mutableStateOf(false) }
-    var exportAllowed by remember { mutableStateOf(SomaPrefs.browserExportEnabled(context)) }
     val notificationPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
         permissionDenied = !granted
-        if (granted) scope.launch { controller.start() }
+        if (granted) scope.launch { controller.start(exportEnabled = exportAllowed) }
     }
     val requestStart: () -> Unit = {
         if (NotificationPermission.granted(context)) {
-            scope.launch { controller.start() }
+            scope.launch { controller.start(exportEnabled = exportAllowed) }
         } else {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
 
     fun stopAndBack() {
+        exportAllowed = false
         controller.stop()
         onBack()
     }
@@ -109,6 +106,7 @@ fun BrowserScreen(onBack: () -> Unit) {
             activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             NotificationCenter.showBrowserRunning(context, running.endpoint.url)
         } else {
+            exportAllowed = false
             activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             NotificationCenter.cancelBrowser(context)
         }
@@ -133,7 +131,13 @@ fun BrowserScreen(onBack: () -> Unit) {
                 // The single start control lives in the bottom bar; the body just
                 // explains what browser view does (previously both said "start").
                 BrowserViewState.Off -> {
-                    StatusText(stringResource(R.string.browser_security_note))
+                    Text(
+                        stringResource(R.string.browser_security_note),
+                        color = DimInk,
+                        fontSize = 18.sp,
+                        lineHeight = 26.sp,
+                        modifier = Modifier.padding(top = 48.dp),
+                    )
                     Text(
                         stringResource(R.string.browser_allow_export) + "  " +
                             stringResource(if (exportAllowed) R.string.on else R.string.off),
@@ -145,11 +149,17 @@ fun BrowserScreen(onBack: () -> Unit) {
                                 tapModifier(
                                     {
                                         exportAllowed = !exportAllowed
-                                        SomaPrefs.setBrowserExportEnabled(context, exportAllowed)
                                     },
                                     stringResource(R.string.browser_allow_export),
                                 ),
                             ),
+                    )
+                    Text(
+                        stringResource(R.string.browser_export_session_note),
+                        color = DimInk,
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                        modifier = Modifier.padding(top = 10.dp),
                     )
                 }
                 BrowserViewState.Starting -> StatusText(stringResource(R.string.browser_starting))
@@ -207,7 +217,12 @@ fun BrowserScreen(onBack: () -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(bottom = 18.dp).then(
                 tapModifier(
                     onClick = {
-                        if (running != null) controller.stop() else requestStart()
+                        if (running != null) {
+                            exportAllowed = false
+                            controller.stop()
+                        } else {
+                            requestStart()
+                        }
                     },
                     label = if (running != null) stringResource(R.string.browser_stop) else stringResource(R.string.browser_start),
                 ),

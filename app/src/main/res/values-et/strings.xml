@@ -224,4 +224,5 @@
     <string name="transcription_vocabulary_editing">Muutmine · salvestamiseks vajuta + või Valmis</string>
     <string name="transcription_vocabulary_remove">eemalda sõnavarast</string>
     <string name="browser_allow_export">Andmete eksport</string>
+    <string name="browser_export_session_note">Ainult selleks brauseriseansiks. Sisaldab logisid ja täielikku muutmisajalugu; heli ja fotod jäävad välja.</string>
 </resources>

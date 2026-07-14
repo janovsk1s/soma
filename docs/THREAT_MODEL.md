@@ -176,10 +176,16 @@ window. It cannot carry `Secure` because the intentionally local endpoint is
 plain HTTP. Comparisons use constant-time digest comparison. Five wrong codes
 stop the server; starting again creates a new code and token.
 
-Authenticated routes support only days, entries, Important items, local metadata
+Authenticated routes support days, entries, Important items, local metadata
 insights and their static connection graph, ranged audio, and image playback. Metadata owned by a tombstoned entry
-and entry links to a tombstoned target are omitted. Mutation and export routes do
-not exist. Pages contain at most five record or connection rows. Responses send
+and entry links to a tombstoned target are omitted. Mutation routes do not exist.
+An export route exists only when the user enables the ephemeral Data export control
+before starting that LAN session. It is GET-only, single-flight, text-only, and
+returns the existing plaintext Markdown vault after a localized confirmation names
+notes, Important items, logs, metadata, and complete edit history. HEAD cannot build
+the archive, and its response buffer is wiped when the connection closes. Stopping
+the listener or leaving the screen removes export authority. Pages contain at most
+five record or connection rows. Responses send
 `Cache-Control: no-store`, a restrictive content
 security policy, framing and MIME-sniffing protections, no-referrer policy, and
 camera/microphone/geolocation denial. The server does not log note data.
@@ -194,9 +200,10 @@ service is intended to extend the listener beyond the Browser screen's lifetime.
 
 Plain HTTP gives no transport confidentiality or server authentication. Anyone
 able to observe the Wi-Fi can see the access code submission, session cookie,
-notes, Important items, metadata insights/graph, and played media; an active LAN attacker
-can intercept or replace traffic. The ephemeral token, narrow bind, short lifetime, read-only routes, and
-explicit start reduce exposure but do not make an untrusted café, hotel, or
+notes, Important items, metadata insights/graph, played media, and an enabled
+plaintext vault download; an active LAN attacker can intercept or replace traffic.
+The ephemeral token, narrow bind, short lifetime, no-mutation routes, explicit start,
+and session-only export authority reduce exposure but do not make an untrusted café, hotel, or
 shared workplace LAN safe. Use Browser view only on a trusted private Wi-Fi
 network, stop it when finished, or install the `purist` flavor. Self-signed TLS
 is deferred because browser certificate warnings make the intended workflow
@@ -228,7 +235,7 @@ suggestions. A match never creates an item without the user's tap. False positiv
 therefore create a dismissible suggestion, not an automatic commitment.
 
 Entry metadata is additive and cannot update `NoteEntry.text`, `createdAt`,
-`updatedAt`, or `lastUserEditedAt`. Manual and AI layers use separate primary
+`updatedAt`, or `lastUserEditedAt`. Manual, LOCAL, and AI layers use separate primary
 keys; replacing an AI result therefore cannot overwrite manual organization.
 The metadata layer's source and derivation timestamp remain visible in Room,
 while its tags, targets, and relation labels are encrypted. Before an automatic
@@ -236,7 +243,10 @@ result is written, the repository-facing coordinator rereads the entry and
 rejects the result if its text changed or it was deleted during the request.
 Disabling the toggle before completion also prevents persistence. A deliberate
 edit or successful retranscription invalidates only the prior AI layer before
-rederivation, preventing stale tags while retaining manual metadata. On unchanged
+rederivation, preventing stale tags while retaining manual metadata. The deterministic
+LOCAL layer is derived before optional cloud calls, checks the user's enabled
+languages for code-switched dates, and is backfilled incrementally for pre-existing
+notes only while Android reports that the battery is not low. On unchanged
 text, provider/network failure leaves the prior AI layer untouched; a successful
 empty result removes only that AI layer.
 

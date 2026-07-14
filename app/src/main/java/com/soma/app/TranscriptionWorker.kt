@@ -140,6 +140,18 @@ class TranscriptionDrainWorker(
                         val completedEntry = repositories.notes.getEntry(job.entryId)
                         if (completedEntry != null) {
                             try {
+                                deriveAndPersistLocalMetadata(
+                                    app = app,
+                                    repositories = repositories,
+                                    entry = completedEntry,
+                                    clock = clock,
+                                )
+                            } catch (error: CancellationException) {
+                                throw error
+                            } catch (_: Exception) {
+                                // The local pass is independent of optional cloud work.
+                            }
+                            try {
                                 deriveAndPersistAiMetadata(
                                     app = app,
                                     repositories = repositories,
@@ -151,19 +163,7 @@ class TranscriptionDrainWorker(
                                 throw error
                             } catch (_: Exception) {
                                 // Transcription is already complete. Optional
-                                // metadata failure cannot change that outcome.
-                            }
-                            try {
-                                deriveAndPersistLocalMetadata(
-                                    app = app,
-                                    repositories = repositories,
-                                    entry = completedEntry,
-                                    clock = clock,
-                                )
-                            } catch (error: CancellationException) {
-                                throw error
-                            } catch (_: Exception) {
-                                // Deterministic local metadata is best-effort too.
+                                // cloud metadata failure cannot change that outcome.
                             }
                         }
                     }

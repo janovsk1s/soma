@@ -23,6 +23,14 @@ data class DerivedEntryMetadata(
 object LocalMetadataDeriver {
 
     fun derive(text: String, language: SupportedLanguage, today: LocalDate): DerivedEntryMetadata {
+        return derive(text, setOf(language), today)
+    }
+
+    fun derive(
+        text: String,
+        languages: Set<SupportedLanguage>,
+        today: LocalDate,
+    ): DerivedEntryMetadata {
         if (text.isBlank()) return EMPTY
         val bounded = text.take(MAX_INPUT_CHARS)
 
@@ -33,7 +41,7 @@ object LocalMetadataDeriver {
             .toList()
 
         val links = buildList {
-            ImportantResurfaceDeriver.deriveDate(bounded, language, today)?.let { date ->
+            ImportantResurfaceDeriver.deriveDate(bounded, languages, today)?.let { date ->
                 add(EntryLink(kind = EntryLinkKind.DATE, target = date.toString(), relation = "due"))
             }
         }.take(EntryMetadata.MAX_LINKS)

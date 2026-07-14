@@ -19,6 +19,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ThreadFactory
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -54,6 +55,7 @@ class LanBrowserServer(
     private var sessionToken: String? = null
     private var wrongCodeAttempts = 0
     private var lastAuthenticatedActivity: Instant = Instant.EPOCH
+    private val exportInProgress = AtomicBoolean(false)
 
     /** Binds synchronously and returns the URL/code to display on the phone. */
     @Throws(IOException::class)
@@ -229,7 +231,7 @@ class LanBrowserServer(
                 request.path.startsWith("/audio/") -> audioResponse(request)
                 request.path.startsWith("/image/") -> imageResponse(request)
                 request.path == "/export" -> exportPageResponse()
-                request.path == "/export/vault.zip" -> exportDownloadResponse()
+                request.path == "/export/vault.zip" -> exportDownloadResponse(request)
                 else -> errorResponse(404, "That page does not exist.")
             },
         )
@@ -337,25 +339,43 @@ class LanBrowserServer(
         val page = pageNumber(request)
         val insights = dataSource.metadataInsights(pageRequest(page))
         val bounded = insights.copy(connections = insights.connections.bounded())
-        return htmlResponse(200, HtmlRenderer.insights(page, bounded, config.lightMode, config.exportEnabled))
+        return htmlResponse(
+            200,
+            HtmlRenderer.insights(page, bounded, config.lightMode, config.exportEnabled, config.languageTag),
+        )
     }
 
     private fun exportPageResponse(): HttpResponse {
         if (!config.exportEnabled) return errorResponse(404, "That page does not exist.")
-        return htmlResponse(200, HtmlRenderer.export(config.lightMode))
+        return htmlResponse(200, HtmlRenderer.export(config.lightMode, config.languageTag))
     }
 
-    private fun exportDownloadResponse(): HttpResponse {
+    private fun exportDownloadResponse(request: HttpRequest): HttpResponse {
         if (!config.exportEnabled) return errorResponse(404, "That page does not exist.")
-        val bundle = dataSource.exportBundle() ?: return errorResponse(404, "Export is not available.")
-        return secureResponse(
-            status = 200,
-            headers = linkedMapOf(
-                "Content-Type" to "application/zip",
-                "Content-Disposition" to "attachment; filename=\"${bundle.fileName}\"",
-            ),
-            body = ResponseBody.Bytes(bundle.bytes),
-        )
+        if (request.method != "GET") {
+            return errorResponse(405, "Export requires an explicit download.", mapOf("Allow" to "GET"))
+        }
+        if (!exportInProgress.compareAndSet(false, true)) {
+            return errorResponse(429, "An export is already in progress.")
+        }
+        return try {
+            val bundle = dataSource.exportBundle()
+                ?: return errorResponse(404, "Export is not available.").also { exportInProgress.set(false) }
+            secureResponse(
+                status = 200,
+                headers = linkedMapOf(
+                    "Content-Type" to "application/zip",
+                    "Content-Disposition" to "attachment; filename=\"${bundle.fileName}\"",
+                ),
+                body = ResponseBody.Bytes(bundle.bytes) {
+                    bundle.bytes.fill(0)
+                    exportInProgress.set(false)
+                },
+            )
+        } catch (error: Throwable) {
+            exportInProgress.set(false)
+            throw error
+        }
     }
 
     private fun graphResponse(request: HttpRequest): HttpResponse {

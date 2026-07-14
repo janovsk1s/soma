@@ -224,4 +224,5 @@
     <string name="transcription_vocabulary_editing">Úprava · ulož stlačením + alebo Hotovo</string>
     <string name="transcription_vocabulary_remove">odstrániť zo slovníka</string>
     <string name="browser_allow_export">Export údajov</string>
+    <string name="browser_export_session_note">Len pre túto reláciu prehliadača. Obsahuje záznamy a úplnú históriu úprav; zvuk a fotografie nie sú zahrnuté.</string>
 </resources>

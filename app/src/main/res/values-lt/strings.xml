@@ -224,4 +224,5 @@
     <string name="transcription_vocabulary_editing">Taisoma · spausk + arba Atlikta, kad išsaugotum</string>
     <string name="transcription_vocabulary_remove">pašalinti iš žodyno</string>
     <string name="browser_allow_export">Duomenų eksportas</string>
+    <string name="browser_export_session_note">Tik šiai naršyklės sesijai. Įtraukiami žurnalai ir visa taisymų istorija; garso įrašai ir nuotraukos neįtraukiami.</string>
 </resources>

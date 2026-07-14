@@ -41,6 +41,9 @@ and 20 candidates, and emits at most one bounded list block.
 - Graph paging resolves only the visible source entries. Explicit entry-link
   targets are resolved to enforce tombstone filtering; ordinary tag and date
   edges do not cause per-entry database reads.
+- The optional LAN Markdown export is generated only after an authenticated GET.
+  HEAD is rejected without snapshot work, concurrent exports are refused, media
+  is excluded, and the response buffer is wiped after the one download finishes.
 
 ## Rendering and storage
 
@@ -58,7 +61,10 @@ and 20 candidates, and emits at most one bounded list block.
 - Important detection runs only after Save or after a transcript lands, never
   for every typed character.
 - Metadata writes are bounded, additive Room operations. They never block
-  capture or rewrite the entry row. Optional cloud derivation begins only after
+  capture or rewrite the entry row. Deterministic LOCAL derivation runs before
+  optional cloud work. An upgrade backfill pages old notes with a persisted cursor,
+  runs only while the battery is not low, and can resume without duplicating data.
+  Optional cloud derivation begins only after
   the authored entry or transcript has been durably saved, performs no polling
   or automatic retry loop, and is capped at 4,000 input characters, eight tags,
   and eight explicit date links.

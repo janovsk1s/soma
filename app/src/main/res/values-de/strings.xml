@@ -224,4 +224,5 @@
     <string name="transcription_vocabulary_editing">Bearbeiten · zum Speichern + oder Fertig drücken</string>
     <string name="transcription_vocabulary_remove">aus dem Wörterbuch entfernen</string>
     <string name="browser_allow_export">Datenexport</string>
+    <string name="browser_export_session_note">Nur für diese Browser-Sitzung. Enthält Protokolle und den vollständigen Bearbeitungsverlauf; Audio und Fotos sind ausgeschlossen.</string>
 </resources>

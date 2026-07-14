@@ -337,7 +337,7 @@ sealed interface BrowserViewState {
 class BrowserViewController(
     @Suppress("UNUSED_PARAMETER") dataSource: BrowserViewDataSource,
     @Suppress("UNUSED_PARAMETER") lightMode: Boolean = false,
-    @Suppress("UNUSED_PARAMETER") exportEnabled: () -> Boolean = { false },
+    @Suppress("UNUSED_PARAMETER") languageTag: String = "en",
     @Suppress("UNUSED_PARAMETER") exportProvider: (suspend () -> ByteArray?)? = null,
 ) : AutoCloseable {
     private val mutableState = MutableStateFlow<BrowserViewState>(BrowserViewState.Unavailable)
@@ -346,7 +346,7 @@ class BrowserViewController(
     val state: StateFlow<BrowserViewState> = mutableState.asStateFlow()
     val endpoint: BrowserViewEndpoint? = null
 
-    suspend fun start(): BrowserViewStartResult =
+    suspend fun start(@Suppress("UNUSED_PARAMETER") exportEnabled: Boolean = false): BrowserViewStartResult =
         BrowserViewStartResult.NotStarted(BrowserViewStartFailure.UNAVAILABLE_IN_BUILD)
 
     fun stop() {
