@@ -108,6 +108,10 @@
     <string name="backup_readable_privacy">See arhiiv ei ole krüptitud. Salvesta see usaldusväärsesse kohta. Seda saab lugeda ilma Somata.</string>
     <string name="backup_readable_exported">Loetav arhiiv eksporditud.</string>
     <string name="backup_readable_export_failed">Loetava arhiivi eksport ebaõnnestus.</string>
+    <string name="backup_markdown_export">ekspordi Markdown-hoidla</string>
+    <string name="backup_markdown_explanation">Tavaline ZIP igapäevaste Markdown-failide, lingitud oluliste kirjete kontrollnimekirja, muudatuste ajaloo ja valikulise WAV-heliga. Ava see Obsidianis, Logseqis või tekstiredaktoris. See on ühesuunaline eksport. See ei ole krüptitud; hoia seda usaldusväärses kohas.</string>
+    <string name="backup_markdown_exported">Markdown-hoidla eksporditud.</string>
+    <string name="backup_markdown_export_failed">Markdown-hoidla eksport ebaõnnestus.</string>
     <string name="backup_import">impordi varukoopia</string>
     <string name="backup_include_audio">lisa heli</string>
     <string name="backup_passphrase">Parool (vähemalt 12 märki)</string>

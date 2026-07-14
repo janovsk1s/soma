@@ -108,6 +108,10 @@
     <string name="backup_readable_privacy">Dieses Archiv ist nicht verschlüsselt. Speichere es an einem vertrauenswürdigen Ort. Es ist ohne Soma lesbar.</string>
     <string name="backup_readable_exported">Lesbares Archiv exportiert.</string>
     <string name="backup_readable_export_failed">Export des lesbaren Archivs fehlgeschlagen.</string>
+    <string name="backup_markdown_export">Markdown-Vault exportieren</string>
+    <string name="backup_markdown_explanation">Eine normale ZIP-Datei mit täglichen Markdown-Dateien, Wichtigem als verknüpfter Checkliste, Bearbeitungsverlauf und optionalen WAV-Aufnahmen. Öffne sie in Obsidian, Logseq oder einem Texteditor. Dies ist ein Einweg-Export. Er ist nicht verschlüsselt; bewahre ihn an einem vertrauenswürdigen Ort auf.</string>
+    <string name="backup_markdown_exported">Markdown-Vault exportiert.</string>
+    <string name="backup_markdown_export_failed">Export des Markdown-Vaults fehlgeschlagen.</string>
     <string name="backup_import">Sicherung importieren</string>
     <string name="backup_include_audio">Audio einschließen</string>
     <string name="backup_passphrase">Passphrase (mindestens 12 Zeichen)</string>

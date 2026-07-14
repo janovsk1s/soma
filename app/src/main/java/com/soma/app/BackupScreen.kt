@@ -37,8 +37,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class BackupRoute { MENU, EXPORT, READABLE_EXPORT, IMPORT_UNLOCK, IMPORT_CONFIRM }
-private enum class BackupAction { EXPORT, READABLE_EXPORT, IMPORT }
+private enum class BackupRoute { MENU, EXPORT, READABLE_EXPORT, MARKDOWN_EXPORT, IMPORT_UNLOCK, IMPORT_CONFIRM }
+private enum class BackupAction { EXPORT, READABLE_EXPORT, MARKDOWN_EXPORT, IMPORT }
 
 @Composable
 fun BackupScreen(viewModel: SomaViewModel, onBack: () -> Unit) {
@@ -59,6 +59,8 @@ fun BackupScreen(viewModel: SomaViewModel, onBack: () -> Unit) {
     val exportFailedMessage = stringResource(R.string.backup_export_failed)
     val readableExportedMessage = stringResource(R.string.backup_readable_exported)
     val readableExportFailedMessage = stringResource(R.string.backup_readable_export_failed)
+    val markdownExportedMessage = stringResource(R.string.backup_markdown_exported)
+    val markdownExportFailedMessage = stringResource(R.string.backup_markdown_export_failed)
     val invalidBackupMessage = stringResource(R.string.backup_wrong_or_damaged)
     val shortPassphraseMessage = stringResource(R.string.backup_short_passphrase)
     val passphraseMismatchMessage = stringResource(R.string.backup_passphrases_mismatch)
@@ -141,6 +143,32 @@ fun BackupScreen(viewModel: SomaViewModel, onBack: () -> Unit) {
             busy = false
         }
     }
+    val markdownExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri ->
+        context.setExternalFlowActive(false)
+        if (uri == null) return@rememberLauncherForActivityResult
+        busy = true
+        status = null
+        scope.launch {
+            runCatching {
+                val encoded = coordinator.exportMarkdown(includeAudio)
+                try {
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(uri, "w")?.use { it.write(encoded) }
+                            ?: error("Could not open Markdown vault destination")
+                    }
+                } finally {
+                    encoded.fill(0)
+                }
+            }.onSuccess {
+                status = markdownExportedMessage
+            }.onFailure {
+                status = markdownExportFailedMessage
+            }
+            busy = false
+        }
+    }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         context.setExternalFlowActive(false)
         if (uri == null) return@rememberLauncherForActivityResult
@@ -167,6 +195,7 @@ fun BackupScreen(viewModel: SomaViewModel, onBack: () -> Unit) {
                 BackupRoute.MENU -> stringResource(R.string.backup_title)
                 BackupRoute.EXPORT -> stringResource(R.string.backup_export)
                 BackupRoute.READABLE_EXPORT -> stringResource(R.string.backup_readable_export)
+                BackupRoute.MARKDOWN_EXPORT -> stringResource(R.string.backup_markdown_export)
                 BackupRoute.IMPORT_UNLOCK, BackupRoute.IMPORT_CONFIRM -> stringResource(R.string.backup_import)
             },
             ::navigateBack,
@@ -191,6 +220,7 @@ fun BackupScreen(viewModel: SomaViewModel, onBack: () -> Unit) {
                                 when (action) {
                                     BackupAction.EXPORT -> R.string.backup_export
                                     BackupAction.READABLE_EXPORT -> R.string.backup_readable_export
+                                    BackupAction.MARKDOWN_EXPORT -> R.string.backup_markdown_export
                                     BackupAction.IMPORT -> R.string.backup_import
                                 },
                             ),
@@ -198,6 +228,7 @@ fun BackupScreen(viewModel: SomaViewModel, onBack: () -> Unit) {
                                 when (action) {
                                     BackupAction.EXPORT -> route = BackupRoute.EXPORT
                                     BackupAction.READABLE_EXPORT -> route = BackupRoute.READABLE_EXPORT
+                                    BackupAction.MARKDOWN_EXPORT -> route = BackupRoute.MARKDOWN_EXPORT
                                     BackupAction.IMPORT -> {
                                         context.setExternalFlowActive(true)
                                         importLauncher.launch(arrayOf("application/x-soma-backup", "application/octet-stream", "*/*"))
@@ -273,6 +304,29 @@ fun BackupScreen(viewModel: SomaViewModel, onBack: () -> Unit) {
                     if (busy) return@BackupBottomAction
                     context.setExternalFlowActive(true)
                     readableExportLauncher.launch("Soma-readable-${LocalDate.now()}.zip")
+                }
+            }
+            BackupRoute.MARKDOWN_EXPORT -> {
+                Column(Modifier.weight(1f).fillMaxWidth().padding(top = 24.dp)) {
+                    Text(
+                        stringResource(R.string.backup_markdown_explanation),
+                        color = DimInk,
+                        fontSize = 16.sp,
+                        lineHeight = 22.sp,
+                    )
+                    SettingsItem(
+                        label = stringResource(R.string.backup_include_audio),
+                        trailing = stringResource(if (includeAudio) R.string.on else R.string.off),
+                        onClick = { includeAudio = !includeAudio },
+                    )
+                    status?.let { Text(it, color = DimInk, fontSize = 16.sp, modifier = Modifier.padding(top = 24.dp)) }
+                }
+                BackupBottomAction(
+                    if (busy) stringResource(R.string.backup_working) else stringResource(R.string.backup_markdown_export),
+                ) {
+                    if (busy) return@BackupBottomAction
+                    context.setExternalFlowActive(true)
+                    markdownExportLauncher.launch("Soma-vault-${LocalDate.now()}.zip")
                 }
             }
             BackupRoute.IMPORT_UNLOCK -> {

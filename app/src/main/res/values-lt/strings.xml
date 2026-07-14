@@ -108,6 +108,10 @@
     <string name="backup_readable_privacy">Šis archyvas nešifruotas. Saugok patikimoje vietoje. Jį galima skaityti be Soma.</string>
     <string name="backup_readable_exported">Skaitomas archyvas eksportuotas.</string>
     <string name="backup_readable_export_failed">Nepavyko eksportuoti skaitomo archyvo.</string>
+    <string name="backup_markdown_export">eksportuoti Markdown saugyklą</string>
+    <string name="backup_markdown_explanation">Įprastas ZIP su kasdieniais Markdown failais, susietu svarbių įrašų kontroliniu sąrašu, redagavimo istorija ir pasirenkamu WAV garsu. Atverk Obsidian, Logseq ar bet kuriame teksto redaktoriuje. Tai vienkryptis eksportas. Jis nešifruotas; laikyk jį patikimoje vietoje.</string>
+    <string name="backup_markdown_exported">Markdown saugykla eksportuota.</string>
+    <string name="backup_markdown_export_failed">Nepavyko eksportuoti Markdown saugyklos.</string>
     <string name="backup_import">importuoti atsarginę kopiją</string>
     <string name="backup_include_audio">įtraukti garsą</string>
     <string name="backup_passphrase">Slaptafrazė (bent 12 simbolių)</string>

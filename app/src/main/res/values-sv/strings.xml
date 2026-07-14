@@ -108,6 +108,10 @@
     <string name="backup_readable_privacy">Arkivet är inte krypterat. Spara det på en plats du litar på. Det kan läsas utan Soma.</string>
     <string name="backup_readable_exported">Läsbart arkiv exporterat.</string>
     <string name="backup_readable_export_failed">Export av läsbart arkiv misslyckades.</string>
+    <string name="backup_markdown_export">exportera Markdown-valv</string>
+    <string name="backup_markdown_explanation">En vanlig ZIP med dagliga Markdown-filer, Viktigt som en länkad checklista, redigeringshistorik och valfritt WAV-ljud. Öppna den i Obsidian, Logseq eller valfri textredigerare. Detta är en envägsexport. Den är inte krypterad; förvara den på en betrodd plats.</string>
+    <string name="backup_markdown_exported">Markdown-valvet exporterades.</string>
+    <string name="backup_markdown_export_failed">Export av Markdown-valvet misslyckades.</string>
     <string name="backup_import">importera säkerhetskopia</string>
     <string name="backup_include_audio">inkludera ljud</string>
     <string name="backup_passphrase">Lösenfras (minst 12 tecken)</string>

@@ -108,6 +108,10 @@
     <string name="backup_readable_privacy">Tento archív nie je šifrovaný. Uložte ho na dôveryhodné miesto. Dá sa čítať bez aplikácie Soma.</string>
     <string name="backup_readable_exported">Čitateľný archív bol exportovaný.</string>
     <string name="backup_readable_export_failed">Export čitateľného archívu zlyhal.</string>
+    <string name="backup_markdown_export">exportovať Markdown trezor</string>
+    <string name="backup_markdown_explanation">Bežný ZIP s dennými súbormi Markdown, prepojeným zoznamom dôležitých položiek, históriou úprav a voliteľným zvukom WAV. Otvorte ho v Obsidiane, Logseq alebo ľubovoľnom textovom editore. Ide o jednosmerný export. Nie je šifrovaný; uložte ho na dôveryhodné miesto.</string>
+    <string name="backup_markdown_exported">Markdown trezor bol exportovaný.</string>
+    <string name="backup_markdown_export_failed">Export Markdown trezoru zlyhal.</string>
     <string name="backup_import">importovať zálohu</string>
     <string name="backup_include_audio">zahrnúť zvuk</string>
     <string name="backup_passphrase">Heslo (aspoň 12 znakov)</string>

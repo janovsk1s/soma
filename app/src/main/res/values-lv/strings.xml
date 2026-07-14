@@ -108,6 +108,10 @@
     <string name="backup_readable_privacy">Šis arhīvs nav šifrēts. Saglabā to drošā vietā. To var lasīt bez Soma.</string>
     <string name="backup_readable_exported">Lasāmais arhīvs eksportēts.</string>
     <string name="backup_readable_export_failed">Lasāmā arhīva eksportēšana neizdevās.</string>
+    <string name="backup_markdown_export">eksportēt Markdown mapi</string>
+    <string name="backup_markdown_explanation">Parasts ZIP ar dienu Markdown failiem, Svarīgo kā saistītu uzdevumu sarakstu, labojumu vēsturi un izvēles WAV audio. Atver to Obsidian, Logseq vai jebkurā teksta redaktorā. Šis ir vienvirziena eksports. Tas nav šifrēts; glabā to uzticamā vietā.</string>
+    <string name="backup_markdown_exported">Markdown mape eksportēta.</string>
+    <string name="backup_markdown_export_failed">Markdown mapes eksportēšana neizdevās.</string>
     <string name="backup_import">importēt dublējumu</string>
     <string name="backup_include_audio">iekļaut audio</string>
     <string name="backup_passphrase">Paroles frāze (vismaz 12 rakstzīmes)</string>

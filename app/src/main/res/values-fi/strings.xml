@@ -108,6 +108,10 @@
     <string name="backup_readable_privacy">Tätä arkistoa ei ole salattu. Tallenna se luotettavaan paikkaan. Sitä voi lukea ilman Somaa.</string>
     <string name="backup_readable_exported">Luettava arkisto viety.</string>
     <string name="backup_readable_export_failed">Luettavan arkiston vienti epäonnistui.</string>
+    <string name="backup_markdown_export">vie Markdown-holvi</string>
+    <string name="backup_markdown_explanation">Tavallinen ZIP, jossa on päivittäiset Markdown-tiedostot, linkitetty tärkeiden kohteiden tarkistuslista, muokkaushistoria ja valinnainen WAV-ääni. Avaa se Obsidianissa, Logseqissa tai tekstieditorissa. Tämä on yksisuuntainen vienti. Sitä ei ole salattu; säilytä se luotettavassa paikassa.</string>
+    <string name="backup_markdown_exported">Markdown-holvi viety.</string>
+    <string name="backup_markdown_export_failed">Markdown-holvin vienti epäonnistui.</string>
     <string name="backup_import">tuo varmuuskopio</string>
     <string name="backup_include_audio">sisällytä ääni</string>
     <string name="backup_passphrase">Salasana (vähintään 12 merkkiä)</string>

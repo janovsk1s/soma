@@ -61,9 +61,10 @@ cloud API keys only when explicitly enabled in Developer settings.
 - Offers one optional daily reminder, off by default, and optional vibration.
 - Supports English, Latvian, Estonian, Lithuanian, Finnish, Swedish, German, and
   Slovak.
-- Exports either a restorable encrypted `.soma` backup or a standard readable
-  ZIP containing Markdown, CSV, JSON/JSONL edit history, transcription
-  vocabulary, and optional WAV audio.
+- Exports a restorable encrypted `.soma` backup, a complete readable ZIP with
+  CSV/JSON/JSONL, or a clean one-way Markdown vault for Obsidian and Logseq.
+  The vault keeps daily files, linked Important checklists, earlier wordings,
+  and optional standard WAV audio useful even if Soma no longer exists.
 
 Transcription is intentionally modest. The small local model can be inaccurate,
 especially during dense mid-sentence language switching. Transcripts remain
@@ -84,8 +85,9 @@ editable. The `browser` and `purist` builds never send audio or text elsewhere.
   encrypted and authenticated offline with a key derived from the user's
   passphrase. Audio is optional and stays plaintext only in memory inside the
   passphrase-encrypted export/import path.
-- A readable ZIP is deliberately not encrypted and leaves Soma's trust boundary.
-  Store it only somewhere you trust.
+- Readable and Markdown-vault ZIPs are deliberately not encrypted and leave
+  Soma's trust boundary. Store them only somewhere you trust; only the encrypted
+  `.soma` format can be imported back into the app.
 - Developer demo data lives only in memory and never opens the real Room or
   audio stores.
 

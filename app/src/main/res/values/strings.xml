@@ -118,6 +118,10 @@
     <string name="backup_readable_privacy">This archive is not encrypted. Save it somewhere you trust. It can be read without Soma.</string>
     <string name="backup_readable_exported">Readable archive exported.</string>
     <string name="backup_readable_export_failed">Readable archive export failed.</string>
+    <string name="backup_markdown_export">export Markdown vault</string>
+    <string name="backup_markdown_explanation">A standard ZIP with daily Markdown files, Important as a linked checklist, edit history, and optional WAV audio. Open it in Obsidian, Logseq, or any text editor. This is a one-way export. It is not encrypted; store it somewhere you trust.</string>
+    <string name="backup_markdown_exported">Markdown vault exported.</string>
+    <string name="backup_markdown_export_failed">Markdown vault export failed.</string>
     <string name="backup_import">import backup</string>
     <string name="backup_include_audio">include audio</string>
     <string name="backup_passphrase">Passphrase (12+ characters)</string>

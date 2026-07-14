@@ -2,6 +2,35 @@
 
 Notable changes to Soma are documented here.
 
+## 0.1.0-preview.17 — 2026-07-14
+
+### Added
+
+- Backup now offers a separate one-way Markdown vault ZIP for Obsidian, Logseq,
+  or any text editor. Daily notes use root-level `YYYY-MM-DD.md` files with
+  portable frontmatter and local-time entry headings.
+- `Important.md` preserves open, done, and let-go items as Markdown checklists.
+  Source-linked items point back to the exact daily-note entry with stable,
+  path-safe Obsidian block links; show-again dates remain visible.
+- Edited entries link to dedicated `history/` files containing the original,
+  every intermediate wording, replacement timestamps, and the current wording.
+- Optional recordings are standard WAV files in `media/` and are embedded from
+  their daily entries. The vault also includes a small versioned manifest.
+
+### Changed
+
+- Plaintext exporters now share one tombstone filter, so deleted entries,
+  deleted audio, orphaned source links, and their histories are consistently
+  omitted while encrypted portable backups remain recoverable.
+- The Markdown ZIP uses deterministic entry ordering and timestamps. Imported
+  or legacy entry ids are hashed before becoming file paths or block anchors,
+  preventing path traversal and collisions with user-facing names.
+
+### Security
+
+- The Markdown vault is explicitly plaintext and one-way: Soma never imports
+  it, never includes API keys, and tells the user to store it somewhere trusted.
+
 ## 0.1.0-preview.16 — 2026-07-14
 
 ### Added

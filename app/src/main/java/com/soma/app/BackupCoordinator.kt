@@ -16,6 +16,7 @@ import com.soma.core.model.TranscriptionInfo
 import com.soma.core.model.TranscriptionJobState
 import com.soma.storage.backup.BackupAudioContainer
 import com.soma.storage.backup.BackupSnapshot
+import com.soma.storage.backup.MarkdownVaultExporter
 import com.soma.storage.backup.PortableBackupCodec
 import com.soma.storage.backup.ReadableArchiveExporter
 import com.soma.storage.repository.RoomSomaRepository
@@ -25,6 +26,7 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.time.Instant
+import java.time.ZoneId
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -33,6 +35,7 @@ class BackupCoordinator(
     private val app: SomaApplication,
     private val codec: PortableBackupCodec = PortableBackupCodec(),
     private val readableExporter: ReadableArchiveExporter = ReadableArchiveExporter(),
+    private val markdownExporter: MarkdownVaultExporter = MarkdownVaultExporter(ZoneId.systemDefault()),
 ) {
     suspend fun export(passphrase: CharArray, includeAudio: Boolean): ByteArray = withContext(Dispatchers.IO) {
         val snapshot = createSnapshot(includeAudio)
@@ -47,6 +50,15 @@ class BackupCoordinator(
         val snapshot = createSnapshot(includeAudio)
         try {
             readableExporter.encode(snapshot)
+        } finally {
+            snapshot.audioContainers.forEach { it.clearPortableBytes() }
+        }
+    }
+
+    suspend fun exportMarkdown(includeAudio: Boolean): ByteArray = withContext(Dispatchers.IO) {
+        val snapshot = createSnapshot(includeAudio)
+        try {
+            markdownExporter.encode(snapshot)
         } finally {
             snapshot.audioContainers.forEach { it.clearPortableBytes() }
         }

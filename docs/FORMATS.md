@@ -211,6 +211,39 @@ portable backup retains tombstones so deleted content can still be restored.
 Because it is not encrypted, exporting it moves plaintext outside Soma's trust
 boundary. It is not accepted by the restore flow; use `.soma` for restoration.
 
+## Markdown vault
+
+The optional `Soma-vault-YYYY-MM-DD.zip` export is a standard, deliberately
+unencrypted, one-way Markdown vault. It is intended for Obsidian, Logseq, plain
+text editors, and long-term use without Soma. Format version 1 contains:
+
+- `README.md` with the portability, privacy, and one-way-export contract;
+- `.soma/manifest.json` with format version, export instant, time zone, and
+  record counts;
+- one root-level `YYYY-MM-DD.md` file per daily note;
+- `Important.md`, with open, done, and let-go items as Markdown checklists;
+- one `history/YYYY-MM-DD-<token>.md` file for each edited entry; and
+- optional standard WAV files under `media/`, embedded from the owning day.
+
+Daily-file YAML frontmatter contains `date`, `created`, `last_edited`, `tags`,
+and `soma_timezone`. `created` and `last_edited` are ISO-8601 UTC instants;
+visible entry headings use the device time zone recorded by `soma_timezone`.
+`tags` is an empty list until a later metadata feature has actual user or
+derived tags to export—Soma does not invent them from note text.
+
+Every visible entry receives a stable Obsidian block anchor. `Important.md`
+links source-backed items to that exact block, and edited entries link to their
+history file. File paths and anchors use a truncated SHA-256 token rather than
+the raw entry id, so legacy or imported ids cannot inject paths. ZIP members are
+written in deterministic order with fixed member timestamps.
+
+Format version 1 excludes entry and audio tombstones. It retains current text,
+editable voice transcripts, all earlier wordings, Important state/kind/source,
+show-again dates, and optional playable audio. No API keys or encrypted
+credential stores are part of a backup snapshot, so they cannot enter the
+vault. The vault is not accepted by the restore flow; use `.soma` for a
+restorable backup.
+
 ## Bundled transcription model
 
 `whisper/src/main/assets/ggml-tiny-q5_1.bin` is the multilingual Whisper tiny
