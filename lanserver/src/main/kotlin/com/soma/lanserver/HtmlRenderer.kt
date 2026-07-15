@@ -636,8 +636,8 @@ internal object HtmlRenderer {
         append("<input type=\"hidden\" name=\"return\" value=\"").append(Html.escape(returnPath)).append("\">")
     }
 
-    private const val DARK_THEME = ":root{color-scheme:dark;--paper:#070706;--ink:#f1efe8;--dim:#a9aaa2;--faint:#7c7e76;--line:rgba(241,239,232,.18);--hair:rgba(241,239,232,.1);--glass:rgba(9,10,9,.38);--nav:rgba(7,7,6,.55);--forest-opacity:.72;--veil:rgba(0,0,0,.46)}"
-    private const val LIGHT_THEME = ":root{color-scheme:light;--paper:#eceae2;--ink:#161611;--dim:#4f504a;--faint:#83847c;--line:rgba(22,22,17,.22);--hair:rgba(22,22,17,.12);--glass:rgba(244,242,235,.46);--nav:rgba(240,238,231,.66);--forest-opacity:.34;--veil:rgba(255,255,255,.34)}"
+    private const val DARK_THEME = ":root{color-scheme:dark;--paper:#0a0b0a;--ink:#f4f2ec;--dim:#c8c9c2;--faint:#9a9c93;--line:rgba(244,242,236,.2);--hair:rgba(244,242,236,.12);--edge:rgba(255,255,255,.16);--glass:rgba(14,16,14,.24);--nav:rgba(9,10,9,.5);--forest-opacity:.95;--veil:rgba(0,0,0,.28);--shadow:0 1px 3px rgba(0,0,0,.55)}"
+    private const val LIGHT_THEME = ":root{color-scheme:light;--paper:#e7e5dd;--ink:#141410;--dim:#3f403a;--faint:#63645d;--line:rgba(20,20,15,.26);--hair:rgba(20,20,15,.14);--edge:rgba(255,255,255,.5);--glass:rgba(245,244,238,.34);--nav:rgba(240,238,231,.6);--forest-opacity:.5;--veil:rgba(255,255,255,.24);--shadow:0 1px 3px rgba(255,255,255,.5)}"
 
     // A moonlit reading room: warm off-white ink on near-black, the localized
     // forest genuinely present through a frosted reading panel, an editorial type
@@ -646,13 +646,13 @@ internal object HtmlRenderer {
     private const val STYLES = """
         *{box-sizing:border-box}html{font-family:"Akkurat LL",-apple-system,"Segoe UI","Helvetica Neue",Arial,sans-serif;color:var(--ink);background:var(--paper);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
         body{margin:0;min-height:100vh;font-size:17px;line-height:1.52;letter-spacing:-.003em}
-        body:before{content:"";position:fixed;inset:0;background:url('/assets/forest.webp') center/cover no-repeat;filter:grayscale(1) contrast(1.04) brightness(.86);opacity:var(--forest-opacity);pointer-events:none;z-index:-2}
-        body:after{content:"";position:fixed;inset:0;background:radial-gradient(130% 90% at 50% -15%,transparent 42%,var(--veil) 100%);pointer-events:none;z-index:-1}
+        body:before{content:"";position:fixed;inset:0;background:url('/assets/forest.webp') center/cover no-repeat;filter:grayscale(1) contrast(1.05) brightness(.82);opacity:var(--forest-opacity);pointer-events:none;z-index:-2}
+        body:after{content:"";position:fixed;inset:0;background:radial-gradient(135% 95% at 50% -10%,transparent 46%,var(--veil) 100%);pointer-events:none;z-index:-1}
         .primary{position:sticky;top:0;z-index:3;width:min(calc(100% - 28px),720px);margin:0 auto;display:flex;flex-wrap:wrap;align-items:baseline;gap:5px 22px;padding:15px 30px;background:var(--nav);backdrop-filter:blur(11px) saturate(.85);-webkit-backdrop-filter:blur(11px) saturate(.85);border-bottom:1px solid var(--line)}
         .primary .mark{color:var(--ink);font-weight:600;text-transform:uppercase;letter-spacing:.28em;font-size:13px;margin-right:6px;text-decoration:none}
         .primary a:not(.mark){color:var(--dim);text-decoration:none;font-size:14.5px;letter-spacing:.01em;padding:3px 0}
         .primary a:not(.mark):hover{color:var(--ink)}.primary a[aria-current=page]{color:var(--ink);box-shadow:inset 0 -2px 0 var(--ink)}
-        main{position:relative;z-index:1;width:min(calc(100% - 28px),720px);margin:0 auto;padding:38px 30px 60px;min-height:calc(100vh - 58px);background:var(--glass);backdrop-filter:blur(9px) saturate(.92);-webkit-backdrop-filter:blur(9px) saturate(.92);border-left:1px solid var(--hair);border-right:1px solid var(--hair)}
+        main{position:relative;z-index:1;width:min(calc(100% - 28px),720px);margin:22px auto 48px;padding:36px 34px 46px;background:var(--glass);backdrop-filter:blur(12px) saturate(.9);-webkit-backdrop-filter:blur(12px) saturate(.9);border:1px solid var(--edge);text-shadow:var(--shadow)}
         a{color:var(--ink);text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}a:hover{text-decoration-thickness:2px}
         header{padding:0 0 24px;border-bottom:1px solid var(--line);margin-bottom:8px}
         h1{font-size:clamp(33px,8.6vw,50px);line-height:1.02;letter-spacing:-.028em;font-weight:600;margin:0}
@@ -679,7 +679,7 @@ internal object HtmlRenderer {
         textarea{width:100%;font:inherit;font-size:17px;line-height:1.5;color:var(--ink);background:var(--hair);border:1px solid var(--line);border-radius:0;padding:13px;resize:vertical;min-height:84px}textarea::placeholder{color:var(--faint)}
         .editor{margin-top:14px}.editor>summary{cursor:pointer;color:var(--dim);font-size:12px;letter-spacing:.13em;text-transform:uppercase;list-style:none}.editor>summary::-webkit-details-marker{display:none}.editor>summary:hover{color:var(--ink)}.editor form{border:none;margin:0;padding:12px 0 0}
         .composer{border-top:1px solid var(--line);padding-top:26px;margin-top:12px}.editor button,.composer button{width:auto;margin-top:12px;padding:11px 26px}
-        @media(max-width:520px){.primary,main{width:100%}.primary{padding:14px 20px;gap:4px 18px}main{padding:30px 20px 52px;border-left:none;border-right:none}body{font-size:16.5px}.summary{grid-template-columns:repeat(3,1fr)}.log-header{display:block}.log-header time{display:block;margin-top:7px}.log-footer{display:block}.log-footer>*{display:block;margin-top:8px}}
+        @media(max-width:520px){.primary,main{width:calc(100% - 20px)}.primary{padding:14px 20px;gap:4px 18px}main{margin:12px auto 40px;padding:28px 20px 42px}body{font-size:16.5px}.summary{grid-template-columns:repeat(3,1fr)}.log-header{display:block}.log-header time{display:block;margin-top:7px}.log-footer{display:block}.log-footer>*{display:block;margin-top:8px}}
     """
 
     private const val GRAPH_EDGE_HEIGHT = 104
