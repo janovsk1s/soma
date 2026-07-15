@@ -2,6 +2,22 @@
 
 Notable changes to Soma are documented here.
 
+## Unreleased
+
+### Fixed
+
+- Photo meal, workout, and receipt proposals no longer depend on a single
+  preview vision model: if Groq retires the preferred model, the request falls
+  through to the next vision candidate. Account-level failures (key, credits,
+  rate limits) still surface immediately and are never retried against another
+  model.
+- Cloud vision uploads are bounded to just under 3 MB so every candidate
+  vision model accepts them; photos were already downscaled for cloud analysis
+  and the encrypted original keeps its full quality.
+- The no-internet transcription path (cloud transcription on, network dead) is
+  now pinned by a unit test: it falls back to the local Whisper model and
+  records the network error in provenance and diagnostics.
+
 ## 0.1.0 — 2026-07-15
 
 First stable release of the 0.1.0 line, promoting preview.35.

@@ -337,9 +337,9 @@ internal class FallbackCloudTranscriber(
     }
 }
 
-private data class CloudTranscript(val text: String, val languageCode: String)
+internal data class CloudTranscript(val text: String, val languageCode: String)
 
-private object CloudHttp {
+internal object CloudHttp {
     suspend fun lookupPackagedFood(
         barcode: String,
         connectionOpener: CloudConnectionOpener,
@@ -608,11 +608,37 @@ private object CloudHttp {
         normalizeCloudMetadata(tags, dateLinks)
     }
 
+    /**
+     * Walks the model candidates so a retired preview vision model degrades to
+     * the next one instead of killing photo proposals. Failures that belong to
+     * the account (key, credits, rate limits) are never retried on a sibling.
+     */
     suspend fun extractTrackingText(
         apiKey: String,
         kind: LogKind,
         text: String,
         imageJpeg: ByteArray?,
+        connectionOpener: CloudConnectionOpener,
+    ): String {
+        val models = if (imageJpeg == null) listOf(CLOUD_AI_TRACKING_MODEL) else CLOUD_AI_VISION_MODELS
+        var retired: CloudProviderException? = null
+        for (model in models) {
+            try {
+                return requestTrackingText(apiKey, kind, text, imageJpeg, model, connectionOpener)
+            } catch (error: CloudProviderException) {
+                if (!error.modelUnavailable) throw error
+                retired = error
+            }
+        }
+        throw checkNotNull(retired)
+    }
+
+    private suspend fun requestTrackingText(
+        apiKey: String,
+        kind: LogKind,
+        text: String,
+        imageJpeg: ByteArray?,
+        model: String,
         connectionOpener: CloudConnectionOpener,
     ): String = withContext(Dispatchers.IO) {
         val lineSchema = JSONObject()
@@ -670,8 +696,13 @@ private object CloudHttp {
                 )
         }
         val body = JSONObject()
-            .put("model", if (imageJpeg == null) CLOUD_AI_TRACKING_MODEL else CLOUD_AI_VISION_MODEL)
-            .put("reasoning_effort", if (imageJpeg == null) "low" else "none")
+            .put("model", model)
+            .apply {
+                // reasoning_effort exists only on reasoning models; others reject unknown fields.
+                if (model in CLOUD_AI_REASONING_MODELS) {
+                    put("reasoning_effort", if (imageJpeg == null) "low" else "none")
+                }
+            }
             .put("max_completion_tokens", 1_024)
             .put(
                 "messages",
@@ -689,7 +720,7 @@ private object CloudHttp {
                             JSONObject().put("name", "tracking_proposal").put("strict", true).put("schema", schema),
                         )
                 } else {
-                    // Qwen vision currently supports JSON Object Mode rather than Groq strict schemas.
+                    // Groq's vision models take JSON Object Mode rather than strict schemas.
                     JSONObject().put("type", "json_object")
                 },
             )
@@ -835,7 +866,10 @@ private object CloudHttp {
                 output.toString(Charsets.UTF_8.name())
             }.orEmpty()
             if (status !in 200..299) {
-                throw CloudProviderException(cloudFailureReason(status, response))
+                throw CloudProviderException(
+                    cloudFailureReason(status, response),
+                    cloudModelUnavailable(status, response),
+                )
             }
             return JSONObject(response)
         } finally {
@@ -855,9 +889,16 @@ private val BARCODE_PATTERN = Regex("\\d{8,14}")
 private const val MAX_VISION_IMAGE_BYTES = 19 * 1024 * 1024
 private const val CLOUD_AI_TRACKING_MODEL = "openai/gpt-oss-20b"
 private const val CLOUD_AI_VISION_MODEL = "qwen/qwen3.6-27b"
+private const val CLOUD_AI_VISION_FALLBACK_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 
-private class CloudProviderException(
+/** Preferred preview vision model first, then a candidate expected to outlive it. */
+internal val CLOUD_AI_VISION_MODELS = listOf(CLOUD_AI_VISION_MODEL, CLOUD_AI_VISION_FALLBACK_MODEL)
+
+private val CLOUD_AI_REASONING_MODELS = setOf(CLOUD_AI_TRACKING_MODEL, CLOUD_AI_VISION_MODEL)
+
+internal class CloudProviderException(
     val fallbackReason: TranscriptionFallbackReason,
+    val modelUnavailable: Boolean = false,
 ) : IOException("Cloud provider request failed")
 
 private class CloudSecretStore(context: Context) {

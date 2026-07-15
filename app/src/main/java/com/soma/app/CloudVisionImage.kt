@@ -76,7 +76,10 @@ internal object CloudVisionImage {
         }
 
     private const val MAX_DIMENSION = 2_048
-    private const val MAX_OUTPUT_BYTES = 4 * 1024 * 1024
+
+    // Base64 inflates by 4/3 and the strictest candidate vision model caps the
+    // encoded image at 4 MB, so the prepared JPEG must stay under ~2.9 MB raw.
+    private const val MAX_OUTPUT_BYTES = 2_900_000
     private const val JPEG_QUALITY = 86
     private const val FALLBACK_JPEG_QUALITY = 72
 }
