@@ -115,7 +115,8 @@ class LanBrowserServerTest {
             contentType = "application/x-www-form-urlencoded",
         )
         assertEquals(303, accepted.status)
-        assertEquals("/day/2026-07-15", accepted.headers["location"])
+        // Redirects to the day and anchors the new entry so the page scrolls to it.
+        assertEquals("/day/2026-07-15#e-new", accepted.headers["location"])
         assertEquals(LocalDate.parse("2026-07-15") to "hello there", data.addedEntries.single())
     }
 
@@ -150,7 +151,9 @@ class LanBrowserServerTest {
                 contentType = "application/x-www-form-urlencoded",
             )
             assertEquals(303, response.status)
-            assertEquals("/days", response.headers["location"])
+            val location = requireNotNull(response.headers["location"])
+            assertTrue("stayed on-origin: $location", location.startsWith("/days"))
+            assertFalse(location.contains("evil.com"))
         }
     }
 
@@ -297,7 +300,7 @@ class LanBrowserServerTest {
 
         val day = request(endpoint, "GET", "/day/$date", cookie = cookie)
         assertEquals(200, day.status)
-        assertEquals(5, Regex("<li>").findAll(day.text).count())
+        assertEquals(5, Regex("<li id=\"e").findAll(day.text).count())
         assertFalse(day.text.contains("ENTRY-6"))
         assertTrue(day.text.contains("&lt;b&gt;ENTRY-1&lt;/b&gt;"))
 
@@ -802,12 +805,12 @@ class LanBrowserServerTest {
 
         override fun addEntry(date: LocalDate, text: String): BrowserWriteResult {
             addedEntries += date to text
-            return BrowserWriteResult.Success
+            return BrowserWriteResult.Success("e-new")
         }
 
         override fun editEntry(entryId: String, text: String): BrowserWriteResult {
             editedEntries += entryId to text
-            return BrowserWriteResult.Success
+            return BrowserWriteResult.Success("e$entryId")
         }
 
         @Volatile

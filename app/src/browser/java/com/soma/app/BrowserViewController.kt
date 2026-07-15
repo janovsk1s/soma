@@ -432,8 +432,8 @@ interface BrowserViewDataSource {
 
     suspend fun openImage(imageId: String): BrowserViewImage? = null
 
-    /** Appends a text entry to [date]'s note. Returns false if refused. */
-    suspend fun addEntry(date: LocalDate, text: String): Boolean = false
+    /** Appends a text entry to [date]'s note. Returns the new entry id, or null if refused. */
+    suspend fun addEntry(date: LocalDate, text: String): String? = null
 
     /** Replaces an entry's text, preserving prior wording as a revision. */
     suspend fun editEntry(entryId: String, text: String): Boolean = false
@@ -456,9 +456,9 @@ class RepositoryBrowserViewDataSource(
 ) : BrowserViewDataSource {
     private val logCopy = BrowserLogCopy.forLanguage(languageTag)
 
-    override suspend fun addEntry(date: LocalDate, text: String): Boolean {
+    override suspend fun addEntry(date: LocalDate, text: String): String? {
         val clean = text.trim()
-        if (clean.isEmpty() || clean.length > MAX_WEB_ENTRY_CHARS || date.isAfter(today())) return false
+        if (clean.isEmpty() || clean.length > MAX_WEB_ENTRY_CHARS || date.isAfter(today())) return null
         val now = java.time.Instant.now()
         notes.getOrCreate(date, now)
         val entry = com.soma.core.model.NoteEntry.text(
@@ -468,7 +468,7 @@ class RepositoryBrowserViewDataSource(
             text = clean,
             createdAt = now,
         )
-        return notes.insertEntry(entry)
+        return if (notes.insertEntry(entry)) entry.id else null
     }
 
     override suspend fun editEntry(entryId: String, text: String): Boolean {
@@ -1134,15 +1134,12 @@ private class LanDataSourceAdapter(
     private val exportProvider: (suspend () -> ByteArray?)? = null,
 ) : ReadOnlySomaDataSource {
     override fun addEntry(date: LocalDate, text: String): BrowserWriteResult =
-        if (await { delegate.addEntry(date, text) }) {
-            BrowserWriteResult.Success
-        } else {
-            BrowserWriteResult.Rejected("That entry could not be saved.")
-        }
+        await { delegate.addEntry(date, text) }?.let { id -> BrowserWriteResult.Success("e$id") }
+            ?: BrowserWriteResult.Rejected("That entry could not be saved.")
 
     override fun editEntry(entryId: String, text: String): BrowserWriteResult =
         if (await { delegate.editEntry(entryId, text) }) {
-            BrowserWriteResult.Success
+            BrowserWriteResult.Success("e$entryId")
         } else {
             BrowserWriteResult.Rejected("That entry could not be saved.")
         }

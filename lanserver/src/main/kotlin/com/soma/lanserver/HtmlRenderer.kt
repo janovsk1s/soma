@@ -13,6 +13,7 @@ internal object HtmlRenderer {
         navigation = false,
         lightMode = lightMode,
         languageTag = languageTag,
+        centered = true,
         body = buildString {
             val copy = BrowserWebCopy.forLanguage(languageTag)
             append("<main><header><h1>Soma</h1><p>")
@@ -102,7 +103,7 @@ internal object HtmlRenderer {
             } else {
                 append("<ol class=\"list entries\">")
                 entries.forEach { entry ->
-                    append("<li><article class=\"entry\"><p>")
+                    append("<li id=\"e").append(Html.escape(entry.id)).append("\"><article class=\"entry\"><p>")
                     if (entry.transcriptionPending && entry.text.isBlank()) {
                         append("<span class=\"quiet\">").append(Html.escape(copy.transcribing)).append("</span>")
                     } else {
@@ -148,8 +149,9 @@ internal object HtmlRenderer {
                         append("<input type=\"hidden\" name=\"id\" value=\"").append(Html.escape(entry.id)).append("\">")
                         append("<textarea name=\"text\" rows=\"4\" required aria-label=\"")
                         append(Html.escape(copy.editAction)).append("\">").append(Html.escape(entry.text))
-                        append("</textarea><button type=\"submit\">").append(Html.escape(copy.saveAction))
-                        append("</button></form></details>")
+                        append("</textarea><div class=\"actions\"><button type=\"submit\">")
+                        append(Html.escape(copy.saveAction)).append("</button><a href=\"").append(dayPath)
+                        append("\">").append(Html.escape(copy.cancelAction)).append("</a></div></form></details>")
                     }
                     append("</article></li>")
                 }
@@ -409,6 +411,7 @@ internal object HtmlRenderer {
             title = copy.title,
             lightMode = lightMode,
             languageTag = languageTag,
+            centered = true,
             body = buildString {
                 append("<main><header><h1>").append(Html.escape(copy.title)).append("</h1><p>")
                     .append(Html.escape(copy.subtitle)).append("</p></header><p>")
@@ -601,6 +604,7 @@ internal object HtmlRenderer {
         lightMode: Boolean = false,
         languageTag: String = "en",
         active: String = "",
+        centered: Boolean = false,
     ): String = buildString {
         val copy = BrowserWebCopy.forLanguage(languageTag)
         append("<!doctype html><html lang=\"")
@@ -612,7 +616,9 @@ internal object HtmlRenderer {
         append(" · Soma</title><style>")
         append(if (lightMode) LIGHT_THEME else DARK_THEME)
         append(STYLES)
-        append("</style></head><body>")
+        append("</style></head><body")
+        if (centered) append(" class=\"center\"")
+        append('>')
         if (navigation) {
             append("<nav class=\"primary\" aria-label=\"Main\"><a class=\"mark\" href=\"/days\">Soma</a>")
             navLink("/days", copy.days, active == "days")
@@ -638,8 +644,8 @@ internal object HtmlRenderer {
         append("<input type=\"hidden\" name=\"return\" value=\"").append(Html.escape(returnPath)).append("\">")
     }
 
-    private const val DARK_THEME = ":root{color-scheme:dark;--paper:#0a0b0a;--ink:#f4f2ec;--dim:#c8c9c2;--faint:#9a9c93;--line:rgba(244,242,236,.2);--hair:rgba(244,242,236,.12);--edge:rgba(255,255,255,.17);--glass:rgba(14,16,14,.16);--nav:rgba(9,10,9,.42);--forest-opacity:1;--veil:rgba(0,0,0,.26);--shadow:0 1px 3px rgba(0,0,0,.6)}"
-    private const val LIGHT_THEME = ":root{color-scheme:light;--paper:#e7e5dd;--ink:#141410;--dim:#3f403a;--faint:#63645d;--line:rgba(20,20,15,.26);--hair:rgba(20,20,15,.14);--edge:rgba(255,255,255,.55);--glass:rgba(245,244,238,.26);--nav:rgba(240,238,231,.52);--forest-opacity:.58;--veil:rgba(255,255,255,.2);--shadow:0 1px 3px rgba(255,255,255,.55)}"
+    private const val DARK_THEME = ":root{color-scheme:dark;--paper:#0a0b0a;--ink:#f4f2ec;--dim:#c8c9c2;--faint:#9a9c93;--line:rgba(244,242,236,.2);--hair:rgba(244,242,236,.12);--edge:rgba(255,255,255,.17);--glass:rgba(14,16,14,.16);--nav:rgba(9,10,9,.42);--forest-opacity:1;--veil:rgba(0,0,0,.26);--shadow:0 1px 2px rgba(0,0,0,.72),0 0 3px rgba(0,0,0,.5)}"
+    private const val LIGHT_THEME = ":root{color-scheme:light;--paper:#e7e5dd;--ink:#141410;--dim:#3f403a;--faint:#63645d;--line:rgba(20,20,15,.26);--hair:rgba(20,20,15,.14);--edge:rgba(255,255,255,.55);--glass:rgba(245,244,238,.26);--nav:rgba(240,238,231,.52);--forest-opacity:.58;--veil:rgba(255,255,255,.2);--shadow:0 1px 2px rgba(255,255,255,.7),0 0 3px rgba(255,255,255,.5)}"
 
     // A moonlit reading room: warm off-white ink on near-black, the localized
     // forest genuinely present through a frosted reading panel, an editorial type
@@ -661,6 +667,8 @@ internal object HtmlRenderer {
         header p{color:var(--dim);margin:14px 0 0;font-size:12.5px;letter-spacing:.15em;text-transform:uppercase}
         .quiet,small{color:var(--dim)}.back{display:inline-block;margin-bottom:24px;color:var(--dim);text-decoration:none;font-size:14px;letter-spacing:.02em}.back:hover{color:var(--ink)}
         .list{list-style:none;margin:0;padding:0}.list>li{border-bottom:1px solid var(--hair)}
+        .entries>li{scroll-margin-top:20px}.entries>li:target{box-shadow:inset 3px 0 0 var(--ink)}.entries>li:target>.entry{padding-left:15px}
+        body.center main{display:flex;flex-direction:column;justify-content:safe center}
         .row,.entry{display:flex;width:100%;padding:21px 0;justify-content:space-between;gap:22px;align-items:baseline}
         .row{text-decoration:none;margin:0 -8px;padding-left:8px;padding-right:8px;transition:background .14s ease}.row:hover{background:var(--hair)}
         .row strong{font-weight:600;letter-spacing:-.012em}.row small{display:block;margin-top:7px;color:var(--dim);line-height:1.45}
@@ -676,11 +684,12 @@ internal object HtmlRenderer {
         .log-header{display:flex;justify-content:space-between;align-items:baseline;gap:18px;padding:0}.log-header h2{margin:0}.log-header time{color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap;font-size:13.5px}.log-note{margin:12px 0 0!important;color:var(--dim)}.log-parts{list-style:none;margin:16px 0 0;padding:0}.log-parts>li{padding:12px 0;border-top:1px solid var(--hair)}.log-parts small{display:block;margin-top:6px;color:var(--dim)}.receipt-totals{display:grid;grid-template-columns:1fr auto;gap:6px 20px;margin:18px 0 0;padding-top:14px;border-top:1px solid var(--line)}.receipt-totals dt{color:var(--dim)}.receipt-totals dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}.log-footer{display:flex;justify-content:space-between;gap:20px;margin-top:16px;color:var(--faint);font-size:11.5px;letter-spacing:.11em;text-transform:uppercase}.log-footer a{color:var(--faint)}.log-footer a:hover{color:var(--ink)}.log-footer:empty{display:none}
         h2{font-size:23px;margin:32px 0 10px;letter-spacing:-.016em;font-weight:600}.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:22px 16px;margin:6px 0 0}.summary div{min-width:0}.summary dt{color:var(--faint);font-size:11px;letter-spacing:.13em;text-transform:uppercase}.summary dd{font-size:30px;margin:5px 0 0;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
         .connection-graph{display:block;width:100%;height:auto;overflow:visible}.connection-graph circle{fill:var(--ink)}.edge-line{stroke:var(--dim);stroke-width:2}.node-label{fill:var(--ink);font-size:18px;font-weight:bold}.node-detail,.edge-source{fill:var(--dim);font-size:14px}.edge-label{fill:var(--ink);font-size:14px}.connection-graph a{text-decoration:underline}.graph-note{margin-top:18px;color:var(--dim)}
-        form{border-top:1px solid var(--line);padding-top:26px;margin-top:8px}label{display:block;margin-bottom:10px;color:var(--dim);font-size:12.5px;letter-spacing:.14em;text-transform:uppercase}input,button{font:inherit;border:1px solid var(--ink);background:transparent;color:var(--ink);border-radius:0;padding:14px}
+        form{padding-top:22px;margin-top:8px}label{display:block;margin-bottom:10px;color:var(--dim);font-size:12.5px;letter-spacing:.14em;text-transform:uppercase}input,button{font:inherit;border:1px solid var(--ink);background:transparent;color:var(--ink);border-radius:0;padding:14px}
         input{width:100%;letter-spacing:.34em;font-size:20px;text-align:center}input:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible,textarea:focus-visible{outline:2px solid var(--ink);outline-offset:3px}button{width:100%;margin-top:16px;font-weight:600;letter-spacing:.04em;cursor:pointer;background:var(--ink);color:var(--paper)}button:hover{opacity:.9}.message{border:1px solid var(--ink);padding:13px;margin-bottom:20px}
         textarea{width:100%;font:inherit;font-size:17px;line-height:1.5;color:var(--ink);background:var(--hair);border:1px solid var(--line);border-radius:0;padding:13px;resize:vertical;min-height:84px}textarea::placeholder{color:var(--faint)}
         .editor{margin-top:14px}.editor>summary{cursor:pointer;color:var(--dim);font-size:12px;letter-spacing:.13em;text-transform:uppercase;list-style:none}.editor>summary::-webkit-details-marker{display:none}.editor>summary:hover{color:var(--ink)}.editor form{border:none;margin:0;padding:12px 0 0}
         .composer{border-top:1px solid var(--line);padding-top:26px;margin-top:12px}.editor button,.composer button{width:auto;margin-top:12px;padding:11px 26px}
+        .editor .actions{display:flex;align-items:center;gap:20px}.editor .actions a{color:var(--dim);text-decoration:none;font-size:13px}.editor .actions a:hover{color:var(--ink)}
         @media(max-width:520px){body{padding:34px 0 16px;font-size:16.5px}.primary,main{width:calc(100% - 20px)}.primary{padding:13px 20px;gap:4px 18px;margin-bottom:12px}main{padding:26px 20px 38px}.summary{grid-template-columns:repeat(3,1fr)}.log-header{display:block}.log-header time{display:block;margin-top:7px}.log-footer{display:block}.log-footer>*{display:block;margin-top:8px}}
     """
 
@@ -743,6 +752,7 @@ private data class BrowserWebCopy(
     val saveAction: String,
     val addAction: String,
     val addToDay: String,
+    val cancelAction: String,
 ) {
     companion object {
         fun forLanguage(languageTag: String): BrowserWebCopy = when (languageTag.substringBefore('-').lowercase()) {
@@ -761,7 +771,7 @@ private data class BrowserWebCopy(
                 kindTag = "birka", kindDateLink = "datuma saite", kindEntryLink = "ieraksta saite",
                 graphSubtitle = "Vietējie savienojumi · pieci lapā", noConnections = "Vēl nav savienojumu.",
                 previous = "Iepriekšējā", next = "Nākamā",
-                editAction = "labot", saveAction = "saglabāt", addAction = "pievienot", addToDay = "pievienot šai dienai…",
+                editAction = "labot", saveAction = "saglabāt", addAction = "pievienot", addToDay = "pievienot šai dienai…", cancelAction = "atcelt",
             )
             "et" -> BrowserWebCopy(
                 "Päevad", "Oluline", "Logid", "Ülevaade", "Graafik",
@@ -778,7 +788,7 @@ private data class BrowserWebCopy(
                 kindTag = "silt", kindDateLink = "kuupäevalink", kindEntryLink = "kirje link",
                 graphSubtitle = "Kohalikud seosed · viis lehel", noConnections = "Seoseid veel pole.",
                 previous = "Eelmine", next = "Järgmine",
-                editAction = "muuda", saveAction = "salvesta", addAction = "lisa", addToDay = "lisa sellele päevale…",
+                editAction = "muuda", saveAction = "salvesta", addAction = "lisa", addToDay = "lisa sellele päevale…", cancelAction = "tühista",
             )
             "lt" -> BrowserWebCopy(
                 "Dienos", "Svarbu", "Žurnalai", "Įžvalgos", "Grafas",
@@ -795,7 +805,7 @@ private data class BrowserWebCopy(
                 kindTag = "žyma", kindDateLink = "datos nuoroda", kindEntryLink = "įrašo nuoroda",
                 graphSubtitle = "Vietiniai ryšiai · penki puslapyje", noConnections = "Ryšių dar nėra.",
                 previous = "Ankstesnis", next = "Kitas",
-                editAction = "redaguoti", saveAction = "išsaugoti", addAction = "pridėti", addToDay = "pridėti prie šios dienos…",
+                editAction = "redaguoti", saveAction = "išsaugoti", addAction = "pridėti", addToDay = "pridėti prie šios dienos…", cancelAction = "atšaukti",
             )
             "fi" -> BrowserWebCopy(
                 "Päivät", "Tärkeät", "Lokit", "Kooste", "Verkko",
@@ -812,7 +822,7 @@ private data class BrowserWebCopy(
                 kindTag = "tunniste", kindDateLink = "päivämäärälinkki", kindEntryLink = "merkintälinkki",
                 graphSubtitle = "Paikalliset yhteydet · viisi sivulla", noConnections = "Ei vielä yhteyksiä.",
                 previous = "Edellinen", next = "Seuraava",
-                editAction = "muokkaa", saveAction = "tallenna", addAction = "lisää", addToDay = "lisää tähän päivään…",
+                editAction = "muokkaa", saveAction = "tallenna", addAction = "lisää", addToDay = "lisää tähän päivään…", cancelAction = "peruuta",
             )
             "sv" -> BrowserWebCopy(
                 "Dagar", "Viktigt", "Loggar", "Insikter", "Graf",
@@ -829,7 +839,7 @@ private data class BrowserWebCopy(
                 kindTag = "tagg", kindDateLink = "datumlänk", kindEntryLink = "postlänk",
                 graphSubtitle = "Lokala kopplingar · fem per sida", noConnections = "Inga kopplingar än.",
                 previous = "Föregående", next = "Nästa",
-                editAction = "redigera", saveAction = "spara", addAction = "lägg till", addToDay = "lägg till denna dag…",
+                editAction = "redigera", saveAction = "spara", addAction = "lägg till", addToDay = "lägg till denna dag…", cancelAction = "avbryt",
             )
             "de" -> BrowserWebCopy(
                 "Tage", "Wichtig", "Protokolle", "Einblicke", "Graph",
@@ -846,7 +856,7 @@ private data class BrowserWebCopy(
                 kindTag = "Tag", kindDateLink = "Datumsverknüpfung", kindEntryLink = "Eintragsverknüpfung",
                 graphSubtitle = "Lokale Verbindungen · fünf pro Seite", noConnections = "Noch keine Verbindungen.",
                 previous = "Zurück", next = "Weiter",
-                editAction = "bearbeiten", saveAction = "speichern", addAction = "hinzufügen", addToDay = "zu diesem Tag hinzufügen…",
+                editAction = "bearbeiten", saveAction = "speichern", addAction = "hinzufügen", addToDay = "zu diesem Tag hinzufügen…", cancelAction = "abbrechen",
             )
             "sk" -> BrowserWebCopy(
                 "Dni", "Dôležité", "Záznamy", "Prehľad", "Graf",
@@ -863,7 +873,7 @@ private data class BrowserWebCopy(
                 kindTag = "značka", kindDateLink = "odkaz na dátum", kindEntryLink = "odkaz na záznam",
                 graphSubtitle = "Lokálne spojenia · päť na stranu", noConnections = "Zatiaľ žiadne spojenia.",
                 previous = "Predchádzajúca", next = "Ďalšia",
-                editAction = "upraviť", saveAction = "uložiť", addAction = "pridať", addToDay = "pridať k tomuto dňu…",
+                editAction = "upraviť", saveAction = "uložiť", addAction = "pridať", addToDay = "pridať k tomuto dňu…", cancelAction = "zrušiť",
             )
             else -> BrowserWebCopy(
                 "Days", "Important", "Logs", "Insights", "Graph",
@@ -880,7 +890,7 @@ private data class BrowserWebCopy(
                 kindTag = "tag", kindDateLink = "date link", kindEntryLink = "entry link",
                 graphSubtitle = "Local connections · five per page", noConnections = "No connections yet.",
                 previous = "Previous", next = "Next",
-                editAction = "edit", saveAction = "save", addAction = "add", addToDay = "add to this day…",
+                editAction = "edit", saveAction = "save", addAction = "add", addToDay = "add to this day…", cancelAction = "cancel",
             )
         }
     }

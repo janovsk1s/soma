@@ -366,8 +366,12 @@ class ImageResource(
 
 /** Outcome of a write requested through the Browser view. */
 sealed interface BrowserWriteResult {
-    /** The change was applied through the same encrypted, revisioned path the app uses. */
-    data object Success : BrowserWriteResult
+    /**
+     * The change was applied through the same encrypted, revisioned path the app
+     * uses. [anchor], when present, is the id of the affected element so the
+     * page can scroll to and highlight it after the redirect.
+     */
+    data class Success(val anchor: String? = null) : BrowserWriteResult
 
     /** Editing is not supported by this data source; the caller should refuse the write. */
     data object Unavailable : BrowserWriteResult

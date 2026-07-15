@@ -352,11 +352,18 @@ class LanBrowserServer(
             else -> return errorResponse(404, "That action does not exist.")
         }
         return when (result) {
-            BrowserWriteResult.Success -> redirect(safeReturnPath(form["return"]?.singleOrNull()))
+            is BrowserWriteResult.Success -> {
+                val base = safeReturnPath(form["return"]?.singleOrNull())
+                val anchor = result.anchor?.takeIf { it.all(::isAnchorChar) }
+                redirect(if (anchor != null) "$base#$anchor" else base)
+            }
             BrowserWriteResult.Unavailable -> errorResponse(405, "Editing is not available.")
             is BrowserWriteResult.Rejected -> errorResponse(400, result.reason)
         }
     }
+
+    private fun isAnchorChar(c: Char): Boolean =
+        c in 'a'..'z' || c in 'A'..'Z' || c in '0'..'9' || c == '-' || c == '_'
 
     private fun csrfValid(submitted: String?): Boolean {
         val expected = synchronized(lifecycleLock) { csrfToken } ?: return false
