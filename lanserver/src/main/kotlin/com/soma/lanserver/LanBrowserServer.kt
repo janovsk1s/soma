@@ -408,6 +408,23 @@ class LanBrowserServer(
         )
     }
 
+    /**
+     * Decoding a recording for its waveform is much dearer than rendering a
+     * page, so peaks are computed once per audio id and kept for the session.
+     * An empty list remembers a non-WAV or unreadable recording.
+     */
+    private val waveforms = object : LinkedHashMap<String, List<Int>>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<Int>>): Boolean =
+            size > WAVEFORM_CACHE_ENTRIES
+    }
+
+    private fun audioPeaks(audioId: String): List<Int> {
+        synchronized(waveforms) { waveforms[audioId] }?.let { return it }
+        val peaks = dataSource.openAudio(audioId)?.let(WaveformPeaks::compute).orEmpty()
+        synchronized(waveforms) { waveforms[audioId] = peaks }
+        return peaks
+    }
+
     private fun searchResponse(request: HttpRequest): HttpResponse {
         val values = request.query["q"]
         if (values != null && values.size != 1) throw HttpParseException(400, "One query is accepted")
@@ -430,8 +447,14 @@ class LanBrowserServer(
         val page = pageNumber(request)
         val result = dataSource.entriesForDay(date, pageRequest(page))?.bounded()
             ?: return errorResponse(404, "That day does not exist.")
+        val illustrated = result.copy(
+            items = result.items.map { entry ->
+                val peaks = entry.audioId?.let(::audioPeaks)
+                if (peaks.isNullOrEmpty()) entry else entry.copy(audioPeaks = peaks)
+            },
+        )
         val edit = if (config.editEnabled) currentCsrf()?.let(::EditContext) else null
-        return htmlResponse(200, HtmlRenderer.day(date, page, result, config.lightMode, config.languageTag, edit))
+        return htmlResponse(200, HtmlRenderer.day(date, page, illustrated, config.lightMode, config.languageTag, edit))
     }
 
     private fun todosResponse(request: HttpRequest): HttpResponse {
@@ -790,6 +813,7 @@ class LanBrowserServer(
         const val MAX_PAGE_NUMBER = Int.MAX_VALUE / PAGE_SIZE
         const val MAX_SEARCH_QUERY_CHARS = 120
         const val SEARCH_RESULT_LIMIT = 30
+        const val WAVEFORM_CACHE_ENTRIES = 64
         const val FOREST_ASSET_PATH = "/assets/forest.webp"
         val ACCESS_CODE = Regex("[0-9]{6}")
         val ALLOWED_METHODS = setOf("GET", "HEAD", "POST")

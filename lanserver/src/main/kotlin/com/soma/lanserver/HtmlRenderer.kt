@@ -140,6 +140,20 @@ internal object HtmlRenderer {
         },
     )
 
+    /** One monochrome inline path per recording; CSP allows no script player. */
+    private fun StringBuilder.appendWaveform(peaks: List<Int>) {
+        append("<svg class=\"waveform\" viewBox=\"0 0 ").append(peaks.size)
+        append(" 32\" preserveAspectRatio=\"none\" aria-hidden=\"true\"><path vector-effect=\"non-scaling-stroke\" d=\"")
+        peaks.forEachIndexed { index, peak ->
+            val height = peak.coerceIn(1, WaveformPeaks.MAX_HEIGHT)
+            val top = (32 - height) * 5 // tenths of a unit
+            append('M').append(index).append(".5 ")
+            append(top / 10).append('.').append(top % 10)
+            append('v').append(height)
+        }
+        append("\"/></svg>")
+    }
+
     /** Hits link to the page that already renders the item, using its anchor. */
     private fun searchTarget(hit: BrowserSearchHit): String = when (hit.kind) {
         BrowserSearchKind.ENTRY -> "/day/${Html.pathSegment(hit.date.toString())}#e${hit.refId}"
@@ -190,6 +204,7 @@ internal object HtmlRenderer {
                     }
                     append("</p>")
                     if (entry.audioId != null) {
+                        entry.audioPeaks?.takeIf(List<Int>::isNotEmpty)?.let { peaks -> appendWaveform(peaks) }
                         append("<audio controls preload=\"none\" src=\"/audio/")
                         append(Html.pathSegment(entry.audioId))
                         append("\">Audio playback is not supported by this browser.</audio>")
@@ -782,6 +797,7 @@ internal object HtmlRenderer {
         .entry>small{display:block;margin-top:13px;color:var(--faint);font-size:11.5px;letter-spacing:.13em;text-transform:uppercase}
         .history{margin-top:16px}.history summary{cursor:pointer;color:var(--dim);font-size:14px;list-style:none}.history summary::-webkit-details-marker{display:none}.history summary:hover{color:var(--ink)}.history ol{margin:14px 0 0;padding:0 0 0 20px;border-left:1px solid var(--line);list-style:none}.history li{padding:9px 0}.history li p{margin:6px 0 0}
         audio{display:block;width:100%;margin-top:16px;filter:grayscale(1) contrast(1.03);border-radius:0}
+        .waveform{display:block;width:100%;height:34px;margin-top:16px}.waveform path{stroke:var(--dim);stroke-width:1px;fill:none}.waveform+audio{margin-top:6px}
         audio::-webkit-media-controls-enclosure{background:var(--hair);border-radius:0}
         .entry img{display:block;width:100%;height:auto;max-height:68vh;object-fit:contain;margin-top:16px;border:1px solid var(--hair)}.empty{padding:52px 0;color:var(--dim)}
         .pager{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;padding:32px 0 0;margin-top:14px;border-top:1px solid var(--line);align-items:center;color:var(--faint);font-size:14px;font-variant-numeric:tabular-nums}.pager a{color:var(--ink);text-decoration:none}.pager a:hover{text-decoration:underline}.pager>*:last-child{text-align:right}

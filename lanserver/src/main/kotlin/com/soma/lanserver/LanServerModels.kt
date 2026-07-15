@@ -189,6 +189,8 @@ data class BrowserEntry(
     val transcriptionPending: Boolean = false,
     val markedForReturn: Boolean = false,
     val history: List<BrowserEntryVersion> = emptyList(),
+    /** Downsampled waveform heights (1..30) drawn above the audio control. */
+    val audioPeaks: List<Int>? = null,
 )
 
 data class BrowserEntryVersion(

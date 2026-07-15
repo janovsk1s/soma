@@ -56,6 +56,10 @@ class RenderWebviewPreview {
                     text = "Wakey wakey! Mm, jā, man liekas, ir laiks celties. Šodien iešu peldēt. Droši vien. Tomas arī nāks ciemos.",
                     kind = BrowserEntryKind.VOICE,
                     audioId = "a1",
+                    audioPeaks = List(200) { index ->
+                        val wave = kotlin.math.sin(index / 9.0) * kotlin.math.sin(index / 41.0)
+                        (kotlin.math.abs(wave) * 28 + 2).toInt()
+                    },
                     history = listOf(
                         BrowserEntryVersion(1, "Wakey wakey! Šodien iešu peldēt.", Instant.parse("2026-07-15T06:04:00Z"), false),
                         BrowserEntryVersion(2, "Wakey wakey! Mm, jā, man liekas, ir laiks celties. Šodien iešu peldēt. Droši vien. Tomas arī nāks ciemos.", Instant.parse("2026-07-15T06:12:00Z"), true),
