@@ -181,6 +181,38 @@ class DomainModelTest {
         )
     }
 
+    @Test
+    fun `local provenance covers both on-device models and defaults to tiny`() {
+        assertEquals(TranscriptionEngine.LOCAL_WHISPER_TINY, TranscriptionProvenance.local().usedEngine)
+        val base = TranscriptionProvenance.local(TranscriptionEngine.LOCAL_WHISPER_BASE)
+        assertEquals(TranscriptionEngine.LOCAL_WHISPER_BASE, base.requestedEngine)
+        assertEquals(TranscriptionEngine.LOCAL_WHISPER_BASE, base.usedEngine)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `local provenance rejects cloud engines`() {
+        TranscriptionProvenance.local(TranscriptionEngine.GROQ_WHISPER_LARGE_V3)
+    }
+
+    @Test
+    fun `cloud fallback may finish on the downloaded base model`() {
+        val fallback = TranscriptionProvenance(
+            requestedEngine = TranscriptionEngine.GROQ_WHISPER_LARGE_V3_TURBO,
+            usedEngine = TranscriptionEngine.LOCAL_WHISPER_BASE,
+            fallbackReason = TranscriptionFallbackReason.NETWORK_ERROR,
+        )
+        assertEquals(TranscriptionEngine.LOCAL_WHISPER_BASE, fallback.usedEngine)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `a local engine can never be the source of a cloud fallback`() {
+        TranscriptionProvenance(
+            requestedEngine = TranscriptionEngine.LOCAL_WHISPER_BASE,
+            usedEngine = TranscriptionEngine.LOCAL_WHISPER_TINY,
+            fallbackReason = TranscriptionFallbackReason.PROVIDER_ERROR,
+        )
+    }
+
     private fun audio(): AudioAttachment = AudioAttachment(
         fileId = "audio-1",
         format = AudioFormat.WAV,

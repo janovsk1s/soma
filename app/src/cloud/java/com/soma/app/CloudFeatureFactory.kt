@@ -11,12 +11,15 @@ import com.soma.core.model.LogKind
 import com.soma.core.model.TranscriptionFallbackReason
 import com.soma.core.model.NutritionSource
 import com.soma.core.tracking.EuropeanFoodReference
+import com.soma.whisper.LocalWhisperModel
 import com.soma.whisper.TranscribedChunk
 import com.soma.whisper.Transcriber
 import com.soma.whisper.TranscriptionResult
 import com.soma.whisper.VoiceActivityDetector
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
+import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -31,6 +34,7 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -102,6 +106,16 @@ private class AndroidCloudFeatureController(private val context: Context) : Clou
             failureListener = ::recordCloudFailure,
         )
     }
+
+    override fun modelDownloader(): LocalModelDownloader = CloudModelDownloader(
+        store = LocalModelStore(context),
+        networkStatus = NetworkStatus { context.isOnWifi() },
+        // Model downloads are always Wi-Fi-bound, independent of the cloud
+        // wifi-only preference: 57 MB of weights never rides cellular.
+        connectionOpener = CloudConnectionOpener { url ->
+            context.openCloudConnection(url, wifiOnly = true)
+        },
+    )
 
     override suspend fun extractTodoCandidates(text: String): List<String> {
         if (!SomaPrefs.aiTodoSuggestions(context) || text.isBlank()) return emptyList()
@@ -327,8 +341,16 @@ internal class FallbackCloudTranscriber(
         reason: TranscriptionFallbackReason,
     ): TranscriptionResult {
         runCatching { failureListener(reason) }
-        return local().transcribe(samples, sampleRate).copy(
-            provenance = cloudFallbackProvenance(provider, reason, groqModel),
+        // The local factory decides which on-device model runs (tiny, or the
+        // downloaded base); the fallback provenance records what it used.
+        val localResult = local().transcribe(samples, sampleRate)
+        return localResult.copy(
+            provenance = cloudFallbackProvenance(
+                provider,
+                reason,
+                groqModel,
+                usedEngine = localResult.provenance.usedEngine,
+            ),
         )
     }
 
@@ -342,6 +364,104 @@ internal class FallbackCloudTranscriber(
     private companion object {
         const val SAMPLE_RATE = 16_000
     }
+}
+
+/**
+ * Fetches registry model weights over a Wi-Fi-bound connection into the
+ * store's staging file, resuming an interrupted download with a Range request.
+ * The store's pinned SHA-256 promotion is the only path to a loadable file, so
+ * a lying server or a torn transfer can waste bytes but never install weights.
+ *
+ * Lives in this file deliberately: `check_no_outbound_clients.sh` pins every
+ * cloud connection reference to this single reviewed boundary.
+ */
+internal class CloudModelDownloader(
+    private val store: LocalModelStore,
+    private val networkStatus: NetworkStatus,
+    private val connectionOpener: CloudConnectionOpener,
+    private val urlForModel: (LocalWhisperModel) -> URL = ::whisperModelUrl,
+    /** Registry sizing and digest; tests shrink it to avoid 57 MB fixtures. */
+    private val specForModel: (LocalWhisperModel) -> LocalModelSpec = { it.spec },
+) : LocalModelDownloader {
+    override suspend fun download(
+        model: LocalWhisperModel,
+        onProgress: (downloadedBytes: Long, totalBytes: Long) -> Unit,
+    ): File = withContext(Dispatchers.IO) {
+        require(!model.bundled) { "The bundled model is never downloaded" }
+        if (!networkStatus.isOnWifi()) throw ModelWifiRequiredException()
+        val spec = specForModel(model)
+        val partial = store.partialFile(spec)
+        val staged = if (partial.isFile) partial.length() else 0L
+        if (staged < spec.byteCount) {
+            fetch(model, spec, partial, offset = staged, onProgress = onProgress)
+        }
+        store.promotePartial(spec)
+    }
+
+    private suspend fun fetch(
+        model: LocalWhisperModel,
+        spec: LocalModelSpec,
+        partial: File,
+        offset: Long,
+        onProgress: (Long, Long) -> Unit,
+    ) = withContext(Dispatchers.IO) {
+        val connection = connectionOpener.open(urlForModel(model))
+        try {
+            connection.requestMethod = "GET"
+            connection.connectTimeout = MODEL_CONNECT_TIMEOUT_MILLIS
+            connection.readTimeout = MODEL_READ_TIMEOUT_MILLIS
+            connection.setRequestProperty("User-Agent", "Soma/${BuildConfig.VERSION_NAME}")
+            if (offset > 0L) connection.setRequestProperty("Range", "bytes=$offset-")
+            val status = connection.responseCode
+            val append = when {
+                offset > 0L && status == HttpURLConnection.HTTP_PARTIAL -> true
+                status == HttpURLConnection.HTTP_OK -> false
+                else -> {
+                    // Stale stage the server refuses to resume (416 and friends):
+                    // drop it so the next attempt starts clean.
+                    partial.delete()
+                    throw IOException("Model download failed with HTTP $status")
+                }
+            }
+            var downloaded = if (append) offset else 0L
+            connection.inputStream.use { input ->
+                FileOutputStream(partial, append).use { output ->
+                    val buffer = ByteArray(MODEL_COPY_BUFFER_BYTES)
+                    while (true) {
+                        ensureActive()
+                        val read = input.read(buffer)
+                        if (read < 0) break
+                        downloaded += read
+                        if (downloaded > spec.byteCount) {
+                            partial.delete()
+                            throw ModelVerificationException()
+                        }
+                        output.write(buffer, 0, read)
+                        onProgress(downloaded, spec.byteCount)
+                    }
+                }
+            }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private companion object {
+        const val MODEL_CONNECT_TIMEOUT_MILLIS = 20_000
+        const val MODEL_READ_TIMEOUT_MILLIS = 90_000
+        const val MODEL_COPY_BUFFER_BYTES = 64 * 1024
+    }
+}
+
+/**
+ * Weights come from the same reviewed whisper.cpp artifact repository the
+ * bundled tiny model was fetched from; the pinned digest, not the URL, is the
+ * trust anchor.
+ */
+internal fun whisperModelUrl(model: LocalWhisperModel): URL = when (model) {
+    LocalWhisperModel.BASE ->
+        URL("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin")
+    LocalWhisperModel.TINY -> error("The bundled model has no download URL")
 }
 
 internal data class CloudTranscript(val text: String, val languageCode: String)

@@ -57,6 +57,7 @@ import com.soma.core.model.Todo
 import com.soma.core.model.TranscriptionEngine
 import com.soma.core.model.TranscriptionFallbackReason
 import com.soma.core.model.TranscriptionProvenance
+import com.soma.core.model.isLocal
 import com.soma.core.policy.StillOpenPolicy
 import com.soma.core.policy.StillOpenTarget
 import com.soma.core.tracking.InlineTrackingSuggestionDetector
@@ -544,14 +545,15 @@ private fun transcriptionSourceLabel(provenance: TranscriptionProvenance?): Stri
     if (provenance == null) return stringResource(R.string.transcription_source_unknown)
     val requested = when (provenance.requestedEngine) {
         TranscriptionEngine.LOCAL_WHISPER_TINY -> stringResource(R.string.transcription_engine_local)
+        TranscriptionEngine.LOCAL_WHISPER_BASE -> stringResource(R.string.transcription_engine_local_base)
         TranscriptionEngine.ELEVENLABS_SCRIBE_V2 -> stringResource(R.string.transcription_engine_elevenlabs)
         TranscriptionEngine.GROQ_WHISPER_LARGE_V3_TURBO ->
             stringResource(R.string.transcription_engine_groq_turbo)
         TranscriptionEngine.GROQ_WHISPER_LARGE_V3 -> stringResource(R.string.transcription_engine_groq)
     }
     return when (provenance.fallbackReason) {
-        null -> if (provenance.usedEngine == TranscriptionEngine.LOCAL_WHISPER_TINY) {
-            stringResource(R.string.transcription_source_local)
+        null -> if (provenance.usedEngine.isLocal) {
+            stringResource(R.string.transcription_source_local_model, requested)
         } else {
             stringResource(R.string.transcription_source_cloud, requested)
         }

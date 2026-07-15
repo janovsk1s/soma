@@ -497,6 +497,7 @@ class ReadableArchiveExporter {
 
     private fun engineLabel(engine: TranscriptionEngine): String = when (engine) {
         TranscriptionEngine.LOCAL_WHISPER_TINY -> "local Whisper tiny"
+        TranscriptionEngine.LOCAL_WHISPER_BASE -> "local Whisper base"
         TranscriptionEngine.ELEVENLABS_SCRIBE_V2 -> "ElevenLabs Scribe v2"
         TranscriptionEngine.GROQ_WHISPER_LARGE_V3_TURBO -> "Groq Whisper Large v3 Turbo"
         TranscriptionEngine.GROQ_WHISPER_LARGE_V3 -> "Groq Whisper Large v3"

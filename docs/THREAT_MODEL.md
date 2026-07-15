@@ -80,6 +80,18 @@ manifest and data-extraction rules. Audio lives under `noBackupFilesDir`. The
 developer demo repository is entirely in memory and does not open Room or audio
 files.
 
+Downloadable Whisper model weights are deliberately stored as plaintext files
+in the app-private no-backup `models/` directory. They are public, reviewed
+artifacts identical for every user — encrypting them would protect nothing and
+would cost battery on every load. What is enforced is integrity and provenance:
+a file becomes loadable only after matching the exact size and SHA-256 pinned
+in the source-code registry, whether it arrived over the cloud flavor's
+Wi-Fi-bound download or through the system file picker, and a mismatch deletes
+the staged bytes rather than retrying them into acceptance. User notes, audio,
+and transcripts never enter the models directory, and deleting a model from
+Settings removes its bytes while the bundled tiny model keeps transcription
+working.
+
 ## Portable backups
 
 The backup key is derived with PBKDF2-HMAC-SHA256, 600,000 iterations, a fresh
@@ -111,9 +123,12 @@ into live rows.
 
 The `browser` and `purist` runtime dependency graphs contain no HTTP client. There is no
 OkHttp, Retrofit, Volley, Cronet, Ktor client, Apache HTTP client, analytics SDK,
-or crash reporter. The transcription engine and its fixed model are bundled in
-the APK; no model or language data is downloaded. WorkManager jobs do not ask
-for network connectivity.
+or crash reporter. The transcription engine and its tiny model are bundled in
+the APK; these flavors never download model or language data. The optional
+larger Whisper model reaches them only through the system file picker, where
+the app verifies the picked file against the registry SHA-256 pinned in source
+before accepting it — an import with no network code involved. WorkManager
+jobs do not ask for network connectivity.
 
 The `INTERNET` permission is broad at the Android OS level—it cannot express
 “listen only.” In the `browser` flavor, architecture supplies the narrower
@@ -135,7 +150,10 @@ are encrypted with AES-256-GCM under the separate non-exportable Keystore alias
 from the screen. Provider requests use the phone's active connection, including
 cellular, by default; the optional Wi-Fi-only Developer setting opens provider
 connections through Android's concrete Wi-Fi `Network`, preventing a cellular
-default route from carrying them. Audio is split locally on silence
+default route from carrying them. The in-app Whisper model download is always
+opened through the Wi-Fi `Network`, independent of that setting, resumes with
+Range requests, and installs nothing until the completed file matches the
+registry's pinned SHA-256. Audio is split locally on silence
 for Groq requests; ElevenLabs receives the complete recording so Scribe v2 can
 retain language context across pauses. AI Important extraction sends only the new or
 edited entry and still creates a suggestion requiring a tap, never an item.
@@ -257,7 +275,11 @@ battery-saver preference, uses leases/retries, and clears sample arrays after
 use. Energy-based VAD creates pause-separated chunks so Whisper performs
 language detection per utterance. Tiny Q5 is deliberately small and may be
 wrong, particularly during dense mid-sentence code-switching; editable text is
-the recovery path, not a cloud fallback.
+the recovery path, not a cloud fallback. The optional base Q5 model roughly
+halves tiny's error rate at about three times the compute and is never
+load-bearing: if its file is missing or damaged when a job runs, the bundled
+tiny model transcribes instead and provenance records which engine actually
+ran.
 
 Rule-based Important detection operates on plaintext in process and stores encrypted
 suggestions. A match never creates an item without the user's tap. False positives

@@ -20,7 +20,10 @@ data class LocalTranscriptionProfile(
     }
 
     companion object {
-        fun forDevice(context: Context): LocalTranscriptionProfile {
+        fun forDevice(
+            context: Context,
+            model: LocalWhisperModel = LocalWhisperModel.TINY,
+        ): LocalTranscriptionProfile {
             val activity = context.getSystemService(ActivityManager::class.java)
             val memory = ActivityManager.MemoryInfo().also { activity?.getMemoryInfo(it) }
             return selectLocalTranscriptionProfile(
@@ -28,6 +31,7 @@ data class LocalTranscriptionProfile(
                 totalMemoryMb = memory.totalMem / BYTES_PER_MEBIBYTE,
                 lowRam = activity?.isLowRamDevice == true,
                 lightPhone = isLightPhone(),
+                model = model,
             )
         }
 
@@ -45,9 +49,10 @@ internal fun selectLocalTranscriptionProfile(
     totalMemoryMb: Long,
     lowRam: Boolean,
     lightPhone: Boolean,
+    model: LocalWhisperModel = LocalWhisperModel.TINY,
 ): LocalTranscriptionProfile {
     val cores = processors.coerceAtLeast(1)
-    return when {
+    val tiny = when {
         lightPhone || lowRam || cores <= 4 || totalMemoryMb < 3_000L -> LocalTranscriptionProfile(
             quality = LocalDecodingQuality.EFFICIENT,
             threadCount = (cores - 1).coerceIn(1, 3),
@@ -65,6 +70,24 @@ internal fun selectLocalTranscriptionProfile(
             threadCount = (cores - 1).coerceIn(3, 4),
             beamSize = 3,
             greedyBestOf = 3,
+        )
+    }
+    if (model == LocalWhisperModel.TINY) return tiny
+    // Base is roughly three times tiny's compute. Spend the extra accuracy the
+    // larger encoder already brings and buy wall-clock time back from the
+    // decoder: narrower or greedy search, one more thread where cores allow.
+    return when (tiny.quality) {
+        LocalDecodingQuality.EFFICIENT -> tiny.copy(
+            threadCount = (cores - 1).coerceIn(1, 4),
+            beamSize = 0,
+            greedyBestOf = 1,
+        )
+        LocalDecodingQuality.BALANCED -> tiny.copy(
+            beamSize = 0,
+            greedyBestOf = 2,
+        )
+        LocalDecodingQuality.ACCURATE -> tiny.copy(
+            beamSize = 3,
         )
     }
 }

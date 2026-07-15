@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.soma.core.model.SupportedLanguage
 import com.soma.core.model.TranscriptionFallbackReason
+import com.soma.whisper.LocalWhisperModel
 
 private enum class SettingsAction {
     VIBRATION,
@@ -47,6 +48,7 @@ private enum class SettingsAction {
     TRANSCRIPTION,
     SPEECH_LANGUAGES,
     TRANSCRIPTION_VOCABULARY,
+    LOCAL_MODEL,
     DELETED,
     BACKUP,
     BROWSER,
@@ -57,6 +59,7 @@ private enum class SettingsAction {
 fun SettingsScreen(
     onSpeechLanguages: () -> Unit,
     onTranscriptionVocabulary: () -> Unit,
+    onLocalModel: () -> Unit,
     deletedCount: Int,
     onDeleted: () -> Unit,
     onBackup: () -> Unit,
@@ -71,6 +74,7 @@ fun SettingsScreen(
     var transcription by remember { mutableStateOf(SomaPrefs.transcription(context)) }
     val spoken = SomaPrefs.speechLanguages(context)
     val vocabularyCount = remember { TranscriptionVocabularyStore(context).read().size }
+    val localModel = remember { resolveLocalWhisperModel(context, LocalModelStore(context)) }
     val notificationPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -88,6 +92,7 @@ fun SettingsScreen(
                         SettingsAction.TRANSCRIPTION -> stringResource(R.string.settings_transcription)
                         SettingsAction.SPEECH_LANGUAGES -> stringResource(R.string.settings_speech_languages)
                         SettingsAction.TRANSCRIPTION_VOCABULARY -> stringResource(R.string.settings_transcription_vocabulary)
+                        SettingsAction.LOCAL_MODEL -> stringResource(R.string.settings_local_model)
                         SettingsAction.DELETED -> stringResource(R.string.deleted_items)
                         SettingsAction.BACKUP -> stringResource(R.string.settings_backup)
                         SettingsAction.BROWSER -> stringResource(R.string.settings_browser)
@@ -105,6 +110,12 @@ fun SettingsScreen(
                                     .joinToString(" ") { it.languageTag }
                             }
                         SettingsAction.TRANSCRIPTION_VOCABULARY -> vocabularyCount.takeIf { it > 0 }?.toString()
+                        SettingsAction.LOCAL_MODEL -> stringResource(
+                            when (localModel) {
+                                LocalWhisperModel.TINY -> R.string.local_model_name_tiny
+                                LocalWhisperModel.BASE -> R.string.local_model_name_base
+                            },
+                        )
                         SettingsAction.DELETED -> deletedCount.takeIf { it > 0 }?.toString()
                         else -> null
                     },
@@ -132,6 +143,7 @@ fun SettingsScreen(
                             }
                             SettingsAction.SPEECH_LANGUAGES -> onSpeechLanguages()
                             SettingsAction.TRANSCRIPTION_VOCABULARY -> onTranscriptionVocabulary()
+                            SettingsAction.LOCAL_MODEL -> onLocalModel()
                             SettingsAction.DELETED -> onDeleted()
                             SettingsAction.BACKUP -> onBackup()
                             SettingsAction.BROWSER -> onBrowser()

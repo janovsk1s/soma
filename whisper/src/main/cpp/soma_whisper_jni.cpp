@@ -111,6 +111,30 @@ Java_com_soma_whisper_WhisperNative_createContext(
     return reinterpret_cast<jlong>(context);
 }
 
+extern "C" JNIEXPORT jlong JNICALL
+Java_com_soma_whisper_WhisperNative_createContextFromFile(
+    JNIEnv *env,
+    jobject,
+    jstring java_model_path
+) {
+    configure_logging();
+    const char *model_path = env->GetStringUTFChars(java_model_path, nullptr);
+    if (model_path == nullptr) {
+        throw_java(env, "Could not read the model path");
+        return 0;
+    }
+    whisper_context_params params = whisper_context_default_params();
+    params.use_gpu = false;
+    params.flash_attn = false;
+    whisper_context *context = whisper_init_from_file_with_params(model_path, params);
+    env->ReleaseStringUTFChars(java_model_path, model_path);
+    if (context == nullptr) {
+        throw_java(env, "Could not load the Whisper model file");
+        return 0;
+    }
+    return reinterpret_cast<jlong>(context);
+}
+
 namespace {
 
 // Restricts tiny-model language identification to the app's supported set.
