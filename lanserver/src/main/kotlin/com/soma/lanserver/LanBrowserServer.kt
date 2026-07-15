@@ -698,29 +698,17 @@ class LanBrowserServer(
 
     private fun errorResponse(
         status: Int,
-        message: String,
+        // Kept for call-site readability; the rendered page is localized by
+        // status, so the specific English message is not shown.
+        @Suppress("UNUSED_PARAMETER") message: String,
         extraHeaders: Map<String, String> = emptyMap(),
     ): HttpResponse {
-        val title = when (status) {
-            400 -> "Bad request"
-            401 -> "Access required"
-            404 -> "Not found"
-            405 -> "Read only"
-            413 -> "Request too large"
-            415 -> "Unsupported form"
-            416 -> "Range unavailable"
-            421 -> "Wrong host"
-            429 -> "Browser view stopped"
-            431 -> "Headers too large"
-            505 -> "HTTP version unsupported"
-            else -> "Something went wrong"
-        }
         val headers = linkedMapOf("Content-Type" to "text/html; charset=utf-8")
         headers.putAll(extraHeaders)
         return secureResponse(
             status,
             headers,
-            ResponseBody.text(HtmlRenderer.error(status, title, message, config.lightMode)),
+            ResponseBody.text(HtmlRenderer.error(status, config.lightMode, config.languageTag)),
         )
     }
 

@@ -134,7 +134,7 @@ class RenderWebviewPreview {
         write("07-graph", HtmlRenderer.graph(1, graph, languageTag = lang))
 
         write("08-export", HtmlRenderer.export(languageTag = lang))
-        write("09-error", HtmlRenderer.error(404, "Not found", "That page does not exist.", lightMode = false))
+        write("09-error", HtmlRenderer.error(404, lightMode = false, languageTag = lang))
 
         // Light-mode variants of the two busiest pages.
         write("10-day-light", HtmlRenderer.day(today, 1, entries, lightMode = true, languageTag = lang))

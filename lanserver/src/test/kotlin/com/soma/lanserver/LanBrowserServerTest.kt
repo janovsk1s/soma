@@ -210,7 +210,7 @@ class LanBrowserServerTest {
             contentType = "application/x-www-form-urlencoded",
         )
         assertEquals(401, reusedCode.status)
-        assertTrue(reusedCode.text.contains("expired"))
+        assertTrue(reusedCode.text.contains("fresh access code"))
     }
 
     @Test
