@@ -80,6 +80,76 @@ class CloudVisionModelFallbackTest {
     }
 
     @Test
+    fun `a photo rate limit with a short wait pauses once and retries smaller`() {
+        val opener = ScriptedOpener(
+            429 to """{"error":{"code":"rate_limit_exceeded"}}""",
+            200 to proposal("item: piens | 1 | 1.09"),
+        ).withHeaders(mapOf("Retry-After" to "7"), emptyMap())
+        val pauses = mutableListOf<Long>()
+
+        val result = runBlocking {
+            CloudHttp.extractTrackingText(
+                "key", LogKind.RECEIPT, "čeks", JPEG, opener,
+                onRateLimitPause = { pauses += it },
+                shrinkImage = { "tiny".toByteArray() },
+            )
+        }
+
+        assertEquals("item: piens | 1 | 1.09", result)
+        assertEquals(listOf(7L), pauses)
+        assertEquals(2, opener.connections.size)
+        // The retry carries the smaller render, not the original image.
+        val retryImage = opener.requestBodies()[1]
+            .getJSONArray("messages").getJSONObject(1)
+            .getJSONArray("content").getJSONObject(1)
+            .getJSONObject("image_url").getString("url")
+        assertTrue(retryImage.endsWith(android.util.Base64.encodeToString("tiny".toByteArray(), android.util.Base64.NO_WRAP)))
+    }
+
+    @Test
+    fun `a long provider wait surfaces the rate limit without retrying`() {
+        val opener = ScriptedOpener(429 to """{"error":{"code":"rate_limit_exceeded"}}""")
+            .withHeaders(mapOf("Retry-After" to "3600"))
+        val pauses = mutableListOf<Long>()
+
+        try {
+            runBlocking {
+                CloudHttp.extractTrackingText(
+                    "key", LogKind.RECEIPT, "čeks", JPEG, opener,
+                    onRateLimitPause = { pauses += it },
+                    shrinkImage = { it },
+                )
+            }
+            fail("Expected the rate limit to surface")
+        } catch (error: CloudProviderException) {
+            assertEquals(TranscriptionFallbackReason.RATE_LIMITED, error.fallbackReason)
+        }
+        assertTrue(pauses.isEmpty())
+        assertEquals(1, opener.connections.size)
+    }
+
+    @Test
+    fun `text-only rate limits never pause or retry`() {
+        val opener = ScriptedOpener(429 to """{"error":{"code":"rate_limit_exceeded"}}""")
+            .withHeaders(mapOf("Retry-After" to "5"))
+        val pauses = mutableListOf<Long>()
+
+        try {
+            runBlocking {
+                CloudHttp.extractTrackingText(
+                    "key", LogKind.MEAL, "pusdienas", null, opener,
+                    onRateLimitPause = { pauses += it },
+                )
+            }
+            fail("Expected the rate limit to surface")
+        } catch (error: CloudProviderException) {
+            assertEquals(TranscriptionFallbackReason.RATE_LIMITED, error.fallbackReason)
+        }
+        assertTrue(pauses.isEmpty())
+        assertEquals(1, opener.connections.size)
+    }
+
+    @Test
     fun `the text path has a single model and no chain`() {
         val opener = ScriptedOpener(404 to MODEL_GONE)
 
@@ -105,6 +175,7 @@ class CloudVisionModelFallbackTest {
         url: URL,
         private val status: Int,
         private val body: String,
+        private val responseHeaders: Map<String, String> = emptyMap(),
     ) : HttpURLConnection(url) {
         val written = ByteArrayOutputStream()
 
@@ -115,16 +186,24 @@ class CloudVisionModelFallbackTest {
         override fun getResponseCode(): Int = status
         override fun getInputStream(): InputStream = body.byteInputStream()
         override fun getErrorStream(): InputStream = body.byteInputStream()
+        override fun getHeaderField(name: String): String? = responseHeaders[name]
     }
 
     private class ScriptedOpener(vararg responses: Pair<Int, String>) : CloudConnectionOpener {
         private val script = responses.toMutableList()
+        private val headers = mutableListOf<Map<String, String>>()
         val connections = mutableListOf<FakeConnection>()
+
+        fun withHeaders(vararg perResponse: Map<String, String>): ScriptedOpener {
+            headers += perResponse
+            return this
+        }
 
         override fun open(url: URL): HttpURLConnection {
             check(script.isNotEmpty()) { "No scripted response left for $url" }
             val (status, body) = script.removeAt(0)
-            return FakeConnection(url, status, body).also(connections::add)
+            val responseHeaders = if (headers.isEmpty()) emptyMap() else headers.removeAt(0)
+            return FakeConnection(url, status, body, responseHeaders).also(connections::add)
         }
 
         fun requestBodies(): List<JSONObject> =

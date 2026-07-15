@@ -52,7 +52,13 @@ and 20 candidates, and emits at most one bounded list block.
 - Optional cloud photo analysis uses a correctly oriented temporary JPEG bounded
   to 2,048 pixels and 4 MiB. The encrypted original is never recompressed or
   replaced; bounding only the disposable request reduces cellular transfer,
-  provider latency, and peak memory.
+  provider latency, and peak memory. Receipt scans use a tighter ~1.4-megapixel
+  area budget — vision models charge input tokens per pixel patch, and a
+  narrow high-contrast receipt stays readable at a third of the general token
+  cost, which keeps free provider tiers usable. When a photo request is
+  rate-limited and the provider names a short wait, the explicit user-triggered
+  proposal pauses exactly that long and retries once with a half-area render;
+  ambient features never retry.
 - Browser-view forest backgrounds are eight bundled WebP files totaling under
   1 MiB. One is selected per session and served directly from memory; there is no
   remote image fetch, image decoding on the phone, or session-to-session cache file.
