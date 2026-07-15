@@ -234,6 +234,10 @@
     <string name="add_entry">Neuer Eintrag</string>
     <string name="calendar_title">Kalender</string>
     <string name="search_title">Suche</string>
+    <string name="hint_hold_to_speak">Zeile halten, um zu sprechen</string>
+    <string name="hint_hold_for_photo">+ halten für ein Foto</string>
+    <string name="hint_tap_date_calendar">Datum antippen, um zurückzublicken</string>
+    <string name="delete_forever_confirm">erneut tippen, um endgültig zu löschen</string>
     <string name="search_hint">Wort oder Phrase</string>
     <string name="search_action">suchen</string>
     <string name="search_empty">Nichts gefunden.</string>

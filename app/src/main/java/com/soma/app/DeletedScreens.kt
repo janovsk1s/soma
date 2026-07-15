@@ -12,6 +12,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -103,6 +107,9 @@ fun DeletedItemOptionsScreen(
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
+    // Purging is the one irreversible act in Soma, so it takes a second,
+    // clearly-worded tap; leaving the screen disarms the confirmation.
+    var confirmPurge by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding().padding(horizontal = 28.dp)) {
         SimpleTopBar(stringResource(R.string.deleted_item), onBack)
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -112,11 +119,14 @@ fun DeletedItemOptionsScreen(
                         busy -> stringResource(R.string.working)
                         failed -> stringResource(R.string.delete_action_failed)
                         action == DeletedAction.RESTORE -> stringResource(R.string.restore_deleted_item)
+                        confirmPurge -> stringResource(R.string.delete_forever_confirm)
                         else -> stringResource(R.string.delete_forever)
                     },
                     onClick = if (busy) null else when (action) {
                         DeletedAction.RESTORE -> onRestore
-                        DeletedAction.PURGE -> onPurge
+                        DeletedAction.PURGE -> {
+                            { if (confirmPurge) onPurge() else confirmPurge = true }
+                        }
                     },
                 )
             }

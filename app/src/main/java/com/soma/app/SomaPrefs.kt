@@ -32,6 +32,23 @@ object SomaPrefs {
 
     private fun values(context: Context) = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
+    /**
+     * One quiet inline hint per hidden gesture, each retiring forever the first
+     * time its gesture is actually used. Never a popup, never repeated.
+     */
+    enum class GestureHint { VOICE, PHOTO, CALENDAR }
+
+    fun nextGestureHint(context: Context): GestureHint? =
+        GestureHint.entries.firstOrNull { hint ->
+            !values(context).getBoolean(gestureHintKey(hint), false)
+        }
+
+    fun markGestureHintUsed(context: Context, hint: GestureHint) {
+        values(context).edit().putBoolean(gestureHintKey(hint), true).apply()
+    }
+
+    private fun gestureHintKey(hint: GestureHint) = "gesture_hint_used_" + hint.name.lowercase()
+
     fun vibration(context: Context): Boolean = values(context).getBoolean(KEY_VIBRATION, true)
     fun setVibration(context: Context, enabled: Boolean) =
         values(context).edit().putBoolean(KEY_VIBRATION, enabled).apply()

@@ -234,6 +234,10 @@
     <string name="add_entry">Ny anteckning</string>
     <string name="calendar_title">Kalender</string>
     <string name="search_title">Sök</string>
+    <string name="hint_hold_to_speak">håll raden för att tala</string>
+    <string name="hint_hold_for_photo">håll + för ett foto</string>
+    <string name="hint_tap_date_calendar">tryck på datumet för att se tillbaka</string>
+    <string name="delete_forever_confirm">tryck igen för att ta bort för alltid</string>
     <string name="search_hint">ord eller fras</string>
     <string name="search_action">sök</string>
     <string name="search_empty">Inget hittades.</string>

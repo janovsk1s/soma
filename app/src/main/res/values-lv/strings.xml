@@ -234,6 +234,10 @@
     <string name="add_entry">Jauns ieraksts</string>
     <string name="calendar_title">Kalendārs</string>
     <string name="search_title">Meklēšana</string>
+    <string name="hint_hold_to_speak">turi rindu, lai ierunātu</string>
+    <string name="hint_hold_for_photo">turi +, lai nofotografētu</string>
+    <string name="hint_tap_date_calendar">pieskaries datumam, lai atskatītos</string>
+    <string name="delete_forever_confirm">pieskaries vēlreiz, lai dzēstu pavisam</string>
     <string name="search_hint">vārds vai frāze</string>
     <string name="search_action">meklēt</string>
     <string name="search_empty">Nekas netika atrasts.</string>

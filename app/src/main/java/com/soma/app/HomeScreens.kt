@@ -220,8 +220,9 @@ fun HomeScreen(
                 )
             }
         }
+        val context = LocalContext.current
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 18.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val idleLabel = stringResource(
@@ -240,7 +241,10 @@ fun HomeScreen(
                 },
                 onLongPress = {
                     when (recordingUiState) {
-                        RecordingUiState.Idle -> photoComment?.let(onPhotoCommentRecord) ?: onRecordRequested()
+                        RecordingUiState.Idle -> {
+                            SomaPrefs.markGestureHintUsed(context, SomaPrefs.GestureHint.VOICE)
+                            photoComment?.let(onPhotoCommentRecord) ?: onRecordRequested()
+                        }
                         RecordingUiState.Starting, is RecordingUiState.Recording -> viewModel.stopRecording()
                         RecordingUiState.Saving -> Unit
                     }
@@ -254,6 +258,7 @@ fun HomeScreen(
                         onCapture()
                     },
                     onLongClick = {
+                        SomaPrefs.markGestureHintUsed(context, SomaPrefs.GestureHint.PHOTO)
                         viewModel.clearPhotoCommentPrompt()
                         onPhotoRequested()
                     },
@@ -267,7 +272,32 @@ fun HomeScreen(
                 )
             }
         }
+        GestureHintLine(recordingUiState)
     }
+}
+
+/**
+ * One dim line naming the next undiscovered gesture, gone forever once that
+ * gesture has been used. Keyed on the recording state so it re-reads after a
+ * voice note retires the first hint.
+ */
+@Composable
+private fun GestureHintLine(recordingUiState: RecordingUiState) {
+    val context = LocalContext.current
+    val hint = remember(recordingUiState) { SomaPrefs.nextGestureHint(context) }
+    Text(
+        text = when (hint) {
+            SomaPrefs.GestureHint.VOICE -> stringResource(R.string.hint_hold_to_speak)
+            SomaPrefs.GestureHint.PHOTO -> stringResource(R.string.hint_hold_for_photo)
+            SomaPrefs.GestureHint.CALENDAR -> stringResource(R.string.hint_tap_date_calendar)
+            null -> ""
+        },
+        color = DimInk.copy(alpha = 0.75f),
+        fontSize = 12.sp,
+        lineHeight = 14.sp,
+        maxLines = 1,
+        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+    )
 }
 
 @Composable
