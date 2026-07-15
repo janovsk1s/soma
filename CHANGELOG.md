@@ -46,12 +46,11 @@ Notable changes to Soma are documented here.
 
 ### Fixed
 
-- Receipt scans are far kinder to free provider tiers. The photo sent for a
-  receipt proposal now uses a tighter pixel budget (vision models charge
-  tokens per pixel, so this roughly triples how many scans fit in a
-  per-minute budget), and when the provider still answers "rate limited"
-  with a short wait, the scan waits exactly that long and retries once with
-  a smaller render instead of silently giving up.
+- Receipt and photo proposals survive free-tier rate limits. When the
+  provider answers "rate limited" and names a short wait, the scan pauses
+  exactly that long and retries once at the same full quality instead of
+  silently giving up — per-minute budgets usually roll over within seconds.
+  The image is never downscaled; accuracy is not traded for quota.
 - Receipts with printed deductions now parse honestly. Discounts and deposit
   refunds ("NIMM MEHR −0,50", Pfand returns, the trailing-minus style some
   registers print) used to lose their sign and be added as positive charges;
