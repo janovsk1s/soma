@@ -174,6 +174,43 @@ class RenderWebviewPreview {
         write("12-search", HtmlRenderer.search("jāni", searchHits, languageTag = lang))
         write("12-search-empty", HtmlRenderer.search("kaktuss", emptyList(), languageTag = lang))
 
+        val workbookPrompt = BrowserWorkbookState.Prompt(
+            BrowserWorkbookPrompt(
+                workbookTitle = "Mans mazais darba burtnīcas paraugs",
+                heading = "3. diena · Enerģija — kas dod spēku?",
+                quote = "Ko tu atkārto katru dienu, tas kļūst par tavu virzienu.",
+                questions = listOf(
+                    "Kuras nodarbes tevi uzlādē?",
+                    "Kuri cilvēki tev dara labu?",
+                    "No kā šodien vari atteikties, lai taupītu spēku?",
+                ),
+                exercise = "Ieplāno šodien 10 minūtes vienai lietai, kas tevi stiprina.",
+                position = 3,
+                sectionCount = 25,
+            ),
+        )
+        write(
+            "13-workbook-setup",
+            HtmlRenderer.workbook(
+                BrowserWorkbookState.None, languageTag = lang,
+                edit = EditContext("preview-csrf"), today = today,
+            ),
+        )
+        write(
+            "13-workbook-prompt",
+            HtmlRenderer.workbook(
+                workbookPrompt, languageTag = lang,
+                edit = EditContext("preview-csrf"), today = today,
+            ),
+        )
+        write(
+            "13-workbook-finished",
+            HtmlRenderer.workbook(
+                BrowserWorkbookState.Finished("Mans mazais darba burtnīcas paraugs", 25),
+                languageTag = lang, edit = EditContext("preview-csrf"), today = today,
+            ),
+        )
+
         // Light-mode variants of the two busiest pages.
         write("10-day-light", HtmlRenderer.day(today, 1, entries, lightMode = true, languageTag = lang))
         write("11-logs-light", HtmlRenderer.logs(BrowserLogFilter.MEALS, 1, logs, lightMode = true, languageTag = lang))

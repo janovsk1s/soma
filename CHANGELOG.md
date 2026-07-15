@@ -6,6 +6,16 @@ Notable changes to Soma are documented here.
 
 ### Added
 
+- Workbooks in the Browser view. A new /workbook page imports a guided
+  journaling programme — a friend's 25-day workbook, or anything in the tiny
+  documented text format — by pasting it as plain text. The page shows the
+  next unanswered day's prompt with a factual "3 · 25" position, and the
+  answer becomes an ordinary entry for today, linked back to its prompt.
+  There are no streaks and no missed days: a skipped prompt simply stays
+  next, which is also what the format's paper ancestors intend. The workbook
+  text is encrypted at rest and never enters backups; answers and their links
+  are ordinary user data and always were.
+
 - A downloadable, deletable local Whisper *base* model (~57 MB, roughly half
   tiny's error rate, the biggest gain on exactly the languages that need it) —
   better transcription with no cloud key and no privacy trade. Settings →

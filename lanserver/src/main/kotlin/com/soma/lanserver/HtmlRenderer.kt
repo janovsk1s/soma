@@ -140,6 +140,105 @@ internal object HtmlRenderer {
         },
     )
 
+    /**
+     * The imported workbook's next unanswered prompt, or the paste-to-import
+     * form when none exists. Progress is a factual position ("3 · 25") — no
+     * streaks, no missed days; a skipped prompt simply stays next.
+     */
+    fun workbook(
+        state: BrowserWorkbookState,
+        lightMode: Boolean = false,
+        languageTag: String = "en",
+        edit: EditContext? = null,
+        today: LocalDate? = null,
+        importError: Boolean = false,
+    ): String = page(
+        title = "Workbook",
+        lightMode = lightMode,
+        languageTag = languageTag,
+        active = "workbook",
+        body = buildString {
+            val copy = BrowserWebCopy.forLanguage(languageTag)
+            append("<main><header><h1>").append(Html.escape(copy.workbook)).append("</h1><p>")
+            when (state) {
+                BrowserWorkbookState.None -> append(Html.escape(copy.workbookIntro))
+                is BrowserWorkbookState.Prompt ->
+                    append(state.prompt.position).append(" · ").append(state.prompt.sectionCount)
+                is BrowserWorkbookState.Finished ->
+                    append(state.sectionCount).append(" · ").append(state.sectionCount)
+            }
+            append("</p></header>")
+            if (importError) {
+                append("<p class=\"message\" role=\"alert\">")
+                append(Html.escape(copy.workbookImportError)).append("</p>")
+            }
+            when (state) {
+                BrowserWorkbookState.None ->
+                    if (edit != null) {
+                        appendWorkbookImportForm(copy, edit, summary = null)
+                    } else {
+                        append("<p class=\"empty\">").append(Html.escape(copy.nothingHere)).append("</p>")
+                    }
+                is BrowserWorkbookState.Prompt -> {
+                    val prompt = state.prompt
+                    append("<h2>").append(Html.escape(prompt.heading)).append("</h2>")
+                    prompt.quote?.let { quote ->
+                        append("<blockquote>").append(Html.escape(quote)).append("</blockquote>")
+                    }
+                    if (prompt.questions.isNotEmpty()) {
+                        append("<ul class=\"list\">")
+                        prompt.questions.forEach { question ->
+                            append("<li>").append(Html.escape(question)).append("</li>")
+                        }
+                        append("</ul>")
+                    }
+                    prompt.exercise?.let { exercise ->
+                        append("<p><span class=\"quiet\">").append(Html.escape(copy.workbookExercise))
+                        append("</span> · ").append(Html.escape(exercise)).append("</p>")
+                    }
+                    if (edit != null && today != null) {
+                        append("<form class=\"composer\" method=\"post\" action=\"/workbook/answer\">")
+                        writeFields(edit.csrfToken, "/day/${Html.pathSegment(today.toString())}")
+                        append("<input type=\"hidden\" name=\"section\" value=\"")
+                        append(prompt.position).append("\">")
+                        append("<textarea name=\"text\" rows=\"4\" required aria-label=\"")
+                        append(Html.escape(copy.workbookAnswerHint)).append("\" placeholder=\"")
+                        append(Html.escape(copy.workbookAnswerHint)).append("\"></textarea>")
+                        append("<button type=\"submit\">").append(Html.escape(copy.addAction))
+                        append("</button></form>")
+                        appendWorkbookImportForm(copy, edit, summary = copy.workbookReplace)
+                    }
+                }
+                is BrowserWorkbookState.Finished -> {
+                    append("<p class=\"empty\">").append(Html.escape(copy.workbookFinished)).append("</p>")
+                    if (edit != null) appendWorkbookImportForm(copy, edit, summary = copy.workbookReplace)
+                }
+            }
+            append("</main>")
+        },
+    )
+
+    /** The paste form; wrapped in a collapsed disclosure when replacing. */
+    private fun StringBuilder.appendWorkbookImportForm(
+        copy: BrowserWebCopy,
+        edit: EditContext,
+        summary: String?,
+    ) {
+        if (summary != null) {
+            append("<details class=\"editor\"><summary>").append(Html.escape(summary)).append("</summary>")
+        }
+        // "top" drops the form's own hairline: the header (setup state) or the
+        // disclosure (replace state) already separates it from what is above.
+        append("<form class=\"composer top\" method=\"post\" action=\"/workbook/import\">")
+        writeFields(edit.csrfToken, "/workbook")
+        append("<textarea name=\"text\" rows=\"10\" required aria-label=\"")
+        append(Html.escape(copy.workbookImportHint)).append("\" placeholder=\"")
+        append(Html.escape(copy.workbookImportHint)).append("\"></textarea>")
+        append("<button type=\"submit\">").append(Html.escape(copy.workbookImportAction))
+        append("</button></form>")
+        if (summary != null) append("</details>")
+    }
+
     /** One monochrome inline path per recording; CSP allows no script player. */
     private fun StringBuilder.appendWaveform(peaks: List<Int>) {
         append("<svg class=\"waveform\" viewBox=\"0 0 ").append(peaks.size)
@@ -745,6 +844,7 @@ internal object HtmlRenderer {
             navLink("/logs", copy.logs, active == "logs")
             navLink("/insights", copy.insights, active == "insights")
             navLink("/graph", copy.graph, active == "graph")
+            navLink("/workbook", copy.workbook, active == "workbook")
             navLink("/search", copy.searchTitle, active == "search")
             append("</nav>")
         }
@@ -813,6 +913,7 @@ internal object HtmlRenderer {
         .editor .actions{display:flex;align-items:center;gap:20px}.editor .actions a{color:var(--dim);text-decoration:none;font-size:13px}.editor .actions a:hover{color:var(--ink)}
         .search{display:flex;gap:12px;margin:4px 0 16px;padding:0}.search input{flex:1;letter-spacing:normal;text-align:left;font-size:17px}.search button{width:auto;margin:0;padding:12px 24px}
         mark{background:transparent;color:var(--ink);font-weight:600;text-shadow:var(--shadow)}
+        blockquote{margin:18px 0 6px;padding:2px 0 2px 18px;border-left:2px solid var(--line);color:var(--dim);font-style:italic}
         @media(max-width:520px){body{padding:34px 0 16px;font-size:16.5px}.primary,main{width:calc(100% - 20px)}.primary{padding:13px 20px;gap:4px 18px;margin-bottom:12px}main{padding:26px 20px 38px}.summary{grid-template-columns:repeat(3,1fr)}.log-header{display:block}.log-header time{display:block;margin-top:7px}.log-footer{display:block}.log-footer>*{display:block;margin-top:8px}}
     """
 
@@ -887,6 +988,15 @@ private data class BrowserWebCopy(
     val searchHint: String,
     val searchAction: String,
     val searchEmpty: String,
+    val workbook: String,
+    val workbookIntro: String,
+    val workbookImportHint: String,
+    val workbookImportAction: String,
+    val workbookImportError: String,
+    val workbookAnswerHint: String,
+    val workbookExercise: String,
+    val workbookFinished: String,
+    val workbookReplace: String,
 ) {
     companion object {
         fun forLanguage(languageTag: String): BrowserWebCopy = when (languageTag.substringBefore('-').lowercase()) {
@@ -907,6 +1017,11 @@ private data class BrowserWebCopy(
                 previous = "Iepriekšējā", next = "Nākamā",
                 editAction = "labot", saveAction = "saglabāt", addAction = "pievienot", addToDay = "pievienot šai dienai…", cancelAction = "atcelt", errorNotAvailable = "Šī lapa nav pieejama.", errorStopped = "Pārlūka skats ir apturēts.", errorAccessCode = "Pārlādē lapu, lai ievadītu jaunu piekļuves kodu.", errorNotFound = "Šādas lapas nav.", errorReadOnly = "Šī darbība nav pieejama.", addToday = "pieraksti domu šodienai…", addImportant = "pievieno svarīgo…",
                 searchTitle = "Meklēšana", searchHint = "vārds vai frāze", searchAction = "meklēt", searchEmpty = "Nekas netika atrasts.",
+                workbook = "Darba burtnīca", workbookIntro = "Ielīmē darba burtnīcu kā vienkāršu tekstu.",
+                workbookImportHint = "ielīmē burtnīcas tekstu…", workbookImportAction = "importēt",
+                workbookImportError = "Šo tekstu neizdevās nolasīt kā darba burtnīcu.",
+                workbookAnswerHint = "tava atbilde…", workbookExercise = "Uzdevums",
+                workbookFinished = "Katra diena ir atbildēta.", workbookReplace = "aizstāt burtnīcu",
             )
             "et" -> BrowserWebCopy(
                 "Päevad", "Oluline", "Logid", "Ülevaade", "Graafik",
@@ -925,6 +1040,11 @@ private data class BrowserWebCopy(
                 previous = "Eelmine", next = "Järgmine",
                 editAction = "muuda", saveAction = "salvesta", addAction = "lisa", addToDay = "lisa sellele päevale…", cancelAction = "tühista", errorNotAvailable = "See leht pole saadaval.", errorStopped = "Brauserivaade on peatatud.", errorAccessCode = "Laadi leht uuesti, et sisestada uus pääsukood.", errorNotFound = "Sellist lehte pole.", errorReadOnly = "See toiming pole saadaval.", addToday = "lisa mõte tänasesse…", addImportant = "lisa oluline…",
                 searchTitle = "Otsing", searchHint = "sõna või fraas", searchAction = "otsi", searchEmpty = "Midagi ei leitud.",
+                workbook = "Töövihik", workbookIntro = "Kleebi töövihik lihttekstina.",
+                workbookImportHint = "kleebi töövihiku tekst…", workbookImportAction = "impordi",
+                workbookImportError = "Seda teksti ei õnnestunud töövihikuna lugeda.",
+                workbookAnswerHint = "sinu vastus…", workbookExercise = "Harjutus",
+                workbookFinished = "Iga päev on vastatud.", workbookReplace = "asenda töövihik",
             )
             "lt" -> BrowserWebCopy(
                 "Dienos", "Svarbu", "Žurnalai", "Įžvalgos", "Grafas",
@@ -943,6 +1063,11 @@ private data class BrowserWebCopy(
                 previous = "Ankstesnis", next = "Kitas",
                 editAction = "redaguoti", saveAction = "išsaugoti", addAction = "pridėti", addToDay = "pridėti prie šios dienos…", cancelAction = "atšaukti", errorNotAvailable = "Šis puslapis nepasiekiamas.", errorStopped = "Naršyklės rodinys sustabdytas.", errorAccessCode = "Perkraukite puslapį, kad įvestumėte naują prieigos kodą.", errorNotFound = "Tokio puslapio nėra.", errorReadOnly = "Šis veiksmas nepasiekiamas.", addToday = "užrašyk mintį šiandienai…", addImportant = "pridėk svarbų…",
                 searchTitle = "Paieška", searchHint = "žodis ar frazė", searchAction = "ieškoti", searchEmpty = "Nieko nerasta.",
+                workbook = "Pratybų sąsiuvinis", workbookIntro = "Įklijuok pratybų sąsiuvinį kaip paprastą tekstą.",
+                workbookImportHint = "įklijuok sąsiuvinio tekstą…", workbookImportAction = "importuoti",
+                workbookImportError = "Šio teksto nepavyko perskaityti kaip pratybų sąsiuvinio.",
+                workbookAnswerHint = "tavo atsakymas…", workbookExercise = "Užduotis",
+                workbookFinished = "Atsakyta į kiekvieną dieną.", workbookReplace = "pakeisti sąsiuvinį",
             )
             "fi" -> BrowserWebCopy(
                 "Päivät", "Tärkeät", "Lokit", "Kooste", "Verkko",
@@ -961,6 +1086,11 @@ private data class BrowserWebCopy(
                 previous = "Edellinen", next = "Seuraava",
                 editAction = "muokkaa", saveAction = "tallenna", addAction = "lisää", addToDay = "lisää tähän päivään…", cancelAction = "peruuta", errorNotAvailable = "Tämä sivu ei ole käytettävissä.", errorStopped = "Selainnäkymä on pysäytetty.", errorAccessCode = "Lataa sivu uudelleen ja syötä uusi käyttökoodi.", errorNotFound = "Sivua ei ole.", errorReadOnly = "Tämä toiminto ei ole käytettävissä.", addToday = "kirjaa ajatus tälle päivälle…", addImportant = "lisää tärkeä…",
                 searchTitle = "Haku", searchHint = "sana tai ilmaus", searchAction = "hae", searchEmpty = "Mitään ei löytynyt.",
+                workbook = "Työkirja", workbookIntro = "Liitä työkirja pelkkänä tekstinä.",
+                workbookImportHint = "liitä työkirjan teksti…", workbookImportAction = "tuo",
+                workbookImportError = "Tekstiä ei voitu lukea työkirjana.",
+                workbookAnswerHint = "vastauksesi…", workbookExercise = "Harjoitus",
+                workbookFinished = "Jokaiseen päivään on vastattu.", workbookReplace = "korvaa työkirja",
             )
             "sv" -> BrowserWebCopy(
                 "Dagar", "Viktigt", "Loggar", "Insikter", "Graf",
@@ -979,6 +1109,11 @@ private data class BrowserWebCopy(
                 previous = "Föregående", next = "Nästa",
                 editAction = "redigera", saveAction = "spara", addAction = "lägg till", addToDay = "lägg till denna dag…", cancelAction = "avbryt", errorNotAvailable = "Den här sidan är inte tillgänglig.", errorStopped = "Webbläsarvyn har stoppats.", errorAccessCode = "Ladda om sidan för att ange en ny åtkomstkod.", errorNotFound = "Sidan finns inte.", errorReadOnly = "Den här åtgärden är inte tillgänglig.", addToday = "skriv en tanke till idag…", addImportant = "lägg till viktigt…",
                 searchTitle = "Sök", searchHint = "ord eller fras", searchAction = "sök", searchEmpty = "Inget hittades.",
+                workbook = "Arbetsbok", workbookIntro = "Klistra in en arbetsbok som ren text.",
+                workbookImportHint = "klistra in arbetsbokens text…", workbookImportAction = "importera",
+                workbookImportError = "Texten kunde inte läsas som en arbetsbok.",
+                workbookAnswerHint = "ditt svar…", workbookExercise = "Övning",
+                workbookFinished = "Varje dag är besvarad.", workbookReplace = "ersätt arbetsboken",
             )
             "de" -> BrowserWebCopy(
                 "Tage", "Wichtig", "Protokolle", "Einblicke", "Graph",
@@ -997,6 +1132,11 @@ private data class BrowserWebCopy(
                 previous = "Zurück", next = "Weiter",
                 editAction = "bearbeiten", saveAction = "speichern", addAction = "hinzufügen", addToDay = "zu diesem Tag hinzufügen…", cancelAction = "abbrechen", errorNotAvailable = "Diese Seite ist nicht verfügbar.", errorStopped = "Die Browseransicht wurde beendet.", errorAccessCode = "Lade die Seite neu, um einen neuen Zugangscode einzugeben.", errorNotFound = "Diese Seite gibt es nicht.", errorReadOnly = "Diese Aktion ist nicht verfügbar.", addToday = "einen Gedanken für heute…", addImportant = "Wichtiges hinzufügen…",
                 searchTitle = "Suche", searchHint = "Wort oder Phrase", searchAction = "suchen", searchEmpty = "Nichts gefunden.",
+                workbook = "Arbeitsbuch", workbookIntro = "Füge ein Arbeitsbuch als reinen Text ein.",
+                workbookImportHint = "Arbeitsbuchtext hier einfügen…", workbookImportAction = "importieren",
+                workbookImportError = "Dieser Text konnte nicht als Arbeitsbuch gelesen werden.",
+                workbookAnswerHint = "deine Antwort…", workbookExercise = "Übung",
+                workbookFinished = "Jeder Tag ist beantwortet.", workbookReplace = "Arbeitsbuch ersetzen",
             )
             "sk" -> BrowserWebCopy(
                 "Dni", "Dôležité", "Záznamy", "Prehľad", "Graf",
@@ -1015,6 +1155,11 @@ private data class BrowserWebCopy(
                 previous = "Predchádzajúca", next = "Ďalšia",
                 editAction = "upraviť", saveAction = "uložiť", addAction = "pridať", addToDay = "pridať k tomuto dňu…", cancelAction = "zrušiť", errorNotAvailable = "Táto stránka nie je dostupná.", errorStopped = "Zobrazenie v prehliadači bolo zastavené.", errorAccessCode = "Znovu načítajte stránku a zadajte nový prístupový kód.", errorNotFound = "Taká stránka neexistuje.", errorReadOnly = "Táto akcia nie je dostupná.", addToday = "pridaj myšlienku na dnes…", addImportant = "pridaj dôležité…",
                 searchTitle = "Hľadanie", searchHint = "slovo alebo fráza", searchAction = "hľadať", searchEmpty = "Nič sa nenašlo.",
+                workbook = "Pracovný zošit", workbookIntro = "Vlož pracovný zošit ako čistý text.",
+                workbookImportHint = "vlož text zošita…", workbookImportAction = "importovať",
+                workbookImportError = "Tento text sa nepodarilo prečítať ako pracovný zošit.",
+                workbookAnswerHint = "tvoja odpoveď…", workbookExercise = "Cvičenie",
+                workbookFinished = "Každý deň je zodpovedaný.", workbookReplace = "nahradiť zošit",
             )
             else -> BrowserWebCopy(
                 "Days", "Important", "Logs", "Insights", "Graph",
@@ -1033,6 +1178,11 @@ private data class BrowserWebCopy(
                 previous = "Previous", next = "Next",
                 editAction = "edit", saveAction = "save", addAction = "add", addToDay = "add to this day…", cancelAction = "cancel", errorNotAvailable = "This page is not available.", errorStopped = "Browser view has stopped.", errorAccessCode = "Reload the page to enter a fresh access code.", errorNotFound = "That page does not exist.", errorReadOnly = "This action is not available.", addToday = "add a thought to today…", addImportant = "add an Important item…",
                 searchTitle = "Search", searchHint = "word or phrase", searchAction = "search", searchEmpty = "Nothing found.",
+                workbook = "Workbook", workbookIntro = "Paste a workbook as plain text.",
+                workbookImportHint = "paste the workbook text…", workbookImportAction = "import",
+                workbookImportError = "That text could not be read as a workbook.",
+                workbookAnswerHint = "your answer…", workbookExercise = "Exercise",
+                workbookFinished = "Every day is answered.", workbookReplace = "replace workbook",
             )
         }
     }

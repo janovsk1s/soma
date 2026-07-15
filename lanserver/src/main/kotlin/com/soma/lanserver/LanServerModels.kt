@@ -174,6 +174,33 @@ data class BrowserSearchHit(
     }
 }
 
+/** The next unanswered day of an imported workbook, ready to render. */
+data class BrowserWorkbookPrompt(
+    val workbookTitle: String,
+    val heading: String,
+    val quote: String? = null,
+    val questions: List<String> = emptyList(),
+    val exercise: String? = null,
+    /** 1-based position inside the programme. */
+    val position: Int,
+    val sectionCount: Int,
+) {
+    init {
+        require(workbookTitle.isNotBlank()) { "Workbook title must not be blank" }
+        require(heading.isNotBlank()) { "Workbook heading must not be blank" }
+        require(sectionCount > 0 && position in 1..sectionCount) { "Workbook position is invalid" }
+    }
+}
+
+/** What the workbook page shows: nothing imported, the next prompt, or done. */
+sealed interface BrowserWorkbookState {
+    data object None : BrowserWorkbookState
+
+    data class Prompt(val prompt: BrowserWorkbookPrompt) : BrowserWorkbookState
+
+    data class Finished(val workbookTitle: String, val sectionCount: Int) : BrowserWorkbookState
+}
+
 enum class BrowserEntryKind {
     TEXT,
     VOICE,
@@ -438,6 +465,15 @@ interface ReadOnlySomaDataSource {
 
     /** Replaces an Important item's text. */
     fun editTodo(todoId: String, text: String): BrowserWriteResult = BrowserWriteResult.Unavailable
+
+    /** Imported-workbook progress; [BrowserWorkbookState.None] renders the paste-to-import form. */
+    fun workbook(): BrowserWorkbookState = BrowserWorkbookState.None
+
+    /** Parses and stores the pasted [text], replacing any existing workbook. */
+    fun importWorkbook(text: String): BrowserWriteResult = BrowserWriteResult.Unavailable
+
+    /** Saves the answer for the 1-based [section] as a new entry for today, linked to its prompt. */
+    fun answerWorkbook(section: Int, text: String): BrowserWriteResult = BrowserWriteResult.Unavailable
 
     /** Returns null when [date] has no note. */
     fun entriesForDay(date: LocalDate, request: PageRequest): PagedResult<BrowserEntry>?
