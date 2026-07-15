@@ -2,7 +2,9 @@
 
 Notable changes to Soma are documented here.
 
-## 0.1.0-preview.35 — 2026-07-14
+## 0.1.0 — 2026-07-15
+
+First stable release of the 0.1.0 line, promoting preview.35.
 
 ### Added
 

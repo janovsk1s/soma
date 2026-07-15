@@ -28,8 +28,8 @@ android {
         applicationId = "com.soma.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 35
-        versionName = "0.1.0-preview.35"
+        versionCode = 36
+        versionName = "0.1.0"
     }
 
     flavorDimensions += "network"
