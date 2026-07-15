@@ -340,6 +340,71 @@ class LanBrowserServerTest {
     }
 
     @Test
+    fun `search renders escaped highlighted hits behind the session`() {
+        val hits = listOf(
+            BrowserSearchHit(
+                kind = BrowserSearchKind.ENTRY,
+                date = LocalDate.of(2026, 7, 10),
+                refId = "entry-1",
+                snippet = "pirms <b>Jāņa</b> teksts",
+                highlightStart = 6,
+                highlightEndExclusive = 17,
+                leadingTruncated = true,
+                trailingTruncated = true,
+            ),
+            BrowserSearchHit(
+                kind = BrowserSearchKind.IMPORTANT,
+                date = LocalDate.of(2026, 7, 9),
+                refId = "todo-1",
+                snippet = "nopirkt pienu",
+                highlightStart = 8,
+                highlightEndExclusive = 13,
+                completed = true,
+            ),
+            BrowserSearchHit(
+                kind = BrowserSearchKind.LOG,
+                date = LocalDate.of(2026, 7, 8),
+                refId = "log-1",
+                snippet = "Piena zupa",
+                highlightStart = 0,
+                highlightEndExclusive = 5,
+                logKindParam = "meal",
+            ),
+        )
+        val data = FakeDataSource(searchHits = hits)
+        val server = server(data)
+        val endpoint = server.start()
+
+        request(endpoint, "GET", "/search?q=pien")
+        assertTrue(data.searchQueries.isEmpty())
+
+        val cookie = authenticate(endpoint).cookie
+        val response = request(endpoint, "GET", "/search?q=pien%20%26%20co", cookie = cookie)
+        assertEquals(200, response.status)
+        assertEquals("pien & co" to 30, data.searchQueries.single())
+        assertTrue(response.text.contains("value=\"pien &amp; co\""))
+        assertTrue(response.text.contains("href=\"/day/2026-07-10#eentry-1\""))
+        assertTrue(response.text.contains("href=\"/todos?state=completed#ttodo-1\""))
+        assertTrue(response.text.contains("href=\"/logs?kind=meal\""))
+        assertFalse(response.text.contains("<b>Jāņa</b>"))
+        assertTrue(response.text.contains("<mark>&lt;b&gt;Jāņa&lt;/b&gt;</mark>"))
+    }
+
+    @Test
+    fun `a blank search shows only the form and never queries the source`() {
+        val data = FakeDataSource()
+        val server = server(data)
+        val endpoint = server.start()
+        val cookie = authenticate(endpoint).cookie
+
+        val response = request(endpoint, "GET", "/search", cookie = cookie)
+        assertEquals(200, response.status)
+        assertTrue(response.text.contains("role=\"search\""))
+        assertFalse(response.text.contains("<mark>"))
+        assertTrue(data.searchQueries.isEmpty())
+    }
+
+    @Test
     fun `logs are localized escaped read only and page five confirmed records`() {
         val date = LocalDate.of(2026, 7, 14)
         val logs = (1..6).map { index ->
@@ -824,8 +889,15 @@ class LanBrowserServerTest {
         private val export: ByteArray? = null,
         private val exportStarted: CountDownLatch? = null,
         private val exportRelease: CountDownLatch? = null,
+        private val searchHits: List<BrowserSearchHit> = emptyList(),
     ) : ReadOnlySomaDataSource {
         val daysRequests = CopyOnWriteArrayList<PageRequest>()
+        val searchQueries = CopyOnWriteArrayList<Pair<String, Int>>()
+
+        override fun search(query: String, limit: Int): List<BrowserSearchHit> {
+            searchQueries += query to limit
+            return searchHits.take(limit)
+        }
         val addedEntries = CopyOnWriteArrayList<Pair<LocalDate, String>>()
         val editedEntries = CopyOnWriteArrayList<Pair<String, String>>()
 

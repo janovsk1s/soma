@@ -18,6 +18,8 @@ import com.soma.core.repository.TrackingLogRepository
 import com.soma.core.repository.TodoRepository
 import com.soma.lanserver.AudioResource
 import com.soma.lanserver.BrowserDay
+import com.soma.lanserver.BrowserSearchHit
+import com.soma.lanserver.BrowserSearchKind
 import com.soma.lanserver.BrowserWriteResult
 import com.soma.lanserver.BrowserEntry
 import com.soma.lanserver.BrowserEntryKind
@@ -399,6 +401,9 @@ class EncryptedBrowserViewAudioProvider(
 interface BrowserViewDataSource {
     suspend fun listDays(request: BrowserViewPageRequest): BrowserViewPage<BrowserViewDay>
 
+    /** Case- and diacritic-insensitive hits, newest first, capped by [limit]. */
+    suspend fun search(query: String, limit: Int): List<com.soma.core.search.SearchResult> = emptyList()
+
     suspend fun entriesForDay(
         date: LocalDate,
         request: BrowserViewPageRequest,
@@ -498,6 +503,21 @@ class RepositoryBrowserViewDataSource(
         val now = java.time.Instant.now()
         return todos.update(existing.copy(text = clean, updatedAt = now, lastTouchedAt = now))
     }
+
+    override suspend fun search(query: String, limit: Int): List<com.soma.core.search.SearchResult> =
+        com.soma.core.search.SearchResults.searchAll(
+            notes = notes.listBeforeOrOn(today(), limit = MAX_SEARCHED_NOTES),
+            todos = todos.list(
+                states = setOf(
+                    com.soma.core.model.TodoState.OPEN,
+                    com.soma.core.model.TodoState.DONE,
+                ),
+                limit = MAX_SEARCHED_ITEMS,
+            ),
+            logs = trackingLogs?.listAllLogs().orEmpty(),
+            query = query,
+            zone = zoneId,
+        ).take(limit)
 
     override suspend fun listDays(request: BrowserViewPageRequest): BrowserViewPage<BrowserViewDay> {
         val notes = notes.listBeforeOrOn(
@@ -1185,6 +1205,37 @@ private class LanDataSourceAdapter(
             BrowserDay(day.date, day.entryCount, day.preview)
         }
     }
+
+    override fun search(query: String, limit: Int): List<BrowserSearchHit> =
+        await { delegate.search(query, limit) }.map { result ->
+            BrowserSearchHit(
+                kind = when (result.kind) {
+                    com.soma.core.search.SearchResultKind.ENTRY -> BrowserSearchKind.ENTRY
+                    com.soma.core.search.SearchResultKind.IMPORTANT -> BrowserSearchKind.IMPORTANT
+                    com.soma.core.search.SearchResultKind.LOG -> BrowserSearchKind.LOG
+                },
+                date = result.date,
+                refId = result.entry?.id ?: result.todo?.id ?: result.log?.id.orEmpty(),
+                snippet = result.match.snippet,
+                highlightStart = result.match.highlightStart,
+                highlightEndExclusive = result.match.highlightEndExclusive,
+                leadingTruncated = result.match.leadingTruncated,
+                trailingTruncated = result.match.trailingTruncated,
+                logKindParam = result.log?.let { log ->
+                    if (log.archivedAt != null) {
+                        "archived"
+                    } else {
+                        when (log.kind) {
+                            LogKind.MEAL -> "meal"
+                            LogKind.RECIPE -> "recipe"
+                            LogKind.WORKOUT -> "workout"
+                            LogKind.RECEIPT -> "receipt"
+                        }
+                    }
+                },
+                completed = result.todo?.state == com.soma.core.model.TodoState.DONE,
+            )
+        }
 
     override fun entriesForDay(
         date: LocalDate,

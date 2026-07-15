@@ -145,6 +145,35 @@ data class BrowserDay(
     val preview: String = "",
 )
 
+enum class BrowserSearchKind {
+    ENTRY,
+    IMPORTANT,
+    LOG,
+}
+
+/**
+ * One search hit. [refId] is the entry or Important id used for the page
+ * anchor; for logs it is unused and [logKindParam] selects the logs tab.
+ */
+data class BrowserSearchHit(
+    val kind: BrowserSearchKind,
+    val date: LocalDate,
+    val refId: String,
+    val snippet: String,
+    val highlightStart: Int,
+    val highlightEndExclusive: Int,
+    val leadingTruncated: Boolean = false,
+    val trailingTruncated: Boolean = false,
+    val logKindParam: String? = null,
+    /** Completed Important items live on the completed tab of /todos. */
+    val completed: Boolean = false,
+) {
+    init {
+        require(highlightStart in 0..highlightEndExclusive) { "Invalid highlight start" }
+        require(highlightEndExclusive <= snippet.length) { "Invalid highlight end" }
+    }
+}
+
 enum class BrowserEntryKind {
     TEXT,
     VOICE,
@@ -392,6 +421,9 @@ interface ReadOnlySomaDataSource {
     fun today(): LocalDate = LocalDate.now()
 
     fun listDays(request: PageRequest): PagedResult<BrowserDay>
+
+    /** Case- and diacritic-insensitive hits, newest first, capped by [limit]. */
+    fun search(query: String, limit: Int): List<BrowserSearchHit> = emptyList()
 
     /** Appends a new text entry to [date]'s note, creating the note if needed. */
     fun addEntry(date: LocalDate, text: String): BrowserWriteResult = BrowserWriteResult.Unavailable

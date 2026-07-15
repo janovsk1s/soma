@@ -233,6 +233,11 @@
     <string name="accessibility_page_position">Lehekülg %1$d/%2$d</string>
     <string name="add_entry">Uus sissekanne</string>
     <string name="calendar_title">Kalender</string>
+    <string name="search_title">Otsing</string>
+    <string name="search_hint">sõna või fraas</string>
+    <string name="search_action">otsi</string>
+    <string name="search_empty">Midagi ei leitud.</string>
+    <string name="search_searching">Otsin…</string>
     <string name="settings_speech_languages">kõnekeeled</string>
     <string name="settings_transcription_vocabulary">transkriptsiooni sõnavara</string>
     <string name="transcription_vocabulary_help" formatted="false">Lisa nimed, kohad ja lühifraasid, mida transkriptsioon sageli valesti tuvastab. Whisper ja Groq ei lisa kulu; ElevenLabsi võtmesõnad maksavad 20% rohkem.</string>

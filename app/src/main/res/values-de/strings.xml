@@ -233,6 +233,11 @@
     <string name="accessibility_page_position">Seite %1$d von %2$d</string>
     <string name="add_entry">Neuer Eintrag</string>
     <string name="calendar_title">Kalender</string>
+    <string name="search_title">Suche</string>
+    <string name="search_hint">Wort oder Phrase</string>
+    <string name="search_action">suchen</string>
+    <string name="search_empty">Nichts gefunden.</string>
+    <string name="search_searching">Suche läuft…</string>
     <string name="settings_speech_languages">Sprechsprachen</string>
     <string name="settings_transcription_vocabulary">Transkriptionswörterbuch</string>
     <string name="transcription_vocabulary_help" formatted="false">Füge Namen, Orte und kurze Ausdrücke hinzu, die die Transkription oft falsch versteht. Whisper und Groq kosten nichts extra; ElevenLabs-Schlüsselwörter kosten 20% mehr.</string>

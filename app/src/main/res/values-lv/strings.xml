@@ -233,6 +233,11 @@
     <string name="accessibility_page_position">Lapa %1$d no %2$d</string>
     <string name="add_entry">Jauns ieraksts</string>
     <string name="calendar_title">Kalendārs</string>
+    <string name="search_title">Meklēšana</string>
+    <string name="search_hint">vārds vai frāze</string>
+    <string name="search_action">meklēt</string>
+    <string name="search_empty">Nekas netika atrasts.</string>
+    <string name="search_searching">Meklē…</string>
     <string name="settings_speech_languages">runas valodas</string>
     <string name="settings_transcription_vocabulary">transkripcijas vārdnīca</string>
     <string name="transcription_vocabulary_help" formatted="false">Pievieno vārdus, nosaukumus un īsas frāzes, ko transkripcija mēdz pārprast. Whisper un Groq tas nemaksā papildus; ElevenLabs atslēgvārdi maksā par 20% vairāk.</string>

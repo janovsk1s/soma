@@ -29,6 +29,8 @@ import com.soma.core.model.TranscriptionFailureCode
 import com.soma.core.model.TranscriptionInfo
 import com.soma.core.model.TranscriptionJob
 import com.soma.core.policy.TodoStalenessPolicy
+import com.soma.core.search.SearchResult
+import com.soma.core.search.SearchResults
 import com.soma.core.todo.RuleBasedTodoDetector
 import com.soma.core.tracking.QuickLogParser
 import com.soma.core.tracking.EuropeanFoodReference
@@ -84,6 +86,9 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
     private val mutableFoodSearchLoading = MutableStateFlow(false)
     private val draftStore = EditorDraftStore(app)
     private val mutableCaptureDraft = MutableStateFlow("")
+    private val mutableSearchState = MutableStateFlow(SearchUiState())
+    private var searchJob: Job? = null
+    val searchState: StateFlow<SearchUiState> = mutableSearchState.asStateFlow()
     private val mutableImportantDraft = MutableStateFlow("")
     private val messages = Channel<String>(Channel.BUFFERED)
     private val entryAppendMutex = Mutex()
@@ -267,6 +272,43 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
 
     suspend fun datesWithEntries(from: LocalDate, to: LocalDate): List<LocalDate> =
         repositories.notes.datesWithEntries(from, to)
+
+    fun search(query: String) {
+        val clean = query.trim()
+        searchJob?.cancel()
+        if (clean.isEmpty()) {
+            mutableSearchState.value = SearchUiState()
+            return
+        }
+        mutableSearchState.value = SearchUiState(query = clean, searching = true)
+        searchJob = viewModelScope.launch {
+            // Brute force over decrypted text is deliberate: personal-notes volume
+            // stays small and no derived plaintext index lands on disk.
+            val results = withContext(Dispatchers.Default) {
+                SearchResults.searchAll(
+                    notes = repositories.notes.listBeforeOrOn(today(), limit = MAX_SEARCHED_NOTES),
+                    todos = repositories.todos.list(
+                        states = setOf(TodoState.OPEN, TodoState.DONE),
+                        limit = MAX_SEARCHED_ITEMS,
+                    ),
+                    logs = repositories.trackingLogs.listAllLogs(),
+                    query = clean,
+                    zone = ZoneId.systemDefault(),
+                )
+            }
+            mutableSearchState.value = SearchUiState(
+                query = clean,
+                searching = false,
+                results = results,
+                performed = true,
+            )
+        }
+    }
+
+    fun clearSearch() {
+        searchJob?.cancel()
+        mutableSearchState.value = SearchUiState()
+    }
 
     internal suspend fun entryHistory(entry: NoteEntry): List<EntryHistoryVersion> {
         val current = repositories.notes.getEntry(entry.id) ?: entry

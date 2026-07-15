@@ -164,6 +164,9 @@ class EncryptedBrowserViewAudioProvider(
 interface BrowserViewDataSource {
     suspend fun listDays(request: BrowserViewPageRequest): BrowserViewPage<BrowserViewDay>
 
+    /** Case- and diacritic-insensitive hits, newest first, capped by [limit]. */
+    suspend fun search(query: String, limit: Int): List<com.soma.core.search.SearchResult> = emptyList()
+
     suspend fun entriesForDay(
         date: LocalDate,
         request: BrowserViewPageRequest,

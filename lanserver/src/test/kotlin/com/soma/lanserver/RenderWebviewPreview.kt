@@ -138,6 +138,38 @@ class RenderWebviewPreview {
         write("08-export", HtmlRenderer.export(languageTag = lang))
         write("09-error", HtmlRenderer.error(404, lightMode = false, languageTag = lang))
 
+        val searchHits = listOf(
+            BrowserSearchHit(
+                kind = BrowserSearchKind.ENTRY,
+                date = today.minusDays(2),
+                refId = "entry-1",
+                snippet = "šodien satiku Jāni pie ezera un runājām par laivu",
+                highlightStart = 14,
+                highlightEndExclusive = 18,
+                leadingTruncated = true,
+                trailingTruncated = true,
+            ),
+            BrowserSearchHit(
+                kind = BrowserSearchKind.IMPORTANT,
+                date = today.minusDays(4),
+                refId = "todo-1",
+                snippet = "piezvanīt Jānim par jumtu",
+                highlightStart = 10,
+                highlightEndExclusive = 15,
+            ),
+            BrowserSearchHit(
+                kind = BrowserSearchKind.LOG,
+                date = today.minusDays(6),
+                refId = "log-1",
+                snippet = "Vakariņas pie Jāņa",
+                highlightStart = 14,
+                highlightEndExclusive = 18,
+                logKindParam = "meal",
+            ),
+        )
+        write("12-search", HtmlRenderer.search("jāni", searchHits, languageTag = lang))
+        write("12-search-empty", HtmlRenderer.search("kaktuss", emptyList(), languageTag = lang))
+
         // Light-mode variants of the two busiest pages.
         write("10-day-light", HtmlRenderer.day(today, 1, entries, lightMode = true, languageTag = lang))
         write("11-logs-light", HtmlRenderer.logs(BrowserLogFilter.MEALS, 1, logs, lightMode = true, languageTag = lang))

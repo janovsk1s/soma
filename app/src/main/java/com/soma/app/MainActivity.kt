@@ -145,6 +145,7 @@ private sealed interface AppRoute {
     data object Capture : AppRoute
     data object Photo : AppRoute
     data object Calendar : AppRoute
+    data object Search : AppRoute
     data object SpeechLanguages : AppRoute
     data object TranscriptionVocabulary : AppRoute
     data object Deleted : AppRoute
@@ -155,7 +156,7 @@ private sealed interface AppRoute {
         val structuredWorkout: Boolean = false,
         val autoSuggest: Boolean = false,
     ) : AppRoute
-    data class LogDetail(val log: LogRecord) : AppRoute
+    data class LogDetail(val log: LogRecord, val fromSearch: Boolean = false) : AppRoute
     data class LogOptions(val log: LogRecord) : AppRoute
     data class EditLog(val log: LogRecord) : AppRoute
     data class LogHistory(val log: LogRecord) : AppRoute
@@ -182,7 +183,7 @@ private sealed interface AppRoute {
     data class EditEntry(val entry: NoteEntry, val fromTodos: Boolean = false) : AppRoute
     data class SelectImportant(val entry: NoteEntry, val fromTodos: Boolean = false) : AppRoute
     data class TodoOptions(val todo: Todo) : AppRoute
-    data class TodoDetail(val todo: Todo) : AppRoute
+    data class TodoDetail(val todo: Todo, val fromSearch: Boolean = false) : AppRoute
     data class EditTodo(val todo: Todo) : AppRoute
     data class ResurfaceTodo(val todo: Todo) : AppRoute
 }
@@ -505,7 +506,7 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
                     }
                 },
                 onFood = { index -> route = AppRoute.FoodLookup(log, index) },
-                onBack = { route = AppRoute.Logs },
+                onBack = { route = if (current.fromSearch) AppRoute.Search else AppRoute.Logs },
             )
         }
         is AppRoute.LogOptions -> {
@@ -749,7 +750,21 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
                 viewModel.showDay(picked)
                 route = AppRoute.Home
             },
+            onSearch = { route = AppRoute.Search },
             onBack = { route = AppRoute.Home },
+        )
+        AppRoute.Search -> SearchScreen(
+            viewModel = viewModel,
+            onOpenDay = { picked ->
+                viewModel.showDay(picked)
+                route = AppRoute.Home
+            },
+            onOpenTodo = { todo -> route = AppRoute.TodoDetail(todo, fromSearch = true) },
+            onOpenLog = { log -> route = AppRoute.LogDetail(log, fromSearch = true) },
+            onBack = {
+                viewModel.clearSearch()
+                route = AppRoute.Calendar
+            },
         )
         AppRoute.AddTodo -> {
             val draft by viewModel.importantDraft.collectAsState()
@@ -965,7 +980,7 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
                     }
                 }
             },
-            onBack = { route = AppRoute.Todos },
+            onBack = { route = if (current.fromSearch) AppRoute.Search else AppRoute.Todos },
         )
         is AppRoute.ResurfaceTodo -> TodoResurfaceScreen(
             todo = current.todo,
@@ -1066,6 +1081,7 @@ private val AppRouteSaver: Saver<AppRoute, String> = Saver(
             AppRoute.Capture -> "capture"
             AppRoute.Photo -> "home"
             AppRoute.Calendar -> "calendar"
+            AppRoute.Search -> "search"
             AppRoute.SpeechLanguages -> "speechLanguages"
             AppRoute.TranscriptionVocabulary -> "transcriptionVocabulary"
             AppRoute.Deleted -> "deleted"
@@ -1087,6 +1103,7 @@ private val AppRouteSaver: Saver<AppRoute, String> = Saver(
             "addTodo" -> AppRoute.AddTodo
             "capture" -> AppRoute.Capture
             "calendar" -> AppRoute.Calendar
+            "search" -> AppRoute.Search
             "speechLanguages" -> AppRoute.SpeechLanguages
             "transcriptionVocabulary" -> AppRoute.TranscriptionVocabulary
             "deleted" -> AppRoute.Deleted

@@ -233,6 +233,11 @@
     <string name="accessibility_page_position">Sida %1$d av %2$d</string>
     <string name="add_entry">Ny anteckning</string>
     <string name="calendar_title">Kalender</string>
+    <string name="search_title">Sök</string>
+    <string name="search_hint">ord eller fras</string>
+    <string name="search_action">sök</string>
+    <string name="search_empty">Inget hittades.</string>
+    <string name="search_searching">Söker…</string>
     <string name="settings_speech_languages">talade språk</string>
     <string name="settings_transcription_vocabulary">transkriptionsordlista</string>
     <string name="transcription_vocabulary_help" formatted="false">Lägg till namn, platser och korta fraser som transkriberingen ofta missar. Whisper och Groq kostar inget extra; ElevenLabs nyckelord kostar 20% mer.</string>

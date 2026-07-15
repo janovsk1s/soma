@@ -329,6 +329,11 @@
     <string name="accessibility_page_position">Page %1$d of %2$d</string>
     <string name="add_entry">New entry</string>
     <string name="calendar_title">Calendar</string>
+    <string name="search_title">Search</string>
+    <string name="search_hint">word or phrase</string>
+    <string name="search_action">search</string>
+    <string name="search_empty">Nothing found.</string>
+    <string name="search_searching">Searching…</string>
     <string name="settings_speech_languages">speech languages</string>
     <string name="settings_transcription_vocabulary">transcription vocabulary</string>
     <string name="transcription_vocabulary_help" formatted="false">Add names, places, and short phrases that transcription often gets wrong. Whisper and Groq add no cost; ElevenLabs keyterms cost 20% extra.</string>
