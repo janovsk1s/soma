@@ -4,6 +4,17 @@ Notable changes to Soma are documented here.
 
 ## 0.1.0-preview.35 — 2026-07-14
 
+### Added
+
+- Browser view can now edit: add a text entry to a day and edit an entry's
+  text from the keyboard of any device on the Wi-Fi. Writes go through the same
+  encrypted, revision-preserving path as the app (new entries are timestamped,
+  edits keep the prior wording as a revision, nothing is deleted from the web),
+  and every write carries a per-session CSRF token. This trades the previous
+  read-only guarantee for editing convenience — enable Browser view only on
+  trusted Wi-Fi; see docs/THREAT_MODEL.md. Adding/editing Important items and
+  logs from the web is planned as a follow-up.
+
 ### Changed
 
 - Browser view redesigned: a masthead with the current section marked, a nav

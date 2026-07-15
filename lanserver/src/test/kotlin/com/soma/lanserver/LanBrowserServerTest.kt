@@ -79,6 +79,66 @@ class LanBrowserServerTest {
     }
 
     @Test
+    fun `writes are refused when editing is disabled`() {
+        val data = FakeDataSource(entries = listOf(BrowserEntry("e1", "hi", BrowserEntryKind.TEXT)))
+        val endpoint = server(data).start()
+        val cookie = authenticate(endpoint).cookie
+
+        // No edit forms rendered, and the write route is rejected as read-only.
+        val page = request(endpoint, "GET", "/day/2026-07-15", cookie = cookie)
+        assertFalse(page.text.contains("/entry/new"))
+        val write = request(
+            endpoint, "POST", "/entry/new", cookie = cookie,
+            body = "date=2026-07-15&text=hello", contentType = "application/x-www-form-urlencoded",
+        )
+        assertEquals(405, write.status)
+        assertTrue(data.addedEntries.isEmpty())
+    }
+
+    @Test
+    fun `an authenticated write needs a matching csrf token`() {
+        val data = FakeDataSource(entries = listOf(BrowserEntry("e1", "hi", BrowserEntryKind.TEXT)))
+        val endpoint = server(data, editEnabled = true).start()
+        val cookie = authenticate(endpoint).cookie
+        val csrf = csrfToken(request(endpoint, "GET", "/day/2026-07-15", cookie = cookie).text)
+
+        val forged = request(
+            endpoint, "POST", "/entry/new", cookie = cookie,
+            body = "csrf=wrong&date=2026-07-15&text=hello", contentType = "application/x-www-form-urlencoded",
+        )
+        assertEquals(403, forged.status)
+        assertTrue(data.addedEntries.isEmpty())
+
+        val accepted = request(
+            endpoint, "POST", "/entry/new", cookie = cookie,
+            body = "csrf=$csrf&date=2026-07-15&text=hello%20there&return=%2Fday%2F2026-07-15",
+            contentType = "application/x-www-form-urlencoded",
+        )
+        assertEquals(303, accepted.status)
+        assertEquals("/day/2026-07-15", accepted.headers["location"])
+        assertEquals(LocalDate.parse("2026-07-15") to "hello there", data.addedEntries.single())
+    }
+
+    @Test
+    fun `an edit reaches the data source with its entry id`() {
+        val data = FakeDataSource(entries = listOf(BrowserEntry("e1", "original", BrowserEntryKind.TEXT)))
+        val endpoint = server(data, editEnabled = true).start()
+        val cookie = authenticate(endpoint).cookie
+        val csrf = csrfToken(request(endpoint, "GET", "/day/2026-07-15", cookie = cookie).text)
+
+        val edited = request(
+            endpoint, "POST", "/entry/edit", cookie = cookie,
+            body = "csrf=$csrf&id=e1&text=corrected&return=%2Fday%2F2026-07-15",
+            contentType = "application/x-www-form-urlencoded",
+        )
+        assertEquals(303, edited.status)
+        assertEquals("e1" to "corrected", data.editedEntries.single())
+    }
+
+    private fun csrfToken(html: String): String =
+        Regex("name=\"csrf\" value=\"([^\"]+)\"").find(html)!!.groupValues[1]
+
+    @Test
     fun `bundled session forest is available before login without an external origin`() {
         val server = server(FakeDataSource())
         val endpoint = server.start()
@@ -567,12 +627,14 @@ class LanBrowserServerTest {
         clock: Clock = Clock.systemUTC(),
         lightMode: Boolean = false,
         exportEnabled: Boolean = false,
+        editEnabled: Boolean = false,
         languageTag: String = "en",
     ): LanBrowserServer = LanBrowserServer(
         config = LanServerConfig(
             address,
             lightMode = lightMode,
             exportEnabled = exportEnabled,
+            editEnabled = editEnabled,
             languageTag = languageTag,
         ),
         dataSource = data,
@@ -716,6 +778,18 @@ class LanBrowserServerTest {
         private val exportRelease: CountDownLatch? = null,
     ) : ReadOnlySomaDataSource {
         val daysRequests = CopyOnWriteArrayList<PageRequest>()
+        val addedEntries = CopyOnWriteArrayList<Pair<LocalDate, String>>()
+        val editedEntries = CopyOnWriteArrayList<Pair<String, String>>()
+
+        override fun addEntry(date: LocalDate, text: String): BrowserWriteResult {
+            addedEntries += date to text
+            return BrowserWriteResult.Success
+        }
+
+        override fun editEntry(entryId: String, text: String): BrowserWriteResult {
+            editedEntries += entryId to text
+            return BrowserWriteResult.Success
+        }
 
         @Volatile
         var audioOpenCount = 0

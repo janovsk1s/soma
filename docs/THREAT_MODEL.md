@@ -17,7 +17,8 @@ Soma aims to:
 - make a user-created backup portable, authenticated, and confidential under a
   passphrase;
 - expose data to a browser only after an explicit local action, only over the
-  current Wi-Fi LAN, only for reading, and only for a short session; and
+  current Wi-Fi LAN, only through code-authenticated and CSRF-guarded routes, and
+  only for a short session; and
 - fail without losing an already captured recording or silently accepting
   corrupted encrypted data.
 
@@ -184,7 +185,23 @@ stop the server; starting again creates a new code and token.
 Authenticated routes support days, entries, Important items, confirmed meal,
 recipe, workout and receipt logs, local metadata insights and their static connection
 graph, ranged audio, and image playback. Metadata owned by a tombstoned entry
-and entry links to a tombstoned target are omitted. Mutation routes do not exist.
+and entry links to a tombstoned target are omitted.
+
+**Editing.** Authenticated write routes let a session add a text entry to a day
+and edit an entry's text. Writes go through the same encrypted, revision-preserving
+repository path as the app: a new entry is timestamped at capture time, an edit
+preserves the prior wording as a revision, and nothing is deleted from the web.
+Every write is a `POST` carrying a per-session CSRF token minted with the session
+and compared in constant time; a form served from anywhere else cannot drive a
+write, and the `SameSite=Strict` cookie is a second barrier. This deliberately
+trades the previous read-only guarantee for editing convenience: over the plain-HTTP
+LAN, a device that both sits on the Wi-Fi and captures the live session could forge
+or alter entries during the session window. The compensating controls are the
+single-use access code, the random session token, the CSRF token, the short idle
+window, and the user actively driving a session they started on a network they
+trust. Enable Browser view only on trusted Wi-Fi. Deletes, photo and audio capture,
+and structured log/Important mutation are not exposed to the web and remain
+app-only.
 An export route exists only when the user enables the ephemeral Data export control
 before starting that LAN session. It is GET-only, single-flight, text-only, and
 returns the existing plaintext Markdown vault after a localized confirmation names

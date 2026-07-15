@@ -18,6 +18,7 @@ import com.soma.core.repository.TrackingLogRepository
 import com.soma.core.repository.TodoRepository
 import com.soma.lanserver.AudioResource
 import com.soma.lanserver.BrowserDay
+import com.soma.lanserver.BrowserWriteResult
 import com.soma.lanserver.BrowserEntry
 import com.soma.lanserver.BrowserEntryKind
 import com.soma.lanserver.BrowserEntryVersion
@@ -430,6 +431,12 @@ interface BrowserViewDataSource {
     suspend fun openAudio(audioId: String): BrowserViewAudio?
 
     suspend fun openImage(imageId: String): BrowserViewImage? = null
+
+    /** Appends a text entry to [date]'s note. Returns false if refused. */
+    suspend fun addEntry(date: LocalDate, text: String): Boolean = false
+
+    /** Replaces an entry's text, preserving prior wording as a revision. */
+    suspend fun editEntry(entryId: String, text: String): Boolean = false
 }
 
 /**
@@ -448,6 +455,27 @@ class RepositoryBrowserViewDataSource(
     languageTag: String = "en",
 ) : BrowserViewDataSource {
     private val logCopy = BrowserLogCopy.forLanguage(languageTag)
+
+    override suspend fun addEntry(date: LocalDate, text: String): Boolean {
+        val clean = text.trim()
+        if (clean.isEmpty() || clean.length > MAX_WEB_ENTRY_CHARS || date.isAfter(today())) return false
+        val now = java.time.Instant.now()
+        notes.getOrCreate(date, now)
+        val entry = com.soma.core.model.NoteEntry.text(
+            id = java.util.UUID.randomUUID().toString(),
+            noteDate = date,
+            position = notes.nextEntryPosition(date),
+            text = clean,
+            createdAt = now,
+        )
+        return notes.insertEntry(entry)
+    }
+
+    override suspend fun editEntry(entryId: String, text: String): Boolean {
+        val clean = text.trim()
+        if (clean.isEmpty() || clean.length > MAX_WEB_ENTRY_CHARS) return false
+        return notes.editEntryText(entryId, clean, java.time.Instant.now()) != null
+    }
 
     override suspend fun listDays(request: BrowserViewPageRequest): BrowserViewPage<BrowserViewDay> {
         val notes = notes.listBeforeOrOn(
@@ -959,6 +987,10 @@ class BrowserViewController(
                     port = port,
                     lightMode = lightMode,
                     exportEnabled = exportEnabled,
+                    // Editing from the Browser view is always available once a
+                    // session is authenticated (user choice), guarded by the
+                    // per-session CSRF token. See docs/THREAT_MODEL.md.
+                    editEnabled = true,
                     languageTag = languageTag,
                     forestBackground = forest,
                 ),
@@ -1095,10 +1127,26 @@ class BrowserViewController(
     }
 }
 
+private const val MAX_WEB_ENTRY_CHARS = 20_000
+
 private class LanDataSourceAdapter(
     private val delegate: BrowserViewDataSource,
     private val exportProvider: (suspend () -> ByteArray?)? = null,
 ) : ReadOnlySomaDataSource {
+    override fun addEntry(date: LocalDate, text: String): BrowserWriteResult =
+        if (await { delegate.addEntry(date, text) }) {
+            BrowserWriteResult.Success
+        } else {
+            BrowserWriteResult.Rejected("That entry could not be saved.")
+        }
+
+    override fun editEntry(entryId: String, text: String): BrowserWriteResult =
+        if (await { delegate.editEntry(entryId, text) }) {
+            BrowserWriteResult.Success
+        } else {
+            BrowserWriteResult.Rejected("That entry could not be saved.")
+        }
+
     override fun listDays(request: PageRequest): PagedResult<BrowserDay> {
         val page = await { delegate.listDays(request.toBrowserRequest()) }
         return page.toLanResult(request) { day ->

@@ -33,6 +33,11 @@ data class LanServerConfig(
     val lightMode: Boolean = false,
     /** Enables the explicit, off-by-default data-export routes for this session. */
     val exportEnabled: Boolean = false,
+    /**
+     * Enables authenticated write routes (add/edit). When true the Browser view
+     * is no longer read-only: see docs/THREAT_MODEL.md for the residual LAN risk.
+     */
+    val editEnabled: Boolean = false,
     /** BCP-47 application language used for the sensitive export confirmation. */
     val languageTag: String = "en",
     /** One bundled monochrome landscape, fixed for the lifetime of this server session. */
@@ -359,9 +364,33 @@ class ImageResource(
     }
 }
 
-/** Data exposed by the read-only browser flavor. Implementations may decrypt on demand. */
+/** Outcome of a write requested through the Browser view. */
+sealed interface BrowserWriteResult {
+    /** The change was applied through the same encrypted, revisioned path the app uses. */
+    data object Success : BrowserWriteResult
+
+    /** Editing is not supported by this data source; the caller should refuse the write. */
+    data object Unavailable : BrowserWriteResult
+
+    /** The submitted content was empty, too long, or referenced something that no longer exists. */
+    data class Rejected(val reason: String) : BrowserWriteResult
+}
+
+/**
+ * Data exposed by the browser flavor. Reads may decrypt on demand. Writes go
+ * through the same encrypted, revision-preserving repository path as the app —
+ * new content is timestamped, edits create revisions, and nothing is deleted.
+ * Every write method defaults to [BrowserWriteResult.Unavailable] so read-only
+ * implementations stay read-only.
+ */
 interface ReadOnlySomaDataSource {
     fun listDays(request: PageRequest): PagedResult<BrowserDay>
+
+    /** Appends a new text entry to [date]'s note, creating the note if needed. */
+    fun addEntry(date: LocalDate, text: String): BrowserWriteResult = BrowserWriteResult.Unavailable
+
+    /** Replaces an entry's text, preserving the prior wording as a revision. */
+    fun editEntry(entryId: String, text: String): BrowserWriteResult = BrowserWriteResult.Unavailable
 
     /** Returns null when [date] has no note. */
     fun entriesForDay(date: LocalDate, request: PageRequest): PagedResult<BrowserEntry>?
@@ -397,3 +426,10 @@ interface ReadOnlySomaDataSource {
 
 /** A one-file, download-only export handed to the user's own AI tool. */
 class ExportBundle(val fileName: String, val bytes: ByteArray)
+
+/**
+ * Present only when write routes are enabled. Carries the per-session CSRF token
+ * that every edit form must echo back; a page rendered without one shows no
+ * editing affordances and the server refuses writes.
+ */
+data class EditContext(val csrfToken: String)

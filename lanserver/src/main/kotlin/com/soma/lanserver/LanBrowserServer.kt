@@ -53,6 +53,7 @@ class LanBrowserServer(
     private var endpoint: LanServerEndpoint? = null
     private var accessCodeBytes: ByteArray? = null
     private var sessionToken: String? = null
+    private var csrfToken: String? = null
     private var wrongCodeAttempts = 0
     private var lastAuthenticatedActivity: Instant = Instant.EPOCH
     private val exportInProgress = AtomicBoolean(false)
@@ -230,8 +231,11 @@ class LanBrowserServer(
         }
         markAuthenticatedActivity()
 
-        if (request.method !in READ_METHODS) {
-            return DispatchResult(errorResponse(405, "Browser view is read-only.", mapOf("Allow" to "GET, HEAD")))
+        if (request.method == "POST") {
+            if (!config.editEnabled) {
+                return DispatchResult(errorResponse(405, "Browser view is read-only.", mapOf("Allow" to "GET, HEAD")))
+            }
+            return DispatchResult(writeResponse(request))
         }
 
         return DispatchResult(
@@ -270,6 +274,7 @@ class LanBrowserServer(
             } else if (MessageDigest.isEqual(expected, submitted)) {
                 token = newSessionToken()
                 sessionToken = token
+                csrfToken = newSessionToken()
                 accessCodeBytes?.fill(0)
                 accessCodeBytes = null
                 lastAuthenticatedActivity = clock.instant()
@@ -317,6 +322,62 @@ class LanBrowserServer(
         )
     }
 
+    /**
+     * Handles an authenticated write. The submitted CSRF token must match the
+     * one minted with the session, so a page loaded over this LAN cannot be
+     * driven by a form served from elsewhere. Writes are delegated to the data
+     * source, which applies them through the encrypted, revisioned repository.
+     */
+    private fun writeResponse(request: HttpRequest): HttpResponse {
+        val form = HttpProtocol.parseForm(request)
+        if (!csrfValid(form["csrf"]?.singleOrNull())) {
+            return errorResponse(403, "This form is no longer valid. Reload the page and try again.")
+        }
+        val result = when (request.path) {
+            "/entry/new" -> {
+                val date = form["date"]?.singleOrNull()?.let { value ->
+                    try {
+                        LocalDate.parse(value)
+                    } catch (_: DateTimeParseException) {
+                        null
+                    }
+                } ?: return errorResponse(400, "A valid day is required.")
+                dataSource.addEntry(date, form["text"]?.singleOrNull().orEmpty())
+            }
+            "/entry/edit" -> {
+                val id = form["id"]?.singleOrNull()?.takeIf(String::isNotEmpty)
+                    ?: return errorResponse(400, "An entry is required.")
+                dataSource.editEntry(id, form["text"]?.singleOrNull().orEmpty())
+            }
+            else -> return errorResponse(404, "That action does not exist.")
+        }
+        return when (result) {
+            BrowserWriteResult.Success -> redirect(safeReturnPath(form["return"]?.singleOrNull()))
+            BrowserWriteResult.Unavailable -> errorResponse(405, "Editing is not available.")
+            is BrowserWriteResult.Rejected -> errorResponse(400, result.reason)
+        }
+    }
+
+    private fun csrfValid(submitted: String?): Boolean {
+        val expected = synchronized(lifecycleLock) { csrfToken } ?: return false
+        if (submitted.isNullOrEmpty()) return false
+        return MessageDigest.isEqual(
+            expected.toByteArray(Charsets.US_ASCII),
+            submitted.toByteArray(Charsets.US_ASCII),
+        )
+    }
+
+    /** Only same-origin absolute paths may be redirect targets after a write. */
+    private fun safeReturnPath(value: String?): String {
+        val target = value.orEmpty()
+        val safe = target.startsWith("/") &&
+            !target.startsWith("//") &&
+            target.none { it == '\r' || it == '\n' || it.code < 0x20 }
+        return if (safe) target else "/days"
+    }
+
+    private fun currentCsrf(): String? = synchronized(lifecycleLock) { csrfToken }
+
     private fun daysResponse(request: HttpRequest): HttpResponse {
         val page = pageNumber(request)
         val result = dataSource.listDays(pageRequest(page)).bounded()
@@ -334,7 +395,8 @@ class LanBrowserServer(
         val page = pageNumber(request)
         val result = dataSource.entriesForDay(date, pageRequest(page))?.bounded()
             ?: return errorResponse(404, "That day does not exist.")
-        return htmlResponse(200, HtmlRenderer.day(date, page, result, config.lightMode, config.languageTag))
+        val edit = if (config.editEnabled) currentCsrf()?.let(::EditContext) else null
+        return htmlResponse(200, HtmlRenderer.day(date, page, result, config.lightMode, config.languageTag, edit))
     }
 
     private fun todosResponse(request: HttpRequest): HttpResponse {
@@ -551,6 +613,7 @@ class LanBrowserServer(
             accessCodeBytes?.fill(0)
             accessCodeBytes = null
             sessionToken = null
+            csrfToken = null
             socket = serverSocket
             serverSocket = null
             executor = clientExecutor

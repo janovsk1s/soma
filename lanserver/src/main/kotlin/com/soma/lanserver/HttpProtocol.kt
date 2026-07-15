@@ -33,7 +33,9 @@ internal object HttpProtocol {
     private const val MAX_HEADER_LINE_BYTES = 8_192
     private const val MAX_HEADER_BYTES = 32_768
     private const val MAX_HEADER_COUNT = 64
-    private const val MAX_FORM_BYTES = 1_024
+    // Large enough for an edited note entry, still bounded. The access-code
+    // form is tiny; note text is the reason this is not a few hundred bytes.
+    private const val MAX_FORM_BYTES = 64 * 1_024
 
     fun readRequest(socket: Socket): HttpRequest {
         val input = socket.getInputStream()
