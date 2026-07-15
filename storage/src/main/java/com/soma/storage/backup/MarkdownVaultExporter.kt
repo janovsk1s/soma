@@ -12,6 +12,7 @@ import com.soma.core.model.LogRevision
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.NutritionEstimate
 import com.soma.core.model.ReceiptMoney
+import com.soma.core.model.asDecimalString
 import com.soma.core.model.Todo
 import com.soma.core.model.TodoState
 import java.io.ByteArrayOutputStream
@@ -456,7 +457,7 @@ class MarkdownVaultExporter(
     }
 
     private fun moneyMarkdown(money: ReceiptMoney): String =
-        "${money.currencyCode} ${money.minorUnits / 100}.${(money.minorUnits % 100).toString().padStart(2, '0')}"
+        "${money.currencyCode} ${money.asDecimalString()}"
 
     private fun BackupSnapshot.entry(id: String): NoteEntry = notes.asSequence()
         .flatMap { it.entries.asSequence() }

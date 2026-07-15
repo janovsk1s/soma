@@ -223,7 +223,12 @@ this order:
     `LOCAL_WHISPER_BASE` transcription engine name inside provenance. Enums are
     stored by name and rejected when unknown, so the version bump is the
     compatibility story — an older build refuses a newer backup with a clear
-    version message instead of failing on an unfamiliar engine name.
+    version message instead of failing on an unfamiliar engine name; and
+19. payload version 13 changes no structure either: it marks receipt amounts
+    becoming signed. Discounts, deposit refunds, and other printed deductions
+    are negative line totals, exactly as the register printed them. Older
+    builds reject negative amounts at the domain layer, so the version gate
+    again turns a decode failure into a clear version message.
 
 Each list begins with a 32-bit count. Strings use a 32-bit byte length followed
 by strict UTF-8, not Java modified UTF. Instants use epoch seconds plus
@@ -244,11 +249,11 @@ buffers, and temporary byte arrays where the JVM permits. Domain strings are
 immutable and cannot be reliably erased from managed memory.
 
 Committed restore fixtures pin this format across releases:
-`storage/src/test/resources/fixtures/portable-backup-v11.somabackup` and
-`portable-backup-v12.somabackup` decode in `PortableBackupFixtureTest` with the
-passphrase documented there. When the payload version advances, keep the old
-fixtures and add a new one so `SUPPORTED_PAYLOAD_VERSIONS` remains an enforced
-promise rather than a comment.
+`storage/src/test/resources/fixtures/portable-backup-v11.somabackup`,
+`portable-backup-v12.somabackup`, and `portable-backup-v13.somabackup` decode
+in `PortableBackupFixtureTest` with the passphrase documented there. When the
+payload version advances, keep the old fixtures and add a new one so
+`SUPPORTED_PAYLOAD_VERSIONS` remains an enforced promise rather than a comment.
 
 ## Readable archive
 

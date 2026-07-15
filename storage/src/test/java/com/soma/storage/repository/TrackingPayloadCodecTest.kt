@@ -38,6 +38,11 @@ class TrackingPayloadCodecTest {
                         lineTotal = ReceiptMoney(129, "EUR"),
                         category = "groceries",
                     ),
+                    // A printed discount keeps its minus sign through the codec.
+                    ReceiptItem(
+                        name = "Nimm mehr",
+                        lineTotal = ReceiptMoney(-50, "EUR"),
+                    ),
                 ),
             ),
         )

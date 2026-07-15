@@ -178,6 +178,20 @@ object QuickLogParser {
     fun parseReceiptMoney(text: String, currencyCode: String): ReceiptMoney? {
         val currency = currencyCode.trim().uppercase().takeIf(Regex("[A-Z]{3}")::matches) ?: return null
         val match = MONEY.findAll(text).lastOrNull() ?: return null
+        // A minus is a sign only when it hugs the number: "-0.50" and the
+        // register-style trailing "0,50-" are deductions; hyphens inside words,
+        // ranges, or phone numbers ("5-6", "059915-01339") are not.
+        val negative = run {
+            var before = match.range.first - 1
+            while (before >= 0 && text[before] == ' ') before--
+            val leading = before >= 0 && text[before] == '-' &&
+                (before == 0 || !text[before - 1].isLetterOrDigit())
+            var after = match.range.last + 1
+            while (after < text.length && text[after] == ' ') after++
+            val trailing = after < text.length && text[after] == '-' &&
+                (after + 1 >= text.length || !text[after + 1].isLetterOrDigit())
+            leading || trailing
+        }
         val compact = match.value
             .replace(" ", "")
             .replace("\u00A0", "")
@@ -198,8 +212,11 @@ object QuickLogParser {
             }
         }
         val amount = normalized.toBigDecimalOrNull() ?: return null
-        if (amount.signum() < 0 || amount.scale() > 2) return null
-        return runCatching { ReceiptMoney(amount.movePointRight(2).longValueExact(), currency) }.getOrNull()
+        if (amount.scale() > 2) return null
+        return runCatching {
+            val minorUnits = amount.movePointRight(2).longValueExact()
+            ReceiptMoney(if (negative) -minorUnits else minorUnits, currency)
+        }.getOrNull()
     }
 
     private fun parseMoney(text: String, currency: String): ReceiptMoney? =
@@ -244,11 +261,12 @@ object QuickLogParser {
     private val RECEIPT_FIELD = Regex("^(?<key>[\\p{L}_ ]{2,30})\\s*:\\s*(?<value>.*)$")
     private val MONEY = Regex("(?<!\\d)\\d[\\d\\s.,'’]*(?!\\d)")
     private val LOOSE_RECEIPT_ITEM = Regex(
-        "^(?<name>.+?)[ \\t]+(?<amount>\\d{1,9}(?:[.,]\\d{1,2}))(?:\\s*(?:€|EUR|SEK|kr))?$",
+        "^(?<name>.+?)[ \\t]+(?<amount>-?\\d{1,9}(?:[.,]\\d{1,2})-?)(?:\\s*(?:€|EUR|SEK|kr))?$",
         RegexOption.IGNORE_CASE,
     )
     private val TOTAL_LINE = Regex(
-        "(?i)\\b(total|summa|sum|kokku|suma|yhteensa|yhteensä|totalt|gesamt|celkom|kopa|kopā)\\b",
+        "(?i)\\b(total|summa|sum|summe|kokku|suma|yhteensa|yhteensä|totalt|gesamt|gesamtbetrag|" +
+            "zu zahlen|celkom|kopa|kopā)\\b",
     )
     private val MERCHANT_KEYS = setOf("merchant", "store", "shop", "veikals", "parduotuve", "parduotuvė", "kauppa", "butik", "geschaft", "geschäft", "obchod")
     private val CURRENCY_KEYS = setOf("currency", "valuta", "valūta", "valuuta", "valiuta", "wahrung", "währung", "mena")

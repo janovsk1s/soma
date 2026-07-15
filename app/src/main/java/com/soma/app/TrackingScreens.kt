@@ -44,6 +44,7 @@ import com.soma.core.model.NutritionBasis
 import com.soma.core.model.NutritionEstimate
 import com.soma.core.model.ReceiptDetails
 import com.soma.core.model.ReceiptMoney
+import com.soma.core.model.asDecimalString
 import com.soma.core.model.WorkoutExercise
 import com.soma.core.model.WorkoutSet
 import com.soma.core.tracking.EuropeanFoodReference
@@ -726,7 +727,7 @@ private fun logSummary(log: LogRecord): String? = when (log.kind) {
 }
 
 private fun formatReceiptMoney(money: ReceiptMoney): String =
-    "${money.currencyCode} ${money.minorUnits / 100}.${(money.minorUnits % 100).toString().padStart(2, '0')}"
+    "${money.currencyCode} ${money.asDecimalString()}"
 
 @Composable
 private fun displayLogTitle(log: LogRecord): String =

@@ -42,6 +42,7 @@ import com.soma.core.model.LogKind
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.ReceiptDetails
 import com.soma.core.model.ReceiptMoney
+import com.soma.core.model.asDecimalString
 import com.soma.core.model.SupportedLanguage
 import com.soma.core.tracking.QuickLogParser
 import com.soma.core.tracking.ReceiptReconciler
@@ -489,7 +490,7 @@ private fun String.moneyInput(): String = filter { it.isDigit() || it in ",. 'â€
 private fun String.decimalOrNull(): BigDecimal? =
     trim().replace(" ", "").replace(',', '.').toBigDecimalOrNull()
 
-private fun ReceiptMoney.input(): String = "${minorUnits / 100}.${(minorUnits % 100).toString().padStart(2, '0')}"
+private fun ReceiptMoney.input(): String = asDecimalString()
 
 private fun ReceiptMoney.display(): String = "${currencyCode} ${input()}"
 

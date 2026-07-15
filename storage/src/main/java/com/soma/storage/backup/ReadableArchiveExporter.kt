@@ -9,6 +9,7 @@ import com.soma.core.model.NoteEntry
 import com.soma.core.model.NutritionEstimate
 import com.soma.core.model.ReceiptDetails
 import com.soma.core.model.ReceiptMoney
+import com.soma.core.model.asDecimalString
 import com.soma.core.model.TranscriptionEngine
 import com.soma.core.model.TranscriptionFallbackReason
 import com.soma.core.model.TranscriptionProvenance
@@ -504,7 +505,7 @@ class ReadableArchiveExporter {
     }
 
     private fun plainMoney(money: ReceiptMoney): String =
-        "${money.currencyCode} ${money.minorUnits / 100}.${(money.minorUnits % 100).toString().padStart(2, '0')}"
+        "${money.currencyCode} ${money.asDecimalString()}"
 
     private fun historyJsonl(snapshot: BackupSnapshot): String = buildString {
         snapshot.entryRevisions.sortedWith(compareBy({ it.entryId }, { it.revision })).forEach { revision ->

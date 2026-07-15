@@ -9,6 +9,7 @@ import com.soma.core.model.LogKind
 import com.soma.core.model.LogRecord
 import com.soma.core.model.MetadataSource
 import com.soma.core.model.NutritionBasis
+import com.soma.core.model.asDecimalString
 import com.soma.core.model.NutritionSource
 import com.soma.core.model.NoteEntry
 import com.soma.core.model.TodoState
@@ -968,7 +969,7 @@ class RepositoryBrowserViewDataSource(
     private fun Double.compact(): String = BigDecimal.valueOf(this).stripTrailingZeros().toPlainString()
 
     private fun com.soma.core.model.ReceiptMoney.displayMoney(): String =
-        "$currencyCode ${minorUnits / 100}.${(minorUnits % 100).toString().padStart(2, '0')}"
+        "$currencyCode ${asDecimalString()}"
 
     private fun FoodQuantityUnit.shortName(): String = when (this) {
         FoodQuantityUnit.GRAM -> "g"

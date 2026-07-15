@@ -163,13 +163,19 @@ data class WorkoutExercise(
     }
 }
 
-/** Exact user- or receipt-derived money. Two minor digits cover Soma's current EU/EEA markets. */
+/**
+ * Exact user- or receipt-derived money. Two minor digits cover Soma's current
+ * EU/EEA markets. Amounts are signed: discounts, deposit refunds, and other
+ * printed deductions are negative lines, exactly as the register printed them.
+ */
 data class ReceiptMoney(
     val minorUnits: Long,
     val currencyCode: String,
 ) {
     init {
-        require(minorUnits in 0..MAX_MINOR_UNITS) { "Receipt amount is outside the supported range" }
+        require(minorUnits in -MAX_MINOR_UNITS..MAX_MINOR_UNITS) {
+            "Receipt amount is outside the supported range"
+        }
         require(CURRENCY_CODE.matches(currencyCode)) { "Receipt currency must be a three-letter code" }
     }
 
@@ -179,7 +185,18 @@ data class ReceiptMoney(
     }
 }
 
-/** A purchased line as printed or confirmed by the user; category is optional metadata, never fact. */
+/** Plain signed decimal such as "-0.50" for forms, exports, and plain-text rendering. */
+fun ReceiptMoney.asDecimalString(): String {
+    val sign = if (minorUnits < 0) "-" else ""
+    val magnitude = kotlin.math.abs(minorUnits)
+    return "$sign${magnitude / 100}.${(magnitude % 100).toString().padStart(2, '0')}"
+}
+
+/**
+ * A purchased line as printed or confirmed by the user; category is optional
+ * metadata, never fact. A negative [lineTotal] is a printed deduction — a
+ * discount or returned deposit — kept as its own line, never folded away.
+ */
 data class ReceiptItem(
     val name: String,
     val quantity: Double? = null,
