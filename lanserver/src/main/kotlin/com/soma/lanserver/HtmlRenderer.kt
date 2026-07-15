@@ -146,7 +146,8 @@ internal object HtmlRenderer {
                         append("</summary><form method=\"post\" action=\"/entry/edit\">")
                         writeFields(edit.csrfToken, dayPath)
                         append("<input type=\"hidden\" name=\"id\" value=\"").append(Html.escape(entry.id)).append("\">")
-                        append("<textarea name=\"text\" rows=\"4\" required>").append(Html.escape(entry.text))
+                        append("<textarea name=\"text\" rows=\"4\" required aria-label=\"")
+                        append(Html.escape(copy.editAction)).append("\">").append(Html.escape(entry.text))
                         append("</textarea><button type=\"submit\">").append(Html.escape(copy.saveAction))
                         append("</button></form></details>")
                     }
@@ -159,7 +160,8 @@ internal object HtmlRenderer {
                 append("<form class=\"composer\" method=\"post\" action=\"/entry/new\">")
                 writeFields(edit.csrfToken, dayPath)
                 append("<input type=\"hidden\" name=\"date\" value=\"").append(Html.escape(date.toString())).append("\">")
-                append("<textarea name=\"text\" rows=\"3\" required placeholder=\"").append(Html.escape(copy.addToDay))
+                append("<textarea name=\"text\" rows=\"3\" required aria-label=\"").append(Html.escape(copy.addToDay))
+                append("\" placeholder=\"").append(Html.escape(copy.addToDay))
                 append("\"></textarea><button type=\"submit\">").append(Html.escape(copy.addAction)).append("</button></form>")
             }
             append("</main>")

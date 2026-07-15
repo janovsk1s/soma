@@ -367,12 +367,18 @@ class LanBrowserServer(
         )
     }
 
-    /** Only same-origin absolute paths may be redirect targets after a write. */
+    /**
+     * Only a same-origin absolute path may be a redirect target after a write.
+     * Rejects protocol-relative forms — both `//host` and `/\host`, since
+     * browsers treat a backslash as a slash — and any control characters, so the
+     * value cannot escape the origin or inject a response header.
+     */
     private fun safeReturnPath(value: String?): String {
         val target = value.orEmpty()
-        val safe = target.startsWith("/") &&
-            !target.startsWith("//") &&
-            target.none { it == '\r' || it == '\n' || it.code < 0x20 }
+        val safe = target.length in 1..512 &&
+            target[0] == '/' &&
+            (target.length == 1 || (target[1] != '/' && target[1] != '\\')) &&
+            target.none { it == '\\' || it == '\r' || it == '\n' || it.code < 0x20 }
         return if (safe) target else "/days"
     }
 

@@ -135,6 +135,25 @@ class LanBrowserServerTest {
         assertEquals("e1" to "corrected", data.editedEntries.single())
     }
 
+    @Test
+    fun `a hostile return path cannot redirect off-origin`() {
+        val data = FakeDataSource(entries = listOf(BrowserEntry("e1", "hi", BrowserEntryKind.TEXT)))
+        val endpoint = server(data, editEnabled = true).start()
+        val cookie = authenticate(endpoint).cookie
+        val csrf = csrfToken(request(endpoint, "GET", "/day/2026-07-15", cookie = cookie).text)
+
+        // Backslash and double-slash both become protocol-relative in browsers.
+        listOf("%2F%5Cevil.com", "%2F%2Fevil.com", "https%3A%2F%2Fevil.com").forEach { hostile ->
+            val response = request(
+                endpoint, "POST", "/entry/new", cookie = cookie,
+                body = "csrf=$csrf&date=2026-07-15&text=x&return=$hostile",
+                contentType = "application/x-www-form-urlencoded",
+            )
+            assertEquals(303, response.status)
+            assertEquals("/days", response.headers["location"])
+        }
+    }
+
     private fun csrfToken(html: String): String =
         Regex("name=\"csrf\" value=\"([^\"]+)\"").find(html)!!.groupValues[1]
 
