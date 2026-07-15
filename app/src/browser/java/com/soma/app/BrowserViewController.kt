@@ -519,7 +519,9 @@ class RepositoryBrowserViewDataSource(
         request: BrowserViewPageRequest,
     ): BrowserViewPage<BrowserViewEntry>? {
         val note = notes.get(date) ?: return null
-        val entries = note.entries.drop(request.offset).take(request.limit + 1).map { entry ->
+        // Newest first in the Browser view, so the latest thought is on the
+        // first page instead of the last. note.entries is oldest-first.
+        val entries = note.entries.asReversed().drop(request.offset).take(request.limit + 1).map { entry ->
             val history = buildEntryHistory(entry, notes.listEntryRevisions(entry.id))
             BrowserViewEntry(
                 id = entry.id,

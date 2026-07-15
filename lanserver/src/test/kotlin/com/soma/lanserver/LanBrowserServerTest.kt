@@ -299,7 +299,7 @@ class LanBrowserServerTest {
         assertEquals(200, response.status)
         assertEquals(PageRequest(offset = 5, limit = 5), data.daysRequests.single())
         assertEquals(5, Regex("<li>").findAll(response.text).count())
-        assertTrue(response.text.contains("2 / 3"))
+        assertTrue(response.text.contains("<span>2</span>"))
         assertTrue(response.text.contains("Previous"))
         assertTrue(response.text.contains("Next"))
         assertFalse(response.text.contains("<script>alert"))
@@ -437,7 +437,7 @@ class LanBrowserServerTest {
         assertTrue(page.text.contains("<dd>4</dd>"))
         assertTrue(page.text.contains("&lt;script&gt;bad&lt;/script&gt;"))
         assertFalse(page.text.contains("<script>bad</script>"))
-        assertTrue(page.text.contains("1 / 2"))
+        assertTrue(page.text.contains("rel=\"next\""))
         assertEquals(405, request(endpoint, "POST", "/insights", cookie = cookie).status)
     }
 
@@ -470,7 +470,7 @@ class LanBrowserServerTest {
         assertTrue(page.text.contains("&lt;script&gt;bad&lt;/script&gt;"))
         assertFalse(page.text.contains("<script>bad</script>"))
         assertTrue(page.text.contains("mentions &amp; follows"))
-        assertTrue(page.text.contains("1 / 2"))
+        assertTrue(page.text.contains("rel=\"next\""))
         assertFalse(page.text.contains("<script"))
         assertEquals(405, request(endpoint, "POST", "/graph", cookie = cookie).status)
     }

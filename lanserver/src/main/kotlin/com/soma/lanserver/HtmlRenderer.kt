@@ -110,6 +110,16 @@ internal object HtmlRenderer {
             append("<main><header><a class=\"back\" href=\"/days\">← ").append(Html.escape(copy.days)).append("</a><h1>")
             append(Html.escape(date.toString()))
             append("</h1><p>").append(Html.escape(copy.dailyNote)).append("</p></header>")
+            // Composer at the top so a new entry appears with the newest, which
+            // the Browser view now lists first.
+            if (edit != null) {
+                append("<form class=\"composer top\" method=\"post\" action=\"/entry/new\">")
+                writeFields(edit.csrfToken, dayPath)
+                append("<input type=\"hidden\" name=\"date\" value=\"").append(Html.escape(date.toString())).append("\">")
+                append("<textarea name=\"text\" rows=\"2\" required aria-label=\"").append(Html.escape(copy.addToDay))
+                append("\" placeholder=\"").append(Html.escape(copy.addToDay))
+                append("\"></textarea><button type=\"submit\">").append(Html.escape(copy.addAction)).append("</button></form>")
+            }
             val entries = result.items.take(PAGE_SIZE)
             if (entries.isEmpty()) {
                 append("<p class=\"empty\">").append(Html.escape(copy.nothingCaptured)).append("</p>")
@@ -171,14 +181,6 @@ internal object HtmlRenderer {
                 append("</ol>")
             }
             append(pager(dayPath, pageNumber, result.totalCount, languageTag = languageTag))
-            if (edit != null) {
-                append("<form class=\"composer\" method=\"post\" action=\"/entry/new\">")
-                writeFields(edit.csrfToken, dayPath)
-                append("<input type=\"hidden\" name=\"date\" value=\"").append(Html.escape(date.toString())).append("\">")
-                append("<textarea name=\"text\" rows=\"3\" required aria-label=\"").append(Html.escape(copy.addToDay))
-                append("\" placeholder=\"").append(Html.escape(copy.addToDay))
-                append("\"></textarea><button type=\"submit\">").append(Html.escape(copy.addAction)).append("</button></form>")
-            }
             append("</main>")
         },
     )
@@ -606,8 +608,15 @@ internal object HtmlRenderer {
         languageTag: String = "en",
     ): String {
         val copy = BrowserWebCopy.forLanguage(languageTag)
+        // totalCount is an approximation the archive-paginated sources report
+        // without a count query (offset + visible + one if another page exists),
+        // so a true page total cannot be shown. All it reliably encodes is
+        // whether a next page exists; the pager shows the current page and
+        // working Previous/Next instead of a misleading "N / total".
         val safeTotal = totalCount.coerceAtLeast(0).toLong()
         val pageCount = max(1L, (safeTotal + PAGE_SIZE - 1) / PAGE_SIZE).toInt()
+        val hasNext = pageNumber < pageCount
+        if (pageNumber <= 1 && !hasNext) return ""
         val separator = if (hasQuery) "&amp;" else "?"
         return buildString {
             append("<nav class=\"pager\" aria-label=\"Pages\">")
@@ -621,12 +630,8 @@ internal object HtmlRenderer {
             } else {
                 append("<span></span>")
             }
-            append("<span>")
-            append(pageNumber)
-            append(" / ")
-            append(pageCount)
-            append("</span>")
-            if (pageNumber < pageCount) {
+            append("<span>").append(pageNumber).append("</span>")
+            if (hasNext) {
                 append("<a rel=\"next\" href=\"")
                 append(base)
                 append(separator)
