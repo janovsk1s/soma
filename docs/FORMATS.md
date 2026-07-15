@@ -320,6 +320,43 @@ requires the authenticated session and an explicit GET, and sends the ZIP direct
 from memory with `no-store`. It remains a deliberately unencrypted one-way export;
 the LAN confirmation lists logs and complete edit history before download.
 
+## Workbook text
+
+A workbook is a guided journaling programme the user imports by pasting plain
+text into the Browser view's `/workbook` page. The format is deliberately
+tiny and parsed by `core`'s `Workbook.parse`, which rejects anything it does
+not recognise rather than importing garbage:
+
+```text
+# <title>                    exactly once, first non-blank line
+## <section heading>         one per day; document order is programme order
+> <quote>                    optional, at most one per section
+- <question>                 zero or more per section
+* <exercise>                 optional, at most one per section
+```
+
+Blank lines are ignored; any other non-blank line fails the import. Caps:
+64 sections, headings ≤ 120 characters, ≤ 12 prompt lines per section, lines
+≤ 300 characters, whole text ≤ 64 KiB. The practical paste ceiling is lower:
+the urlencoded LAN form is capped at 64 KiB and non-ASCII characters inflate
+under urlencoding, so a realistic workbook (tens of KB) fits with headroom.
+
+An answer is an ordinary entry for today plus a `MANUAL` metadata layer whose
+tag and `TAG` link target is `wb-<slug>-<NN>` with relation `workbook`, where
+`<slug>` derives from the title (42 characters at most, so the widest tag is
+exactly the 48-character tag limit). Progress is never stored — the next
+unanswered section is derived from those links, so it survives backup restore.
+Re-importing a workbook with the same title resumes at the same position; a
+retitled import gets a new slug, restarts at day one, and old `wb-…` links
+remain as ordinary tags in insights and the graph.
+
+The workbook text itself is stored encrypted at rest in an Android
+SharedPreferences value under the dedicated Keystore alias `soma.workbook.v1`
+(AES-256-GCM, 12-byte IV prefix — the same layout as the transcription
+vocabulary). It is deliberately **not** part of portable backups: like model
+weights, it is re-importable third-party content, while the answers and their
+links are user data and are in every backup.
+
 ## Bundled transcription model
 
 `whisper/src/main/assets/ggml-tiny-q5_1.bin` is the multilingual Whisper tiny

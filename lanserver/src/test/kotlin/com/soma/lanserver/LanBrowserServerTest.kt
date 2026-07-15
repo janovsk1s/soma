@@ -181,6 +181,116 @@ class LanBrowserServerTest {
         assertEquals("t1" to "buy oat milk", data.editedTodos.single())
     }
 
+    @Test
+    fun `the workbook page requires authentication and hides forms when editing is disabled`() {
+        val data = FakeDataSource()
+        val endpoint = server(data).start()
+
+        assertEquals(401, request(endpoint, "GET", "/workbook").status)
+
+        val cookie = authenticate(endpoint).cookie
+        val page = request(endpoint, "GET", "/workbook", cookie = cookie)
+        assertEquals(200, page.status)
+        assertFalse(page.text.contains("/workbook/import"))
+        val write = request(
+            endpoint, "POST", "/workbook/import", cookie = cookie,
+            body = "text=whatever", contentType = "application/x-www-form-urlencoded",
+        )
+        assertEquals(405, write.status)
+        assertTrue(data.importedWorkbooks.isEmpty())
+    }
+
+    @Test
+    fun `a pasted workbook is imported and returns to the workbook page`() {
+        val data = FakeDataSource()
+        val endpoint = server(data, editEnabled = true).start()
+        val cookie = authenticate(endpoint).cookie
+        val csrf = csrfToken(request(endpoint, "GET", "/workbook", cookie = cookie).text)
+
+        val forged = request(
+            endpoint, "POST", "/workbook/import", cookie = cookie,
+            body = "csrf=wrong&text=%23%20Heft&return=%2Fworkbook",
+            contentType = "application/x-www-form-urlencoded",
+        )
+        assertEquals(403, forged.status)
+        assertTrue(data.importedWorkbooks.isEmpty())
+
+        val imported = request(
+            endpoint, "POST", "/workbook/import", cookie = cookie,
+            body = "csrf=$csrf&text=%23%20Heft%0A%23%23%20Tag%201%0A-%20Frage%3F&return=%2Fworkbook",
+            contentType = "application/x-www-form-urlencoded",
+        )
+        assertEquals(303, imported.status)
+        assertEquals("/workbook", imported.headers["location"])
+        assertEquals("# Heft\n## Tag 1\n- Frage?", data.importedWorkbooks.single())
+    }
+
+    @Test
+    fun `the next prompt is escaped and an answer posts the shown section`() {
+        val data = FakeDataSource(
+            workbookState = BrowserWorkbookState.Prompt(
+                BrowserWorkbookPrompt(
+                    workbookTitle = "Heft",
+                    heading = "<script>Tag 3</script>",
+                    quote = "Kleine Schritte.",
+                    questions = listOf("Was läuft gut?"),
+                    exercise = "Drei Sätze schreiben.",
+                    position = 3,
+                    sectionCount = 25,
+                ),
+            ),
+        )
+        val endpoint = server(data, editEnabled = true).start()
+        val cookie = authenticate(endpoint).cookie
+
+        val page = request(endpoint, "GET", "/workbook", cookie = cookie)
+        assertTrue(page.text.contains("3 · 25"))
+        assertTrue(page.text.contains("&lt;script&gt;Tag 3&lt;/script&gt;"))
+        assertFalse(page.text.contains("<script>Tag 3"))
+        assertTrue(page.text.contains("<blockquote>Kleine Schritte.</blockquote>"))
+        assertTrue(page.text.contains("name=\"section\" value=\"3\""))
+
+        val csrf = csrfToken(page.text)
+        val answered = request(
+            endpoint, "POST", "/workbook/answer", cookie = cookie,
+            body = "csrf=$csrf&section=3&text=Meine%20Antwort&return=%2Fday%2F2026-07-15",
+            contentType = "application/x-www-form-urlencoded",
+        )
+        assertEquals(303, answered.status)
+        assertEquals("/day/2026-07-15#e-new", answered.headers["location"])
+        assertEquals(3 to "Meine Antwort", data.answeredSections.single())
+    }
+
+    @Test
+    fun `a rejected import re-renders the form with a localized message`() {
+        val data = FakeDataSource(rejectWorkbookImport = true)
+        val endpoint = server(data, editEnabled = true, languageTag = "de").start()
+        val cookie = authenticate(endpoint).cookie
+        val csrf = csrfToken(request(endpoint, "GET", "/workbook", cookie = cookie).text)
+
+        val rejected = request(
+            endpoint, "POST", "/workbook/import", cookie = cookie,
+            body = "csrf=$csrf&text=kein%20Arbeitsbuch&return=%2Fworkbook",
+            contentType = "application/x-www-form-urlencoded",
+        )
+        assertEquals(400, rejected.status)
+        assertTrue(rejected.text.contains("Dieser Text konnte nicht als Arbeitsbuch gelesen werden."))
+        assertTrue(rejected.text.contains("/workbook/import"))
+    }
+
+    @Test
+    fun `a finished workbook shows only the factual position`() {
+        val data = FakeDataSource(workbookState = BrowserWorkbookState.Finished("Heft", 25))
+        val endpoint = server(data, editEnabled = true).start()
+        val cookie = authenticate(endpoint).cookie
+
+        val page = request(endpoint, "GET", "/workbook", cookie = cookie)
+        assertEquals(200, page.status)
+        assertTrue(page.text.contains("25 · 25"))
+        assertTrue(page.text.contains("Every day is answered."))
+        assertFalse(page.text.contains("/workbook/answer"))
+    }
+
     private val today: LocalDate = LocalDate.parse("2026-07-15")
 
     private fun csrfToken(html: String): String =
@@ -890,6 +1000,8 @@ class LanBrowserServerTest {
         private val exportStarted: CountDownLatch? = null,
         private val exportRelease: CountDownLatch? = null,
         private val searchHits: List<BrowserSearchHit> = emptyList(),
+        private val workbookState: BrowserWorkbookState = BrowserWorkbookState.None,
+        private val rejectWorkbookImport: Boolean = false,
     ) : ReadOnlySomaDataSource {
         val daysRequests = CopyOnWriteArrayList<PageRequest>()
         val searchQueries = CopyOnWriteArrayList<Pair<String, Int>>()
@@ -909,6 +1021,25 @@ class LanBrowserServerTest {
         override fun editEntry(entryId: String, text: String): BrowserWriteResult {
             editedEntries += entryId to text
             return BrowserWriteResult.Success("e$entryId")
+        }
+
+        val importedWorkbooks = CopyOnWriteArrayList<String>()
+        val answeredSections = CopyOnWriteArrayList<Pair<Int, String>>()
+
+        override fun workbook(): BrowserWorkbookState = workbookState
+
+        override fun importWorkbook(text: String): BrowserWriteResult {
+            importedWorkbooks += text
+            return if (rejectWorkbookImport) {
+                BrowserWriteResult.Rejected("bad workbook")
+            } else {
+                BrowserWriteResult.Success()
+            }
+        }
+
+        override fun answerWorkbook(section: Int, text: String): BrowserWriteResult {
+            answeredSections += section to text
+            return BrowserWriteResult.Success("e-new")
         }
 
         val addedTodos = CopyOnWriteArrayList<String>()

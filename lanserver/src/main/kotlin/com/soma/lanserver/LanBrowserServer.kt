@@ -242,6 +242,7 @@ class LanBrowserServer(
             when {
                 request.path == "/days" -> daysResponse(request)
                 request.path == "/search" -> searchResponse(request)
+                request.path == "/workbook" -> workbookResponse()
                 request.path.startsWith("/day/") -> dayResponse(request)
                 request.path == "/todos" -> todosResponse(request)
                 request.path == "/logs" -> logsResponse(request)
@@ -356,6 +357,30 @@ class LanBrowserServer(
                     ?: return errorResponse(400, "An item is required.")
                 dataSource.editTodo(id, form["text"]?.singleOrNull().orEmpty())
             }
+            "/workbook/import" -> {
+                val imported = dataSource.importWorkbook(form["text"]?.singleOrNull().orEmpty())
+                if (imported is BrowserWriteResult.Rejected) {
+                    // The generic error page discards its message; a wrong paste
+                    // instead re-renders the form with the localized explanation.
+                    return htmlResponse(
+                        400,
+                        HtmlRenderer.workbook(
+                            dataSource.workbook(),
+                            config.lightMode,
+                            config.languageTag,
+                            currentCsrf()?.let(::EditContext),
+                            dataSource.today(),
+                            importError = true,
+                        ),
+                    )
+                }
+                imported
+            }
+            "/workbook/answer" -> {
+                val section = form["section"]?.singleOrNull()?.toIntOrNull()?.takeIf { it > 0 }
+                    ?: return errorResponse(400, "A workbook section is required.")
+                dataSource.answerWorkbook(section, form["text"]?.singleOrNull().orEmpty())
+            }
             else -> return errorResponse(404, "That action does not exist.")
         }
         return when (result) {
@@ -423,6 +448,20 @@ class LanBrowserServer(
         val peaks = dataSource.openAudio(audioId)?.let(WaveformPeaks::compute).orEmpty()
         synchronized(waveforms) { waveforms[audioId] = peaks }
         return peaks
+    }
+
+    private fun workbookResponse(): HttpResponse {
+        val edit = if (config.editEnabled) currentCsrf()?.let(::EditContext) else null
+        return htmlResponse(
+            200,
+            HtmlRenderer.workbook(
+                dataSource.workbook(),
+                config.lightMode,
+                config.languageTag,
+                edit,
+                dataSource.today(),
+            ),
+        )
     }
 
     private fun searchResponse(request: HttpRequest): HttpResponse {

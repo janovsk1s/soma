@@ -58,6 +58,7 @@ fun BrowserScreen(onBack: () -> Unit) {
             imageProvider = images,
             metadata = repositories.metadata,
             trackingLogs = repositories.trackingLogs,
+            workbook = WorkbookStore(context),
             languageTag = SomaPrefs.language(context).languageTag,
         )
         BrowserViewController(

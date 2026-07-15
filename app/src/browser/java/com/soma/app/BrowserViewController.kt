@@ -51,8 +51,12 @@ import com.soma.lanserver.LanServerStateListener
 import com.soma.lanserver.LanServerStopReason
 import com.soma.lanserver.PageRequest
 import com.soma.lanserver.PagedResult
+import com.soma.lanserver.BrowserWorkbookPrompt
+import com.soma.lanserver.BrowserWorkbookState
 import com.soma.lanserver.ExportBundle
 import com.soma.lanserver.ReadOnlySomaDataSource
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import com.soma.voice.AudioWrappingKeyProvider
 import com.soma.voice.EncryptedAudioReader
 import com.soma.media.EncryptedImageContainer
@@ -397,6 +401,23 @@ class EncryptedBrowserViewAudioProvider(
     }
 }
 
+/** The next unanswered prompt of the imported workbook. */
+data class BrowserViewWorkbookPrompt(
+    val heading: String,
+    val quote: String?,
+    val questions: List<String>,
+    val exercise: String?,
+    /** 1-based position inside the programme. */
+    val position: Int,
+)
+
+/** The imported workbook and its derived position; [next] is null when finished. */
+data class BrowserViewWorkbook(
+    val title: String,
+    val sectionCount: Int,
+    val next: BrowserViewWorkbookPrompt?,
+)
+
 /** Read-only hooks. Implementations are called from the LAN server's background workers. */
 interface BrowserViewDataSource {
     suspend fun listDays(request: BrowserViewPageRequest): BrowserViewPage<BrowserViewDay>
@@ -448,6 +469,15 @@ interface BrowserViewDataSource {
 
     /** Replaces an Important item's text. */
     suspend fun editTodo(todoId: String, text: String): Boolean = false
+
+    /** The imported workbook and derived position, or null when none is imported. */
+    suspend fun workbook(): BrowserViewWorkbook? = null
+
+    /** Parses and stores the pasted text, replacing any prior workbook. */
+    suspend fun importWorkbook(text: String): Boolean = false
+
+    /** Saves the answer for the 1-based [section]; returns the new entry id, or null if refused. */
+    suspend fun answerWorkbook(section: Int, text: String): String? = null
 }
 
 /**
@@ -461,11 +491,15 @@ class RepositoryBrowserViewDataSource(
     private val imageProvider: BrowserViewImageProvider = BrowserViewImageProvider.NONE,
     private val metadata: EntryMetadataRepository? = null,
     private val trackingLogs: TrackingLogRepository? = null,
+    private val workbook: WorkbookAccess? = null,
     private val zoneId: ZoneId = ZoneId.systemDefault(),
     private val today: () -> LocalDate = { LocalDate.now(zoneId) },
     languageTag: String = "en",
 ) : BrowserViewDataSource {
     private val logCopy = BrowserLogCopy.forLanguage(languageTag)
+
+    /** Serializes the check-then-insert of answers across the LAN worker threads. */
+    private val workbookAnswerMutex = Mutex()
 
     override suspend fun addEntry(date: LocalDate, text: String): String? {
         val clean = text.trim()
@@ -502,6 +536,66 @@ class RepositoryBrowserViewDataSource(
         val existing = todos.get(todoId) ?: return false
         val now = java.time.Instant.now()
         return todos.update(existing.copy(text = clean, updatedAt = now, lastTouchedAt = now))
+    }
+
+    override suspend fun workbook(): BrowserViewWorkbook? {
+        val layers = metadata ?: return null
+        val parsed = workbook?.read() ?: return null
+        val next = com.soma.core.model.Workbook.nextSection(parsed, layers.listAllVisible())
+        return BrowserViewWorkbook(
+            title = parsed.title,
+            sectionCount = parsed.sections.size,
+            next = next?.let { position ->
+                val section = parsed.sections[position - 1]
+                BrowserViewWorkbookPrompt(
+                    heading = section.heading,
+                    quote = section.quote,
+                    questions = section.questions,
+                    exercise = section.exercise,
+                    position = position,
+                )
+            },
+        )
+    }
+
+    override suspend fun importWorkbook(text: String): Boolean {
+        val store = workbook ?: return false
+        return runCatching { store.replace(text) }.isSuccess
+    }
+
+    override suspend fun answerWorkbook(section: Int, text: String): String? {
+        val store = workbook ?: return null
+        val layers = metadata ?: return null
+        val clean = text.trim()
+        if (clean.isEmpty() || clean.length > MAX_WEB_ENTRY_CHARS) return null
+        return workbookAnswerMutex.withLock {
+            val parsed = store.read() ?: return@withLock null
+            // Only the currently-next prompt may be answered: a stale or
+            // double-submitted form names a section that is no longer next.
+            val next = com.soma.core.model.Workbook.nextSection(parsed, layers.listAllVisible())
+            if (section != next) return@withLock null
+            val id = addEntry(today(), clean) ?: return@withLock null
+            val target = parsed.sectionTag(section)
+            // The answer is an ordinary entry; this MANUAL layer only records
+            // which prompt occasioned it. The entry stays saved even if the
+            // link write fails — the prompt then simply remains open.
+            layers.upsert(
+                com.soma.core.model.EntryMetadata(
+                    entryId = id,
+                    tags = listOf(target),
+                    links = listOf(
+                        com.soma.core.model.EntryLink(
+                            kind = com.soma.core.model.EntryLinkKind.TAG,
+                            target = target,
+                            relation = com.soma.core.model.Workbook.LINK_RELATION,
+                        ),
+                    ),
+                    derivedAt = java.time.Instant.now(),
+                    source = com.soma.core.model.MetadataSource.MANUAL,
+                ),
+            )
+            id
+        }
     }
 
     override suspend fun search(query: String, limit: Int): List<com.soma.core.search.SearchResult> =
@@ -1198,6 +1292,34 @@ private class LanDataSourceAdapter(
         } else {
             BrowserWriteResult.Rejected("That item could not be saved.")
         }
+
+    override fun workbook(): BrowserWorkbookState {
+        val workbook = await { delegate.workbook() } ?: return BrowserWorkbookState.None
+        val next = workbook.next
+            ?: return BrowserWorkbookState.Finished(workbook.title, workbook.sectionCount)
+        return BrowserWorkbookState.Prompt(
+            BrowserWorkbookPrompt(
+                workbookTitle = workbook.title,
+                heading = next.heading,
+                quote = next.quote,
+                questions = next.questions,
+                exercise = next.exercise,
+                position = next.position,
+                sectionCount = workbook.sectionCount,
+            ),
+        )
+    }
+
+    override fun importWorkbook(text: String): BrowserWriteResult =
+        if (await { delegate.importWorkbook(text) }) {
+            BrowserWriteResult.Success()
+        } else {
+            BrowserWriteResult.Rejected("That text could not be read as a workbook.")
+        }
+
+    override fun answerWorkbook(section: Int, text: String): BrowserWriteResult =
+        await { delegate.answerWorkbook(section, text) }?.let { id -> BrowserWriteResult.Success("e$id") }
+            ?: BrowserWriteResult.Rejected("That answer could not be saved.")
 
     override fun listDays(request: PageRequest): PagedResult<BrowserDay> {
         val page = await { delegate.listDays(request.toBrowserRequest()) }

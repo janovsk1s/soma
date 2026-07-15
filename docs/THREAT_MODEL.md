@@ -220,6 +220,14 @@ window, and the user actively driving a session they started on a network they
 trust. Enable Browser view only on trusted Wi-Fi. Deletes, photo and audio capture,
 and structured log/Important mutation are not exposed to the web and remain
 app-only.
+The write routes also cover the workbook: a session may paste a workbook text
+(replacing the previous one) and save an answer, which is an ordinary entry
+plus its prompt link. The workbook is user-chosen third-party content — not
+notes — stored encrypted at rest under its own Keystore alias and excluded
+from portable backups because it is re-importable; like all Browser-view
+traffic it is visible to a LAN observer during a session. Nothing about the
+delete boundary changes: a pasted workbook can be replaced but notes still
+cannot be deleted from the web.
 An export route exists only when the user enables the ephemeral Data export control
 before starting that LAN session. It is GET-only, single-flight, text-only, and
 returns the existing plaintext Markdown vault after a localized confirmation names

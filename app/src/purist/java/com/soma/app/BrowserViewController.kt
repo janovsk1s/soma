@@ -190,6 +190,7 @@ class RepositoryBrowserViewDataSource(
     private val imageProvider: BrowserViewImageProvider = BrowserViewImageProvider.NONE,
     @Suppress("UNUSED_PARAMETER") private val metadata: EntryMetadataRepository? = null,
     @Suppress("UNUSED_PARAMETER") private val trackingLogs: TrackingLogRepository? = null,
+    @Suppress("UNUSED_PARAMETER") private val workbook: WorkbookAccess? = null,
     private val zoneId: ZoneId = ZoneId.systemDefault(),
     private val today: () -> LocalDate = { LocalDate.now(zoneId) },
     @Suppress("UNUSED_PARAMETER") languageTag: String = "en",
