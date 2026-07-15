@@ -4,6 +4,25 @@ Notable changes to Soma are documented here.
 
 ## Unreleased
 
+### Added
+
+- Search. A quiet "search" row under the calendar opens a screen that finds a
+  word or phrase across entries, Important items, and logs — case- and
+  diacritic-insensitive ("janis" finds "Jānis"), newest first, entirely
+  on-device: nothing is indexed and no derived plaintext lands on disk. The
+  Browser view gains the same search as a localized /search page whose hits
+  link straight to the day, item, or log that holds them.
+- Recordings in the Browser view now draw a small monochrome waveform above
+  the audio control, decoded on demand and never persisted.
+- The home screen shows one quiet, dim line naming the next undiscovered
+  gesture (hold the line to speak, hold + for a photo, tap the date to look
+  back). Each hint retires forever the first time its gesture is used; there
+  are no popups and nothing repeats.
+- Deleting forever from the trash now takes a second, clearly-worded tap on
+  the same row, since it is the one action Soma cannot undo.
+- docs/INTERACTIONS.md records the tap/long-press contract every screen
+  follows.
+
 ### Fixed
 
 - Photo meal, workout, and receipt proposals can now walk an ordered list of
