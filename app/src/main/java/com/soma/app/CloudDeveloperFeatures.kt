@@ -126,6 +126,24 @@ private val CLOUD_INVALID_REQUEST_CODES = setOf(
     "bad_request",
 )
 
+/**
+ * True only when the provider says the requested model itself is gone or gated,
+ * so trying a sibling model can help. Account-level failures (key, credits,
+ * rate limits) return false and must never be retried against another model.
+ */
+internal fun cloudModelUnavailable(status: Int, response: String): Boolean {
+    if (status == 404) return true
+    return CLOUD_ERROR_CODE_PATTERN.findAll(response)
+        .map { match -> match.groupValues[1].lowercase(Locale.ROOT) }
+        .any(CLOUD_MODEL_UNAVAILABLE_CODES::contains)
+}
+
+private val CLOUD_MODEL_UNAVAILABLE_CODES = setOf(
+    "model_not_found",
+    "model_decommissioned",
+    "model_terms_required",
+)
+
 internal const val CLOUD_AI_TODO_MODEL = "openai/gpt-oss-20b"
 internal const val CLOUD_AI_METADATA_MODEL = CLOUD_AI_TODO_MODEL
 
