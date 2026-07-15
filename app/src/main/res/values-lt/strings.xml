@@ -233,6 +233,11 @@
     <string name="accessibility_page_position">Puslapis %1$d iš %2$d</string>
     <string name="add_entry">Naujas įrašas</string>
     <string name="calendar_title">Kalendorius</string>
+    <string name="search_title">Paieška</string>
+    <string name="search_hint">žodis ar frazė</string>
+    <string name="search_action">ieškoti</string>
+    <string name="search_empty">Nieko nerasta.</string>
+    <string name="search_searching">Ieškoma…</string>
     <string name="settings_speech_languages">šnekamosios kalbos</string>
     <string name="settings_transcription_vocabulary">transkripcijos žodynas</string>
     <string name="transcription_vocabulary_help" formatted="false">Pridėk vardus, vietas ir trumpas frazes, kurias transkripcija dažnai supranta neteisingai. Whisper ir Groq papildomai nekainuoja; ElevenLabs raktažodžiai kainuoja 20% daugiau.</string>

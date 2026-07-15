@@ -44,6 +44,7 @@ import java.util.Locale
 fun CalendarScreen(
     viewModel: SomaViewModel,
     onSelect: (LocalDate) -> Unit,
+    onSearch: () -> Unit,
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
@@ -114,6 +115,17 @@ fun CalendarScreen(
                 repeat(DAYS_PER_WEEK - week.size) { Box(Modifier.weight(1f)) }
             }
         }
+        // Search lives with the calendar: both answer "where was that?".
+        Text(
+            stringResource(R.string.search_action),
+            color = DimInk,
+            fontSize = 16.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 20.dp, bottom = 24.dp)
+                .then(tapModifier(onSearch, "search")),
+        )
     }
 }
 

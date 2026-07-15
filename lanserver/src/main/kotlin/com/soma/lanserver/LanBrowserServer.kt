@@ -241,6 +241,7 @@ class LanBrowserServer(
         return DispatchResult(
             when {
                 request.path == "/days" -> daysResponse(request)
+                request.path == "/search" -> searchResponse(request)
                 request.path.startsWith("/day/") -> dayResponse(request)
                 request.path == "/todos" -> todosResponse(request)
                 request.path == "/logs" -> logsResponse(request)
@@ -404,6 +405,17 @@ class LanBrowserServer(
         return htmlResponse(
             200,
             HtmlRenderer.days(page, result, config.lightMode, config.languageTag, edit, dataSource.today()),
+        )
+    }
+
+    private fun searchResponse(request: HttpRequest): HttpResponse {
+        val values = request.query["q"]
+        if (values != null && values.size != 1) throw HttpParseException(400, "One query is accepted")
+        val query = values?.single()?.take(MAX_SEARCH_QUERY_CHARS)?.trim().orEmpty()
+        val hits = if (query.isEmpty()) emptyList() else dataSource.search(query, SEARCH_RESULT_LIMIT)
+        return htmlResponse(
+            200,
+            HtmlRenderer.search(query, hits, config.lightMode, config.languageTag),
         )
     }
 
@@ -776,6 +788,8 @@ class LanBrowserServer(
         const val MIN_IDLE_POLL_MILLIS = 25
         const val MAX_IDLE_POLL_MILLIS = 1_000
         const val MAX_PAGE_NUMBER = Int.MAX_VALUE / PAGE_SIZE
+        const val MAX_SEARCH_QUERY_CHARS = 120
+        const val SEARCH_RESULT_LIMIT = 30
         const val FOREST_ASSET_PATH = "/assets/forest.webp"
         val ACCESS_CODE = Regex("[0-9]{6}")
         val ALLOWED_METHODS = setOf("GET", "HEAD", "POST")

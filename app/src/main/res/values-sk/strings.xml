@@ -233,6 +233,11 @@
     <string name="accessibility_page_position">Strana %1$d z %2$d</string>
     <string name="add_entry">Nový záznam</string>
     <string name="calendar_title">Kalendár</string>
+    <string name="search_title">Hľadanie</string>
+    <string name="search_hint">slovo alebo fráza</string>
+    <string name="search_action">hľadať</string>
+    <string name="search_empty">Nič sa nenašlo.</string>
+    <string name="search_searching">Hľadá sa…</string>
     <string name="settings_speech_languages">hovorené jazyky</string>
     <string name="settings_transcription_vocabulary">slovník prepisu</string>
     <string name="transcription_vocabulary_help" formatted="false">Pridaj mená, miesta a krátke frázy, ktoré prepis často rozpozná nesprávne. Whisper a Groq nič navyše nestoja; kľúčové slová ElevenLabs stoja o 20% viac.</string>

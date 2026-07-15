@@ -233,6 +233,11 @@
     <string name="accessibility_page_position">Sivu %1$d/%2$d</string>
     <string name="add_entry">Uusi merkintä</string>
     <string name="calendar_title">Kalenteri</string>
+    <string name="search_title">Haku</string>
+    <string name="search_hint">sana tai ilmaus</string>
+    <string name="search_action">hae</string>
+    <string name="search_empty">Mitään ei löytynyt.</string>
+    <string name="search_searching">Haetaan…</string>
     <string name="settings_speech_languages">puhekielet</string>
     <string name="settings_transcription_vocabulary">litteroinnin sanasto</string>
     <string name="transcription_vocabulary_help" formatted="false">Lisää nimiä, paikkoja ja lyhyitä ilmauksia, jotka litterointi tunnistaa usein väärin. Whisper ja Groq eivät maksa lisää; ElevenLabs-avainsanat maksavat 20% enemmän.</string>
