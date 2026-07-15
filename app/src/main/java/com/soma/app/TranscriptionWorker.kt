@@ -242,8 +242,12 @@ class TranscriptionDrainWorker(
         fun createLocalTranscriber(context: Context): WhisperCppTranscriber {
             val spoken = SomaPrefs.speechLanguages(context)
             val appLanguage = SomaPrefs.language(context)
+            val store = LocalModelStore(context)
+            val model = resolveLocalWhisperModel(context, store)
             return WhisperCppTranscriber(
                 context = context,
+                model = model,
+                modelFile = store.installedFile(model),
                 allowedLanguages = spoken.map { it.languageTag }.toTypedArray(),
                 preferredLanguage = appLanguage.languageTag.takeIf { appLanguage in spoken },
                 vocabulary = TranscriptionVocabularyStore(context).read(),

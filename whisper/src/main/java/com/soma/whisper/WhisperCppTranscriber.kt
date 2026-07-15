@@ -4,20 +4,25 @@ import android.content.Context
 import android.os.Process
 import com.soma.core.model.TranscriptionVocabulary
 import com.soma.core.model.TranscriptionProvenance
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 class WhisperModelException(cause: Throwable? = null) : IllegalStateException(
-    "The bundled Whisper model could not be loaded",
+    "The local Whisper model could not be loaded",
     cause,
 )
 
 class WhisperCppTranscriber(
     context: Context,
     private val vad: VoiceActivityDetector = VoiceActivityDetector(),
-    private val profile: LocalTranscriptionProfile = LocalTranscriptionProfile.forDevice(context),
+    /** Which registry model to load; anything but the bundled tiny needs [modelFile]. */
+    private val model: LocalWhisperModel = LocalWhisperModel.TINY,
+    /** SHA-verified on-disk weights for a downloadable model; ignored for the bundled one. */
+    private val modelFile: File? = null,
+    private val profile: LocalTranscriptionProfile = LocalTranscriptionProfile.forDevice(context, model),
     /** The user's spoken languages; identification never picks outside this set. */
     private val allowedLanguages: Array<String> = ALL_SUPPORTED_LANGUAGES,
     /** Wins ambiguous chunks unless another allowed language clearly outscores it. */
@@ -27,6 +32,7 @@ class WhisperCppTranscriber(
     private val assets = context.applicationContext.assets
     private val mutex = Mutex()
     private var nativeContext = 0L
+    private var loadedModel = LocalWhisperModel.TINY
 
     override suspend fun transcribe(samples: FloatArray, sampleRate: Int): TranscriptionResult =
         mutex.withLock {
@@ -38,7 +44,7 @@ class WhisperCppTranscriber(
                     return@withContext TranscriptionResult(
                         text = "",
                         chunks = emptyList(),
-                        provenance = TranscriptionProvenance.local(),
+                        provenance = TranscriptionProvenance.local(model.engine),
                     )
                 }
                 val results = try {
@@ -65,28 +71,55 @@ class WhisperCppTranscriber(
                 } finally {
                     chunks.forEach { it.samples.fill(0f) }
                 }
-                // tiny Q5 is intentionally small and offline. Dense mid-sentence
+                // Small quantized models are intentionally offline. Dense mid-sentence
                 // code-switching can still be imperfect; transcripts stay editable.
                 TranscriptionResult(
                     text = results.map(TranscribedChunk::text).filter(String::isNotBlank).joinToString("\n"),
                     chunks = results,
-                    provenance = TranscriptionProvenance.local(),
+                    provenance = TranscriptionProvenance.local(loadedModel.engine),
                 )
             }
         }
 
     private fun contextPointer(): Long {
         if (nativeContext == 0L) {
-            nativeContext = try {
-                WhisperNative.createContext(assets, MODEL_ASSET)
-            } catch (error: UnsatisfiedLinkError) {
-                throw error
-            } catch (error: Throwable) {
-                throw WhisperModelException(error)
-            }
+            nativeContext = loadContext()
             if (nativeContext == 0L) throw WhisperModelException()
         }
         return nativeContext
+    }
+
+    /**
+     * A downloadable model that fails to load (deleted or damaged between
+     * selection and this job) must never strand the recording: the bundled
+     * tiny model always remains, and [loadedModel] keeps provenance honest.
+     */
+    private fun loadContext(): Long {
+        val file = modelFile
+        if (!model.bundled && file != null) {
+            try {
+                val pointer = WhisperNative.createContextFromFile(file.absolutePath)
+                if (pointer != 0L) {
+                    loadedModel = model
+                    return pointer
+                }
+            } catch (error: UnsatisfiedLinkError) {
+                throw error
+            } catch (_: Throwable) {
+                // Fall through to the bundled model.
+            }
+        }
+        loadedModel = LocalWhisperModel.TINY
+        return try {
+            WhisperNative.createContext(
+                assets,
+                checkNotNull(LocalWhisperModel.TINY.bundledAssetPath),
+            )
+        } catch (error: UnsatisfiedLinkError) {
+            throw error
+        } catch (error: Throwable) {
+            throw WhisperModelException(error)
+        }
     }
 
     override fun close() {
@@ -97,7 +130,6 @@ class WhisperCppTranscriber(
 
     private companion object {
         const val SAMPLE_RATE = 16_000
-        const val MODEL_ASSET = "ggml-tiny-q5_1.bin"
 
         /** Fallback when no user selection exists: the full supported set. */
         val ALL_SUPPORTED_LANGUAGES: Array<String> =

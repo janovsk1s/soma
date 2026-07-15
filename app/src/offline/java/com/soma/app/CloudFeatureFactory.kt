@@ -38,6 +38,8 @@ private class OfflineCloudFeatureController(private val context: Context) : Clou
 
     override fun createTranscriber(localFactory: () -> Transcriber): Transcriber = localFactory()
 
+    override fun modelDownloader(): LocalModelDownloader? = null
+
     override suspend fun extractTodoCandidates(text: String): List<String> = emptyList()
 
     override suspend fun deriveEntryMetadata(

@@ -6,6 +6,17 @@ Notable changes to Soma are documented here.
 
 ### Added
 
+- A downloadable, deletable local Whisper *base* model (~57 MB, roughly half
+  tiny's error rate, the biggest gain on exactly the languages that need it) —
+  better transcription with no cloud key and no privacy trade. Settings →
+  local model chooses between tiny (built in) and base. The cloud flavor can
+  fetch base in-app over a Wi-Fi-bound, resumable download; every flavor can
+  import the model file through the system file picker, so the purist and
+  browser builds' no-outbound-HTTP guarantee is untouched. Either way the file
+  becomes loadable only after matching a SHA-256 pinned in source. Tiny stays
+  bundled and takes over automatically whenever base is absent, and transcript
+  provenance records which engine actually ran (backup payload v12, with a new
+  committed restore fixture).
 - Search. A quiet "search" row under the calendar opens a screen that finds a
   word or phrase across entries, Important items, and logs — case- and
   diacritic-insensitive ("janis" finds "Jānis"), newest first, entirely

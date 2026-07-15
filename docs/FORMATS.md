@@ -176,7 +176,7 @@ so identical snapshots produce different files.
 | --- | --- |
 | Magic | 8 ASCII bytes: `SOMABACK` |
 | Container version | 32-bit integer, currently `1` |
-| Payload version | 32-bit integer, currently `10` |
+| Payload version | 32-bit integer, currently `12` |
 | KDF id | 32-bit length + ASCII `PBKDF2-HMAC-SHA256` |
 | PBKDF2 iterations | 32-bit integer, `600000` |
 | Derived key size | 32-bit integer, `256` bits |
@@ -192,7 +192,7 @@ authentication. Trailing bytes and truncated inputs are rejected. A wrong
 passphrase and authenticated-byte corruption intentionally report the same
 authentication error.
 
-### Plaintext payload, versions 1 through 11
+### Plaintext payload, versions 1 through 12
 
 The encrypted payload is a deterministic `DataOutputStream` serialization in
 this order:
@@ -218,7 +218,12 @@ this order:
 16. in payload version 10, current meal, recipe, and workout logs plus every
     prior log snapshot; and
 17. in payload version 11, receipt logs with merchant, currency, exact minor-unit
-    totals, tax, purchased items, quantities, prices, and optional categories.
+    totals, tax, purchased items, quantities, prices, and optional categories; and
+18. payload version 12 changes no structure: it marks the introduction of the
+    `LOCAL_WHISPER_BASE` transcription engine name inside provenance. Enums are
+    stored by name and rejected when unknown, so the version bump is the
+    compatibility story — an older build refuses a newer backup with a clear
+    version message instead of failing on an unfamiliar engine name.
 
 Each list begins with a 32-bit count. Strings use a 32-bit byte length followed
 by strict UTF-8, not Java modified UTF. Instants use epoch seconds plus
@@ -238,11 +243,12 @@ The codec clears mutable passphrase copies, derived keys, plaintext serializatio
 buffers, and temporary byte arrays where the JVM permits. Domain strings are
 immutable and cannot be reliably erased from managed memory.
 
-A committed restore fixture pins this format across releases:
-`storage/src/test/resources/fixtures/portable-backup-v11.somabackup` decodes in
-`PortableBackupFixtureTest` with the passphrase documented there. When the
-payload version advances, keep the old fixture and add a new one so
-`SUPPORTED_PAYLOAD_VERSIONS` remains an enforced promise rather than a comment.
+Committed restore fixtures pin this format across releases:
+`storage/src/test/resources/fixtures/portable-backup-v11.somabackup` and
+`portable-backup-v12.somabackup` decode in `PortableBackupFixtureTest` with the
+passphrase documented there. When the payload version advances, keep the old
+fixtures and add a new one so `SUPPORTED_PAYLOAD_VERSIONS` remains an enforced
+promise rather than a comment.
 
 ## Readable archive
 

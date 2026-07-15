@@ -3,6 +3,7 @@ package com.soma.app
 import android.content.Context
 import com.soma.core.model.SupportedLanguage
 import com.soma.core.model.TranscriptionFallbackReason
+import com.soma.whisper.LocalWhisperModel
 import java.time.Instant
 
 object SomaPrefs {
@@ -27,6 +28,7 @@ object SomaPrefs {
     private const val KEY_AI_AUTO_METADATA = "cloud_ai_auto_metadata"
     private const val KEY_AI_TRACKING = "cloud_ai_tracking_suggestions"
     private const val KEY_LOCAL_AUTO_METADATA = "local_auto_metadata"
+    private const val KEY_LOCAL_WHISPER_MODEL = "local_whisper_model"
     private const val KEY_LOCAL_METADATA_BACKFILL_VERSION = "local_metadata_backfill_version"
     private const val KEY_LOCAL_METADATA_BACKFILL_CURSOR = "local_metadata_backfill_cursor"
 
@@ -158,6 +160,20 @@ object SomaPrefs {
             .putInt(KEY_LOCAL_METADATA_BACKFILL_VERSION, 0)
             .remove(KEY_LOCAL_METADATA_BACKFILL_CURSOR)
             .apply()
+
+    /**
+     * The user's local engine choice. Tiny is the default; a stored name that
+     * no longer parses (downgrade) also falls back to tiny rather than failing.
+     */
+    fun localWhisperModel(context: Context): LocalWhisperModel = runCatching {
+        LocalWhisperModel.valueOf(
+            values(context).getString(KEY_LOCAL_WHISPER_MODEL, LocalWhisperModel.TINY.name)
+                ?: LocalWhisperModel.TINY.name,
+        )
+    }.getOrDefault(LocalWhisperModel.TINY)
+
+    fun setLocalWhisperModel(context: Context, model: LocalWhisperModel) =
+        values(context).edit().putString(KEY_LOCAL_WHISPER_MODEL, model.name).apply()
 
     fun aiTrackingSuggestions(context: Context): Boolean = values(context).getBoolean(KEY_AI_TRACKING, false)
 

@@ -9,6 +9,8 @@ internal object WhisperNative {
 
     external fun createContext(assetManager: AssetManager, assetPath: String): Long
 
+    external fun createContextFromFile(modelPath: String): Long
+
     /**
      * [allowedLanguages] constrains language identification to the app's supported
      * set; [preferredLanguage] wins ambiguous chunks unless another allowed

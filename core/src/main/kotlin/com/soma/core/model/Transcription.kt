@@ -17,7 +17,13 @@ enum class TranscriptionEngine {
     ELEVENLABS_SCRIBE_V2,
     GROQ_WHISPER_LARGE_V3_TURBO,
     GROQ_WHISPER_LARGE_V3,
+    LOCAL_WHISPER_BASE,
 }
+
+/** Engines that run on the phone and never open the network. */
+val TranscriptionEngine.isLocal: Boolean
+    get() = this == TranscriptionEngine.LOCAL_WHISPER_TINY ||
+        this == TranscriptionEngine.LOCAL_WHISPER_BASE
 
 enum class TranscriptionFallbackReason {
     WIFI_REQUIRED,
@@ -46,20 +52,20 @@ data class TranscriptionProvenance(
                 "Different requested and used engines require a fallback reason"
             }
         } else {
-            require(requestedEngine != TranscriptionEngine.LOCAL_WHISPER_TINY) {
+            require(!requestedEngine.isLocal) {
                 "Local Whisper cannot be the source of a cloud fallback"
             }
-            require(usedEngine == TranscriptionEngine.LOCAL_WHISPER_TINY) {
+            require(usedEngine.isLocal) {
                 "Cloud fallback must finish with local Whisper"
             }
         }
     }
 
     companion object {
-        fun local() = TranscriptionProvenance(
-            requestedEngine = TranscriptionEngine.LOCAL_WHISPER_TINY,
-            usedEngine = TranscriptionEngine.LOCAL_WHISPER_TINY,
-        )
+        fun local(engine: TranscriptionEngine = TranscriptionEngine.LOCAL_WHISPER_TINY): TranscriptionProvenance {
+            require(engine.isLocal) { "Local provenance requires a local engine" }
+            return TranscriptionProvenance(requestedEngine = engine, usedEngine = engine)
+        }
     }
 }
 

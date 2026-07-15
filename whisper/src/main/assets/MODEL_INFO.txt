@@ -1,6 +1,17 @@
+Bundled asset
 File: ggml-tiny-q5_1.bin
 Model: multilingual Whisper tiny, Q5_1 quantization
 Source: https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny-q5_1.bin
 SHA-256: 818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7
 Size: 32152673 bytes
 Fetched: 2026-07-12
+
+Downloadable registry entry (never bundled; see LocalWhisperModel.kt)
+File: ggml-base-q5_1.bin
+Model: multilingual Whisper base, Q5_1 quantization
+Source: https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin
+SHA-256: 422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898
+Size: 59707625 bytes
+Pinned: 2026-07-15
+Fetch this file on any computer and use Settings -> local model -> import
+model file; the app accepts it only if the SHA-256 above matches.

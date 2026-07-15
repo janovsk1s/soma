@@ -53,9 +53,10 @@ internal fun cloudFallbackProvenance(
     provider: CloudSpeechProvider,
     reason: TranscriptionFallbackReason,
     groqModel: GroqSpeechModel = GroqSpeechModel.TURBO,
+    usedEngine: TranscriptionEngine = TranscriptionEngine.LOCAL_WHISPER_TINY,
 ) = TranscriptionProvenance(
     requestedEngine = provider.transcriptionEngine(groqModel),
-    usedEngine = TranscriptionEngine.LOCAL_WHISPER_TINY,
+    usedEngine = usedEngine,
     fallbackReason = reason,
 )
 
@@ -303,6 +304,13 @@ interface CloudFeatureController {
     fun setApiKey(provider: CloudSpeechProvider, value: CharArray)
 
     fun createTranscriber(localFactory: () -> Transcriber): Transcriber
+
+    /**
+     * Wi-Fi-gated download of registry model weights. Null in flavors that
+     * never open the network; those acquire models through the file import,
+     * which verifies the same pinned SHA-256 without any network code.
+     */
+    fun modelDownloader(): LocalModelDownloader?
 
     /** Suggestions only. Callers still require an explicit user tap before creating a todo. */
     suspend fun extractTodoCandidates(text: String): List<String>

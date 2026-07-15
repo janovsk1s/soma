@@ -148,6 +148,7 @@ private sealed interface AppRoute {
     data object Search : AppRoute
     data object SpeechLanguages : AppRoute
     data object TranscriptionVocabulary : AppRoute
+    data object LocalModel : AppRoute
     data object Deleted : AppRoute
     data class ChooseLogKind(val sourceEntry: NoteEntry? = null) : AppRoute
     data class AddLog(
@@ -626,6 +627,7 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
             SettingsScreen(
                 onSpeechLanguages = { route = AppRoute.SpeechLanguages },
                 onTranscriptionVocabulary = { route = AppRoute.TranscriptionVocabulary },
+                onLocalModel = { route = AppRoute.LocalModel },
                 deletedCount = deleted.size,
                 onDeleted = { route = AppRoute.Deleted },
                 onBackup = { route = AppRoute.Backup },
@@ -673,6 +675,7 @@ private fun SomaApp(viewModel: SomaViewModel, homeResetSignal: Int) {
         }
         AppRoute.SpeechLanguages -> SpeechLanguagesScreen { route = AppRoute.Settings }
         AppRoute.TranscriptionVocabulary -> TranscriptionVocabularyScreen { route = AppRoute.Settings }
+        AppRoute.LocalModel -> LocalModelScreen { route = AppRoute.Settings }
         AppRoute.Backup -> BackupScreen(viewModel) { route = AppRoute.Settings }
         AppRoute.Browser -> BrowserScreen { route = AppRoute.Settings }
         AppRoute.About -> AboutScreen(
