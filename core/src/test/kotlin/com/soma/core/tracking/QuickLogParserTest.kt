@@ -99,6 +99,62 @@ class QuickLogParserTest {
     }
 
     @Test
+    fun `printed deductions keep their minus sign in structured and loose lines`() {
+        val draft = QuickLogParser.parse(
+            LogKind.RECEIPT,
+            "merchant: Billa\ncurrency: EUR\nitem: Karotten 500g | 1 | 0,94\n" +
+                "item: Pfandartikel | 1 | 0,25\nitem: Nimm mehr | 1 | -0,50\ntotal: 0,69",
+        )
+
+        assertEquals(-50L, draft.receipt?.items?.last()?.lineTotal?.minorUnits)
+        assertEquals(69L, draft.receipt?.total?.minorUnits)
+
+        val loose = QuickLogParser.parse(
+            LogKind.RECEIPT,
+            "PFANDARTIKEL 0.25\nNIMM MEHR -0.50\nRABATT 0,30-\nSumme EUR 12.34",
+        )
+
+        assertEquals(listOf(25L, -50L, -30L), loose.receipt?.items?.map { it.lineTotal?.minorUnits })
+        assertEquals(listOf("PFANDARTIKEL", "NIMM MEHR", "RABATT"), loose.receipt?.items?.map { it.name })
+        // "Summe" is the printed total, never an item.
+        assertEquals(1_234L, loose.receipt?.total?.minorUnits)
+    }
+
+    @Test
+    fun `an austrian receipt with deposits and discounts reconciles exactly`() {
+        val draft = QuickLogParser.parse(
+            LogKind.RECEIPT,
+            "merchant: Billa\ncurrency: EUR\n" +
+                "item: Heurige 2kg | 1 | 2,66\nitem: Karotten 500g | 1 | 0,94\n" +
+                "item: Teebutter | 1 | 1,38\nitem: Karamellgebäck | 1 | 1,99\n" +
+                "item: Pepsi Zero | 1 | 1,99\nitem: Pfandartikel | 1 | 0,25\n" +
+                "item: Energy Pineapple | 1 | 1,69\nitem: Nimm mehr | 1 | -0,50\n" +
+                "item: Pfandartikel | 1 | 0,25\nitem: Energy Raspberry | 1 | 1,69\n" +
+                "item: Nimm mehr | 1 | -0,50\nitem: Pfandartikel | 1 | 0,25\n" +
+                "item: Papiertasche | 1 | 0,25\ntotal: 12,34",
+        )
+
+        val receipt = requireNotNull(draft.receipt)
+        // Duplicate deposit lines are three separate purchases, never collapsed.
+        assertEquals(13, receipt.items.size)
+        val result = ReceiptReconciler.reconcile(receipt)
+        assertEquals(1_234L, result.pricedItemSum?.minorUnits)
+        assertEquals(0L, result.itemDifferenceMinorUnits)
+    }
+
+    @Test
+    fun `hyphens in ranges and phone numbers are never money signs`() {
+        assertEquals(
+            600L,
+            QuickLogParser.parseReceiptMoney("5-6 gab 6.00", "EUR")?.minorUnits,
+        )
+        assertEquals(
+            134L,
+            QuickLogParser.parseReceiptMoney("TEL 059915-0 1,34", "EUR")?.minorUnits,
+        )
+    }
+
+    @Test
     fun `receipt reconciliation reports calm exact differences`() {
         val receipt = ReceiptDetails(
             total = ReceiptMoney(500, "EUR"),

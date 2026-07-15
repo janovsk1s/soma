@@ -105,4 +105,16 @@ class TrackingTest {
             log.copy(kind = LogKind.MEAL)
         }
     }
+
+    @Test
+    fun `printed deductions are signed lines with bounded magnitude`() {
+        val discount = ReceiptItem("Nimm mehr", lineTotal = ReceiptMoney(-50, "EUR"))
+
+        assertEquals(-50L, discount.lineTotal?.minorUnits)
+        assertEquals("-0.50", discount.lineTotal?.asDecimalString())
+        assertEquals("12.34", ReceiptMoney(1_234, "EUR").asDecimalString())
+        assertThrows(IllegalArgumentException::class.java) {
+            ReceiptMoney(-ReceiptMoney.MAX_MINOR_UNITS - 1, "EUR")
+        }
+    }
 }

@@ -70,11 +70,11 @@ class PortableBackupFixtureTest {
     @Test
     fun `committed v12 backup fixture decodes with the documented passphrase`() {
         val file = fixtureFile(V12_RESOURCE)
-        if (!file.exists()) {
-            file.parentFile.mkdirs()
-            file.writeBytes(encodeFixture())
-            fail("Backup fixture was missing and has been regenerated at $file — commit it.")
-        }
+        assertTrue(
+            "The v12 fixture is missing at $file — restore it from git history; " +
+                "old payload versions cannot be re-encoded.",
+            file.exists(),
+        )
 
         val decoded = decode(file.readBytes())
 
@@ -88,6 +88,25 @@ class PortableBackupFixtureTest {
         assertArrayEquals(AUDIO_BYTES, decoded.audioContainers.single().portableWavBytes())
     }
 
+    @Test
+    fun `committed v13 backup fixture decodes with the documented passphrase`() {
+        val file = fixtureFile(V13_RESOURCE)
+        if (!file.exists()) {
+            file.parentFile.mkdirs()
+            file.writeBytes(encodeFixture())
+            fail("Backup fixture was missing and has been regenerated at $file — commit it.")
+        }
+
+        val decoded = decode(file.readBytes())
+
+        assertEquals(V13_SNAPSHOT, decoded)
+        assertEquals(13, decoded.payloadVersion)
+        val receipt = decoded.trackingLogs.single { it.kind == LogKind.RECEIPT }.receipt
+        assertEquals(-50L, receipt?.items?.single { it.name == "Atlaide" }?.lineTotal?.minorUnits)
+        assertEquals(331L, receipt?.total?.minorUnits)
+        assertArrayEquals(AUDIO_BYTES, decoded.audioContainers.single().portableWavBytes())
+    }
+
     private fun fixtureFile(resource: String): File = sequenceOf(".", "storage")
         .map { File(System.getProperty("user.dir"), it) }
         .firstOrNull { File(it, "src/test").isDirectory }
@@ -97,7 +116,7 @@ class PortableBackupFixtureTest {
     private fun encodeFixture(): ByteArray {
         val passphrase = PASSPHRASE.toCharArray()
         return try {
-            PortableBackupCodec().encode(V12_SNAPSHOT, passphrase)
+            PortableBackupCodec().encode(V13_SNAPSHOT, passphrase)
         } finally {
             Arrays.fill(passphrase, ' ')
         }
@@ -115,6 +134,7 @@ class PortableBackupFixtureTest {
     private companion object {
         const val V11_RESOURCE = "fixtures/portable-backup-v11.somabackup"
         const val V12_RESOURCE = "fixtures/portable-backup-v12.somabackup"
+        const val V13_RESOURCE = "fixtures/portable-backup-v13.somabackup"
 
         /** Fixture-only passphrase; it protects no real data. */
         const val PASSPHRASE = "soma fixture passphrase 2026"
@@ -256,6 +276,33 @@ class PortableBackupFixtureTest {
             notes = listOf(DailyNote(DATE, START, listOf(TEXT_ENTRY, TRANSCRIBED_VOICE_ENTRY))),
             entryMetadata = listOf(FIXTURE_METADATA),
             trackingLogs = FIXTURE_TRACKING_LOGS,
+            trackingLogRevisions = FIXTURE_TRACKING_REVISIONS,
+            todos = FIXTURE_TODOS,
+            suggestions = emptyList(),
+            audioContainers = listOf(BackupAudioContainer("fixture-audio-1", AUDIO_BYTES.copyOf())),
+            transcriptionVocabulary = listOf("Milchreis", "Rīga"),
+        )
+
+        /** The v13 receipt gains a printed deduction line; 315 + 66 − 50 = 331. */
+        val V13_TRACKING_LOGS = FIXTURE_TRACKING_LOGS.map { log ->
+            val receipt = log.receipt ?: return@map log
+            log.copy(
+                receipt = receipt.copy(
+                    total = ReceiptMoney(331, "EUR"),
+                    items = receipt.items + ReceiptItem(
+                        name = "Atlaide",
+                        lineTotal = ReceiptMoney(-50, "EUR"),
+                    ),
+                ),
+            )
+        }
+
+        val V13_SNAPSHOT = BackupSnapshot(
+            payloadVersion = 13,
+            exportedAt = START.plusSeconds(600),
+            notes = listOf(DailyNote(DATE, START, listOf(TEXT_ENTRY, TRANSCRIBED_VOICE_ENTRY))),
+            entryMetadata = listOf(FIXTURE_METADATA),
+            trackingLogs = V13_TRACKING_LOGS,
             trackingLogRevisions = FIXTURE_TRACKING_REVISIONS,
             todos = FIXTURE_TODOS,
             suggestions = emptyList(),

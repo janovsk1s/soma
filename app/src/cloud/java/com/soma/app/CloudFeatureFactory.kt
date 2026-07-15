@@ -799,6 +799,8 @@ internal object CloudHttp {
                     "'item: name | quantity | exact line total | optional broad category', 'subtotal: 0.00', " +
                     "'tax: 0.00', and 'total: 0.00'. Use the printed ISO currency code when visible and " +
                     "preserve every printed purchase line, including duplicates. Copy values exactly. " +
+                    "Discounts, deposit refunds, and other printed deductions are their own item lines " +
+                    "with negative totals such as -0.50; copy the minus sign exactly. " +
                     "Omit unreadable fields, never infer missing prices or products, and keep uncertain " +
                     "item names visibly qualified. Do not calculate or replace the printed total."
         }

@@ -46,6 +46,13 @@ Notable changes to Soma are documented here.
 
 ### Fixed
 
+- Receipts with printed deductions now parse honestly. Discounts and deposit
+  refunds ("NIMM MEHR −0,50", Pfand returns, the trailing-minus style some
+  registers print) used to lose their sign and be added as positive charges;
+  they are now signed lines, the arithmetic reconciles, and the editor accepts
+  a minus. German-language totals ("Summe", "Gesamtbetrag", "zu zahlen") are
+  recognized instead of being misread as purchases. Backup payload v13 with a
+  committed restore fixture carries the signed amounts.
 - Photo meal, workout, and receipt proposals can now walk an ordered list of
   vision models, so a retired model degrades to the next candidate instead of
   killing the feature. Groq currently offers only one live vision model (its
