@@ -6,11 +6,13 @@ Notable changes to Soma are documented here.
 
 ### Fixed
 
-- Photo meal, workout, and receipt proposals no longer depend on a single
-  preview vision model: if Groq retires the preferred model, the request falls
-  through to the next vision candidate. Account-level failures (key, credits,
-  rate limits) still surface immediately and are never retried against another
-  model.
+- Photo meal, workout, and receipt proposals can now walk an ordered list of
+  vision models, so a retired model degrades to the next candidate instead of
+  killing the feature. Groq currently offers only one live vision model (its
+  other one retires 2026-07-17 and names this one as its replacement), so the
+  shipped list is one deep today; the mechanism makes a future successor a
+  one-line addition. Account-level failures (key, credits, rate limits) still
+  surface immediately and are never retried against another model.
 - Cloud vision uploads are bounded to just under 3 MB so every candidate
   vision model accepts them; photos were already downscaled for cloud analysis
   and the encrypted original keeps its full quality.
