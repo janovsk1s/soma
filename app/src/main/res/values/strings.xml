@@ -330,6 +330,10 @@
     <string name="add_entry">New entry</string>
     <string name="calendar_title">Calendar</string>
     <string name="search_title">Search</string>
+    <string name="hint_hold_to_speak">hold the line to speak</string>
+    <string name="hint_hold_for_photo">hold + for a photo</string>
+    <string name="hint_tap_date_calendar">tap the date to look back</string>
+    <string name="delete_forever_confirm">tap again to delete forever</string>
     <string name="search_hint">word or phrase</string>
     <string name="search_action">search</string>
     <string name="search_empty">Nothing found.</string>

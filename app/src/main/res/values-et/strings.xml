@@ -234,6 +234,10 @@
     <string name="add_entry">Uus sissekanne</string>
     <string name="calendar_title">Kalender</string>
     <string name="search_title">Otsing</string>
+    <string name="hint_hold_to_speak">hoia rida, et rääkida</string>
+    <string name="hint_hold_for_photo">hoia +, et pildistada</string>
+    <string name="hint_tap_date_calendar">puuduta kuupäeva, et tagasi vaadata</string>
+    <string name="delete_forever_confirm">puuduta uuesti, et jäädavalt kustutada</string>
     <string name="search_hint">sõna või fraas</string>
     <string name="search_action">otsi</string>
     <string name="search_empty">Midagi ei leitud.</string>

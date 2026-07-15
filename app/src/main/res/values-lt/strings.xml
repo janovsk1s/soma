@@ -234,6 +234,10 @@
     <string name="add_entry">Naujas įrašas</string>
     <string name="calendar_title">Kalendorius</string>
     <string name="search_title">Paieška</string>
+    <string name="hint_hold_to_speak">palaikyk eilutę, kad įkalbėtum</string>
+    <string name="hint_hold_for_photo">palaikyk +, kad nufotografuotum</string>
+    <string name="hint_tap_date_calendar">paliesk datą, kad pažvelgtum atgal</string>
+    <string name="delete_forever_confirm">paliesk dar kartą, kad ištrintum visam</string>
     <string name="search_hint">žodis ar frazė</string>
     <string name="search_action">ieškoti</string>
     <string name="search_empty">Nieko nerasta.</string>

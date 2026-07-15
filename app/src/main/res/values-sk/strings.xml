@@ -234,6 +234,10 @@
     <string name="add_entry">Nový záznam</string>
     <string name="calendar_title">Kalendár</string>
     <string name="search_title">Hľadanie</string>
+    <string name="hint_hold_to_speak">podrž riadok a hovor</string>
+    <string name="hint_hold_for_photo">podrž + pre fotku</string>
+    <string name="hint_tap_date_calendar">ťukni na dátum a obzri sa</string>
+    <string name="delete_forever_confirm">ťukni znova na trvalé odstránenie</string>
     <string name="search_hint">slovo alebo fráza</string>
     <string name="search_action">hľadať</string>
     <string name="search_empty">Nič sa nenašlo.</string>

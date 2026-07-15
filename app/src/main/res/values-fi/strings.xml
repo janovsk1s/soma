@@ -234,6 +234,10 @@
     <string name="add_entry">Uusi merkintä</string>
     <string name="calendar_title">Kalenteri</string>
     <string name="search_title">Haku</string>
+    <string name="hint_hold_to_speak">pidä riviä puhuaksesi</string>
+    <string name="hint_hold_for_photo">pidä + ottaaksesi kuvan</string>
+    <string name="hint_tap_date_calendar">napauta päivämäärää katsoaksesi taakse</string>
+    <string name="delete_forever_confirm">napauta uudelleen poistaaksesi pysyvästi</string>
     <string name="search_hint">sana tai ilmaus</string>
     <string name="search_action">hae</string>
     <string name="search_empty">Mitään ei löytynyt.</string>

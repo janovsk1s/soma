@@ -48,6 +48,10 @@ fun CalendarScreen(
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(Unit) {
+        SomaPrefs.markGestureHintUsed(context, SomaPrefs.GestureHint.CALENDAR)
+    }
     val today = viewModel.today()
     val selected by viewModel.selectedDate.collectAsState()
     var month by remember { mutableStateOf(YearMonth.from(selected)) }
