@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -46,6 +47,7 @@ fun CalendarScreen(
 ) {
     BackHandler(onBack = onBack)
     val today = viewModel.today()
+    val selected = viewModel.selectedDate.value
     var month by remember { mutableStateOf(YearMonth.from(viewModel.selectedDate.value)) }
     var marked by remember { mutableStateOf<Set<LocalDate>>(emptySet()) }
     LaunchedEffect(month) {
@@ -78,7 +80,9 @@ fun CalendarScreen(
             )
             Text(
                 "›",
-                color = if (month < currentMonth) DimInk else Paper,
+                // Dimmed rather than invisible at the current month, so the
+                // forward control is discoverable but clearly at its limit.
+                color = if (month < currentMonth) DimInk else DimInk.copy(alpha = 0.25f),
                 fontSize = 26.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.then(
@@ -105,7 +109,7 @@ fun CalendarScreen(
         val cells = List(leadingBlanks) { null } + (1..month.lengthOfMonth()).map(month::atDay)
         cells.chunked(DAYS_PER_WEEK).forEach { week ->
             Row(Modifier.fillMaxWidth()) {
-                week.forEach { date -> DayCell(date, today, marked, onSelect, Modifier.weight(1f)) }
+                week.forEach { date -> DayCell(date, today, selected, marked, onSelect, Modifier.weight(1f)) }
                 repeat(DAYS_PER_WEEK - week.size) { Box(Modifier.weight(1f)) }
             }
         }
@@ -116,6 +120,7 @@ fun CalendarScreen(
 private fun DayCell(
     date: LocalDate?,
     today: LocalDate,
+    selected: LocalDate,
     marked: Set<LocalDate>,
     onSelect: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
@@ -132,12 +137,26 @@ private fun DayCell(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(
-            "${date.dayOfMonth}",
-            color = if (selectable) Ink else DimInk.copy(alpha = 0.35f),
-            fontSize = 18.sp,
-            fontWeight = if (date == today) FontWeight.Bold else FontWeight.Normal,
-        )
+        Box(contentAlignment = Alignment.Center) {
+            // A ring marks the day currently being viewed, distinct from today's
+            // bold weight, so opening the calendar shows "you are here" instead
+            // of only highlighting today.
+            if (date == selected) {
+                Canvas(Modifier.size(34.dp)) {
+                    drawCircle(
+                        color = Ink,
+                        radius = size.minDimension / 2f,
+                        style = Stroke(width = 1.5.dp.toPx()),
+                    )
+                }
+            }
+            Text(
+                "${date.dayOfMonth}",
+                color = if (selectable) Ink else DimInk.copy(alpha = 0.35f),
+                fontSize = 18.sp,
+                fontWeight = if (date == today) FontWeight.Bold else FontWeight.Normal,
+            )
+        }
         if (date in marked) {
             Canvas(Modifier.padding(top = 3.dp).size(4.dp)) { drawCircle(DimInk) }
         } else {

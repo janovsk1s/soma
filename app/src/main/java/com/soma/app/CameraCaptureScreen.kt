@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -77,7 +78,11 @@ fun CameraCaptureScreen(
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
     val previewView = remember {
         PreviewView(context).apply {
-            implementationMode = PreviewView.ImplementationMode.PERFORMANCE
+            // COMPATIBLE (TextureView) renders inside the view hierarchy and
+            // stays within its Compose bounds. PERFORMANCE uses a SurfaceView
+            // whose separate window layer painted over the back-arrow top bar,
+            // hiding it once the live preview started.
+            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
             scaleType = PreviewView.ScaleType.FILL_CENTER
         }
     }
@@ -164,31 +169,36 @@ fun CameraCaptureScreen(
         )
     }
 
-    Column(Modifier.fillMaxSize().background(Paper).systemBarsPadding()) {
-        CameraTopBar(
-            saving = saving,
-            onBack = onBack,
-        )
-        Box(Modifier.weight(1f).fillMaxWidth().background(androidx.compose.ui.graphics.Color.Black)) {
-            AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
-            if (!ready || bindingFailed || captureFailed || saving || captured) {
-                EmptyHint(
-                    stringResource(
-                        when {
-                            saving || captured -> R.string.photo_saving
-                            bindingFailed -> R.string.photo_failed
-                            captureFailed -> R.string.photo_retry
-                            else -> R.string.photo_starting
-                        },
-                    ),
-                )
+    // The camera preview surface paints its whole allocated area and would cover
+    // a top bar laid out above it. The bar is therefore drawn last, as an opaque
+    // overlay on top of the preview, and the preview column reserves matching
+    // space so nothing sits behind it. clipToBounds keeps the preview inside its box.
+    Box(Modifier.fillMaxSize().background(Paper).systemBarsPadding()) {
+        Column(Modifier.fillMaxSize()) {
+            Spacer(Modifier.fillMaxWidth().height(CAMERA_TOP_BAR_HEIGHT))
+            Box(
+                Modifier.weight(1f).fillMaxWidth().clipToBounds()
+                    .background(androidx.compose.ui.graphics.Color.Black),
+            ) {
+                AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+                if (!ready || bindingFailed || captureFailed || saving || captured) {
+                    EmptyHint(
+                        stringResource(
+                            when {
+                                saving || captured -> R.string.photo_saving
+                                bindingFailed -> R.string.photo_failed
+                                captureFailed -> R.string.photo_retry
+                                else -> R.string.photo_starting
+                            },
+                        ),
+                    )
+                }
             }
-        }
-        Column(
-            modifier = Modifier.fillMaxWidth().height(112.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().height(112.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
             Canvas(
                 Modifier.width(64.dp).height(64.dp).then(
                     if (ready && !saving && !bindingFailed && !captured) {
@@ -221,9 +231,20 @@ fun CameraCaptureScreen(
                 color = if (ready && !bindingFailed && !captured) Ink else DimInk,
                 fontSize = 13.sp,
             )
+            }
         }
+        CameraTopBar(
+            saving = saving,
+            onBack = onBack,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(CAMERA_TOP_BAR_HEIGHT)
+                .background(Paper),
+        )
     }
 }
+
+private val CAMERA_TOP_BAR_HEIGHT = 56.dp
 
 /**
  * Camera navigation is deliberately laid out inside the full screen width.
@@ -236,9 +257,10 @@ fun CameraCaptureScreen(
 private fun CameraTopBar(
     saving: Boolean,
     onBack: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp, start = 4.dp, end = 4.dp),
+        modifier = modifier.padding(top = 8.dp, bottom = 8.dp, start = 4.dp, end = 4.dp),
         contentAlignment = Alignment.Center,
     ) {
         BackArrow(

@@ -350,8 +350,11 @@ private fun HomeHeader(
             else -> date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
         }
         Box(
+            // A plain tap opens the calendar (long-press kept for muscle memory).
+            // Tap-only was undiscoverable: people tapped the date and nothing
+            // happened.
             modifier = Modifier.then(
-                longPressModifier(onCalendar, stringResource(R.string.calendar_title)),
+                tapLongModifier(onCalendar, onCalendar, stringResource(R.string.calendar_title)),
             ),
             contentAlignment = Alignment.Center,
         ) {

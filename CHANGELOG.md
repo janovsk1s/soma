@@ -6,6 +6,16 @@ Notable changes to Soma are documented here.
 
 ### Fixed
 
+- The camera's back-arrow top bar no longer disappears once the live preview
+  starts: the preview is clipped to its area and the bar is drawn as an opaque
+  overlay above it.
+- The day title opens the calendar on a plain tap, not only a long-press, so
+  the date is a discoverable way in.
+- The calendar now rings the day you are currently viewing (distinct from
+  today's bold weight), so opening it shows where you are instead of only
+  highlighting today, and the next-month arrow is dimmed-but-visible at the
+  current month rather than invisible.
+
 - Latvian debitive obligations (jānopērk, jāpiezvana, jāaizved…) are now
   detected locally, so a note like "Jānopērk olas, piens, zeķes" becomes one
   complete Important suggestion instead of falling through to the cloud, which
