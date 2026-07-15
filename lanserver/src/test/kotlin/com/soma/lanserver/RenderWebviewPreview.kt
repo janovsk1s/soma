@@ -80,6 +80,7 @@ class RenderWebviewPreview {
             totalCount = 6,
         )
         write("04-todos", HtmlRenderer.todos(BrowserTodoFilter.OPEN, 1, todos, languageTag = lang))
+        write("04-todos-editing", HtmlRenderer.todos(BrowserTodoFilter.OPEN, 1, todos, languageTag = lang, edit = EditContext("preview-csrf")))
 
         val logs = PagedResult(
             items = listOf(

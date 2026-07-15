@@ -349,6 +349,12 @@ class LanBrowserServer(
                     ?: return errorResponse(400, "An entry is required.")
                 dataSource.editEntry(id, form["text"]?.singleOrNull().orEmpty())
             }
+            "/todo/new" -> dataSource.addTodo(form["text"]?.singleOrNull().orEmpty())
+            "/todo/edit" -> {
+                val id = form["id"]?.singleOrNull()?.takeIf(String::isNotEmpty)
+                    ?: return errorResponse(400, "An item is required.")
+                dataSource.editTodo(id, form["text"]?.singleOrNull().orEmpty())
+            }
             else -> return errorResponse(404, "That action does not exist.")
         }
         return when (result) {
@@ -428,7 +434,8 @@ class LanBrowserServer(
         }
         val page = pageNumber(request)
         val result = dataSource.listTodos(filter, pageRequest(page)).bounded()
-        return htmlResponse(200, HtmlRenderer.todos(filter, page, result, config.lightMode, config.languageTag))
+        val edit = if (config.editEnabled) currentCsrf()?.let(::EditContext) else null
+        return htmlResponse(200, HtmlRenderer.todos(filter, page, result, config.lightMode, config.languageTag, edit))
     }
 
     private fun logsResponse(request: HttpRequest): HttpResponse {

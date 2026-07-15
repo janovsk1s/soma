@@ -157,6 +157,32 @@ class LanBrowserServerTest {
         }
     }
 
+    @Test
+    fun `important items can be added and edited`() {
+        val data = FakeDataSource(todos = listOf(BrowserTodo("t1", "buy milk", today, BrowserTodoState.OPEN)))
+        val endpoint = server(data, editEnabled = true).start()
+        val cookie = authenticate(endpoint).cookie
+        val csrf = csrfToken(request(endpoint, "GET", "/todos?state=open", cookie = cookie).text)
+
+        val added = request(
+            endpoint, "POST", "/todo/new", cookie = cookie,
+            body = "csrf=$csrf&text=call%20the%20dentist&return=%2Ftodos%3Fstate%3Dopen",
+            contentType = "application/x-www-form-urlencoded",
+        )
+        assertEquals(303, added.status)
+        assertEquals("call the dentist", data.addedTodos.single())
+
+        val edited = request(
+            endpoint, "POST", "/todo/edit", cookie = cookie,
+            body = "csrf=$csrf&id=t1&text=buy%20oat%20milk&return=%2Ftodos%3Fstate%3Dopen",
+            contentType = "application/x-www-form-urlencoded",
+        )
+        assertEquals(303, edited.status)
+        assertEquals("t1" to "buy oat milk", data.editedTodos.single())
+    }
+
+    private val today: LocalDate = LocalDate.parse("2026-07-15")
+
     private fun csrfToken(html: String): String =
         Regex("name=\"csrf\" value=\"([^\"]+)\"").find(html)!!.groupValues[1]
 
@@ -306,7 +332,7 @@ class LanBrowserServerTest {
 
         val todoPage = request(endpoint, "GET", "/todos", cookie = cookie)
         assertEquals(200, todoPage.status)
-        assertEquals(5, Regex("<li>").findAll(todoPage.text).count())
+        assertEquals(5, Regex("<li id=\"t").findAll(todoPage.text).count())
         assertFalse(todoPage.text.contains("TODO-6"))
 
         val attemptedWrite = request(endpoint, "POST", "/todos", cookie = cookie)
@@ -811,6 +837,19 @@ class LanBrowserServerTest {
         override fun editEntry(entryId: String, text: String): BrowserWriteResult {
             editedEntries += entryId to text
             return BrowserWriteResult.Success("e$entryId")
+        }
+
+        val addedTodos = CopyOnWriteArrayList<String>()
+        val editedTodos = CopyOnWriteArrayList<Pair<String, String>>()
+
+        override fun addTodo(text: String): BrowserWriteResult {
+            addedTodos += text
+            return BrowserWriteResult.Success("t-new")
+        }
+
+        override fun editTodo(todoId: String, text: String): BrowserWriteResult {
+            editedTodos += todoId to text
+            return BrowserWriteResult.Success("t$todoId")
         }
 
         @Volatile

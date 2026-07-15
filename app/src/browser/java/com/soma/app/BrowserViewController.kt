@@ -437,6 +437,12 @@ interface BrowserViewDataSource {
 
     /** Replaces an entry's text, preserving prior wording as a revision. */
     suspend fun editEntry(entryId: String, text: String): Boolean = false
+
+    /** Adds a manual Important item. Returns the new id, or null if refused. */
+    suspend fun addTodo(text: String): String? = null
+
+    /** Replaces an Important item's text. */
+    suspend fun editTodo(todoId: String, text: String): Boolean = false
 }
 
 /**
@@ -475,6 +481,22 @@ class RepositoryBrowserViewDataSource(
         val clean = text.trim()
         if (clean.isEmpty() || clean.length > MAX_WEB_ENTRY_CHARS) return false
         return notes.editEntryText(entryId, clean, java.time.Instant.now()) != null
+    }
+
+    override suspend fun addTodo(text: String): String? {
+        val clean = text.trim()
+        if (clean.isEmpty() || clean.length > MAX_WEB_ENTRY_CHARS) return null
+        val now = java.time.Instant.now()
+        val todo = com.soma.core.model.Todo(java.util.UUID.randomUUID().toString(), clean, now, now)
+        return if (todos.insert(todo)) todo.id else null
+    }
+
+    override suspend fun editTodo(todoId: String, text: String): Boolean {
+        val clean = text.trim()
+        if (clean.isEmpty() || clean.length > MAX_WEB_ENTRY_CHARS) return false
+        val existing = todos.get(todoId) ?: return false
+        val now = java.time.Instant.now()
+        return todos.update(existing.copy(text = clean, updatedAt = now, lastTouchedAt = now))
     }
 
     override suspend fun listDays(request: BrowserViewPageRequest): BrowserViewPage<BrowserViewDay> {
@@ -1142,6 +1164,17 @@ private class LanDataSourceAdapter(
             BrowserWriteResult.Success("e$entryId")
         } else {
             BrowserWriteResult.Rejected("That entry could not be saved.")
+        }
+
+    override fun addTodo(text: String): BrowserWriteResult =
+        await { delegate.addTodo(text) }?.let { id -> BrowserWriteResult.Success("t$id") }
+            ?: BrowserWriteResult.Rejected("That item could not be saved.")
+
+    override fun editTodo(todoId: String, text: String): BrowserWriteResult =
+        if (await { delegate.editTodo(todoId, text) }) {
+            BrowserWriteResult.Success("t$todoId")
+        } else {
+            BrowserWriteResult.Rejected("That item could not be saved.")
         }
 
     override fun listDays(request: PageRequest): PagedResult<BrowserDay> {

@@ -399,6 +399,12 @@ interface ReadOnlySomaDataSource {
     /** Replaces an entry's text, preserving the prior wording as a revision. */
     fun editEntry(entryId: String, text: String): BrowserWriteResult = BrowserWriteResult.Unavailable
 
+    /** Adds a manual Important item. */
+    fun addTodo(text: String): BrowserWriteResult = BrowserWriteResult.Unavailable
+
+    /** Replaces an Important item's text. */
+    fun editTodo(todoId: String, text: String): BrowserWriteResult = BrowserWriteResult.Unavailable
+
     /** Returns null when [date] has no note. */
     fun entriesForDay(date: LocalDate, request: PageRequest): PagedResult<BrowserEntry>?
 
