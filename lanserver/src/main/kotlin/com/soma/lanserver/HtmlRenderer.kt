@@ -45,11 +45,14 @@ internal object HtmlRenderer {
         title = "Days",
         lightMode = lightMode,
         languageTag = languageTag,
+        active = "days",
         body = buildString {
-            append("<main><header><h1>Days</h1><p>Daily notes</p></header>")
+            val copy = BrowserWebCopy.forLanguage(languageTag)
+            append("<main><header><h1>").append(Html.escape(copy.days)).append("</h1><p>")
+                .append(Html.escape(copy.dailyNotes)).append("</p></header>")
             val days = result.items.take(PAGE_SIZE)
             if (days.isEmpty()) {
-                append("<p class=\"empty\">No notes yet.</p>")
+                append("<p class=\"empty\">").append(Html.escape(copy.noNotes)).append("</p>")
             } else {
                 append("<ol class=\"list\">")
                 days.forEach { day ->
@@ -70,7 +73,7 @@ internal object HtmlRenderer {
                 }
                 append("</ol>")
             }
-            append(pager("/days", pageNumber, result.totalCount))
+            append(pager("/days", pageNumber, result.totalCount, languageTag = languageTag))
             append("</main>")
         },
     )
@@ -84,20 +87,22 @@ internal object HtmlRenderer {
     ): String = page(
         title = date.toString(),
         lightMode = lightMode,
+        active = "days",
         languageTag = languageTag,
         body = buildString {
-            append("<main><header><a class=\"back\" href=\"/days\">← Days</a><h1>")
+            val copy = BrowserWebCopy.forLanguage(languageTag)
+            append("<main><header><a class=\"back\" href=\"/days\">← ").append(Html.escape(copy.days)).append("</a><h1>")
             append(Html.escape(date.toString()))
-            append("</h1><p>Daily note</p></header>")
+            append("</h1><p>").append(Html.escape(copy.dailyNote)).append("</p></header>")
             val entries = result.items.take(PAGE_SIZE)
             if (entries.isEmpty()) {
-                append("<p class=\"empty\">Nothing captured.</p>")
+                append("<p class=\"empty\">").append(Html.escape(copy.nothingCaptured)).append("</p>")
             } else {
                 append("<ol class=\"list entries\">")
                 entries.forEach { entry ->
                     append("<li><article class=\"entry\"><p>")
                     if (entry.transcriptionPending && entry.text.isBlank()) {
-                        append("<span class=\"quiet\">voice note, transcribing…</span>")
+                        append("<span class=\"quiet\">").append(Html.escape(copy.transcribing)).append("</span>")
                     } else {
                         append(Html.escape(entry.text))
                     }
@@ -113,16 +118,17 @@ internal object HtmlRenderer {
                         append("\" alt=\"Captured photo\">")
                     }
                     if (entry.markedForReturn) {
-                        append("<small class=\"quiet\">return to this</small>")
+                        append("<small class=\"quiet\">").append(Html.escape(copy.returnToThis)).append("</small>")
                     }
                     val previousVersions = entry.history.filterNot(BrowserEntryVersion::isCurrent)
                     if (previousVersions.isNotEmpty()) {
-                        append("<details class=\"history\"><summary>Edit history · ")
+                        append("<details class=\"history\"><summary>")
+                        append(Html.escape(copy.editHistory)).append(" · ")
                         append(entry.history.size)
-                        append(" versions</summary><ol>")
+                        append(' ').append(Html.escape(copy.versions)).append("</summary><ol>")
                         previousVersions.forEach { version ->
                             append("<li><small>")
-                            append(if (version.number == 1) "Original" else "Version ${version.number}")
+                            append(Html.escape(if (version.number == 1) copy.original else "${copy.versionLabel} ${version.number}"))
                             append(" · <time datetime=\"")
                             append(Html.escape(version.becameCurrentAt.toString()))
                             append("\">")
@@ -137,7 +143,7 @@ internal object HtmlRenderer {
                 }
                 append("</ol>")
             }
-            append(pager("/day/${Html.pathSegment(date.toString())}", pageNumber, result.totalCount))
+            append(pager("/day/${Html.pathSegment(date.toString())}", pageNumber, result.totalCount, languageTag = languageTag))
             append("</main>")
         },
     )
@@ -150,19 +156,21 @@ internal object HtmlRenderer {
         languageTag: String = "en",
     ): String = page(
         title = "Todos",
+        active = "todos",
         lightMode = lightMode,
         languageTag = languageTag,
         body = buildString {
-            append("<main><header><h1>Todos</h1><p>")
-            append(if (filter == BrowserTodoFilter.OPEN) "Still open" else "Done / archived")
-            append("</p></header><nav class=\"tabs\" aria-label=\"Todo lists\">")
-            tab("Open", "/todos?state=open", filter == BrowserTodoFilter.OPEN)
-            tab("Done / archived", "/todos?state=completed", filter == BrowserTodoFilter.COMPLETED)
+            val copy = BrowserWebCopy.forLanguage(languageTag)
+            append("<main><header><h1>").append(Html.escape(copy.important)).append("</h1><p>")
+            append(Html.escape(if (filter == BrowserTodoFilter.OPEN) copy.stillOpen else copy.doneArchived))
+            append("</p></header><nav class=\"tabs\" aria-label=\"").append(Html.escape(copy.important)).append("\">")
+            tab(copy.openTab, "/todos?state=open", filter == BrowserTodoFilter.OPEN)
+            tab(copy.doneArchived, "/todos?state=completed", filter == BrowserTodoFilter.COMPLETED)
             append("</nav>")
             val todos = result.items.take(PAGE_SIZE)
             if (todos.isEmpty()) {
                 append("<p class=\"empty\">")
-                append(if (filter == BrowserTodoFilter.OPEN) "Nothing open." else "Nothing here yet.")
+                append(Html.escape(if (filter == BrowserTodoFilter.OPEN) copy.nothingOpen else copy.nothingHere))
                 append("</p>")
             } else {
                 append("<ol class=\"list todos\">")
@@ -174,7 +182,7 @@ internal object HtmlRenderer {
                     todo.sourceDate?.let { sourceDate ->
                         append(" · <a href=\"/day/")
                         append(Html.pathSegment(sourceDate.toString()))
-                        append("\">source note</a>")
+                        append("\">").append(Html.escape(copy.sourceNote)).append("</a>")
                     }
                     append("</small></article></li>")
                 }
@@ -185,7 +193,7 @@ internal object HtmlRenderer {
             } else {
                 "/todos?state=completed"
             }
-            append(pager(base, pageNumber, result.totalCount, hasQuery = true))
+            append(pager(base, pageNumber, result.totalCount, hasQuery = true, languageTag = languageTag))
             append("</main>")
         },
     )
@@ -209,6 +217,7 @@ internal object HtmlRenderer {
             title = copy.logs,
             lightMode = lightMode,
             languageTag = languageTag,
+            active = "logs",
             body = buildString {
                 append("<main><header><h1>").append(Html.escape(copy.logs)).append("</h1><p>")
                     .append(Html.escape(copy.confirmedRecords)).append(" · ")
@@ -311,7 +320,7 @@ internal object HtmlRenderer {
                     BrowserLogFilter.RECEIPTS -> "/logs?kind=receipt"
                     BrowserLogFilter.ARCHIVED -> "/logs?kind=archived"
                 }
-                append(pager(base, pageNumber, result.totalCount, hasQuery = true))
+                append(pager(base, pageNumber, result.totalCount, hasQuery = true, languageTag = languageTag))
                 append("</main>")
             },
         )
@@ -327,24 +336,27 @@ internal object HtmlRenderer {
         title = "Insights",
         lightMode = lightMode,
         languageTag = languageTag,
+        active = "insights",
         body = buildString {
-            append("<main><header><h1>Insights</h1><p>Local metadata only</p></header>")
+            val copy = BrowserWebCopy.forLanguage(languageTag)
+            append("<main><header><h1>").append(Html.escape(copy.insights)).append("</h1><p>")
+                .append(Html.escape(copy.localMetadataOnly)).append("</p></header>")
             if (exportEnabled) {
                 append("<p><a href=\"/export\">")
                 append(Html.escape(ExportCopy.forLanguage(languageTag).link))
                 append("</a></p>")
             }
             append("<dl class=\"summary\">")
-            metric("Entries", insights.annotatedEntryCount)
-            metric("Manual", insights.manualLayerCount)
-            metric("AI", insights.aiLayerCount)
-            metric("Local", insights.localLayerCount)
-            metric("Tags", insights.tagOccurrenceCount)
-            metric("Links", insights.linkCount)
-            append("</dl><h2>Connections</h2>")
+            metric(copy.statEntries, insights.annotatedEntryCount)
+            metric(copy.statManual, insights.manualLayerCount)
+            metric(copy.statAi, insights.aiLayerCount)
+            metric(copy.statLocal, insights.localLayerCount)
+            metric(copy.statTags, insights.tagOccurrenceCount)
+            metric(copy.statLinks, insights.linkCount)
+            append("</dl><h2>").append(Html.escape(copy.connections)).append("</h2>")
             val connections = insights.connections.items.take(PAGE_SIZE)
             if (connections.isEmpty()) {
-                append("<p class=\"empty\">No metadata yet.</p>")
+                append("<p class=\"empty\">").append(Html.escape(copy.noMetadata)).append("</p>")
             } else {
                 append("<ol class=\"list\">")
                 connections.forEach { item ->
@@ -352,11 +364,13 @@ internal object HtmlRenderer {
                     append(Html.escape(item.label))
                     append("</strong><small>")
                     append(
-                        when (item.kind) {
-                            BrowserInsightKind.TAG -> "tag"
-                            BrowserInsightKind.DATE -> "date link"
-                            BrowserInsightKind.ENTRY -> "entry link"
-                        },
+                        Html.escape(
+                            when (item.kind) {
+                                BrowserInsightKind.TAG -> copy.kindTag
+                                BrowserInsightKind.DATE -> copy.kindDateLink
+                                BrowserInsightKind.ENTRY -> copy.kindEntryLink
+                            },
+                        ),
                     )
                     append("</small></span><span class=\"count\">")
                     append(item.occurrenceCount)
@@ -364,7 +378,7 @@ internal object HtmlRenderer {
                 }
                 append("</ol>")
             }
-            append(pager("/insights", pageNumber, insights.connections.totalCount))
+            append(pager("/insights", pageNumber, insights.connections.totalCount, languageTag = languageTag))
             append("</main>")
         },
     )
@@ -399,11 +413,14 @@ internal object HtmlRenderer {
         title = "Graph",
         lightMode = lightMode,
         languageTag = languageTag,
+        active = "graph",
         body = buildString {
-            append("<main><header><h1>Graph</h1><p>Local connections · five per page</p></header>")
+            val copy = BrowserWebCopy.forLanguage(languageTag)
+            append("<main><header><h1>").append(Html.escape(copy.graph)).append("</h1><p>")
+                .append(Html.escape(copy.graphSubtitle)).append("</p></header>")
             val edges = result.items.take(PAGE_SIZE)
             if (edges.isEmpty()) {
-                append("<p class=\"empty\">No connections yet.</p>")
+                append("<p class=\"empty\">").append(Html.escape(copy.noConnections)).append("</p>")
             } else {
                 val height = 36 + edges.size * GRAPH_EDGE_HEIGHT
                 append("<svg class=\"connection-graph\" viewBox=\"0 0 900 ")
@@ -461,7 +478,7 @@ internal object HtmlRenderer {
                 }
                 append("</svg><p class=\"quiet graph-note\">Lines are derived metadata. Entry wording stays unchanged.</p>")
             }
-            append(pager("/graph", pageNumber, result.totalCount))
+            append(pager("/graph", pageNumber, result.totalCount, languageTag = languageTag))
             append("</main>")
         },
     )
@@ -520,7 +537,9 @@ internal object HtmlRenderer {
         pageNumber: Int,
         totalCount: Int,
         hasQuery: Boolean = false,
+        languageTag: String = "en",
     ): String {
+        val copy = BrowserWebCopy.forLanguage(languageTag)
         val safeTotal = totalCount.coerceAtLeast(0).toLong()
         val pageCount = max(1L, (safeTotal + PAGE_SIZE - 1) / PAGE_SIZE).toInt()
         val separator = if (hasQuery) "&amp;" else "?"
@@ -532,7 +551,7 @@ internal object HtmlRenderer {
                 append(separator)
                 append("page=")
                 append(pageNumber - 1)
-                append("\">Previous</a>")
+                append("\">").append(Html.escape(copy.previous)).append("</a>")
             } else {
                 append("<span></span>")
             }
@@ -547,7 +566,7 @@ internal object HtmlRenderer {
                 append(separator)
                 append("page=")
                 append(pageNumber + 1)
-                append("\">Next</a>")
+                append("\">").append(Html.escape(copy.next)).append("</a>")
             } else {
                 append("<span></span>")
             }
@@ -561,6 +580,7 @@ internal object HtmlRenderer {
         navigation: Boolean = true,
         lightMode: Boolean = false,
         languageTag: String = "en",
+        active: String = "",
     ): String = buildString {
         val copy = BrowserWebCopy.forLanguage(languageTag)
         append("<!doctype html><html lang=\"")
@@ -574,41 +594,65 @@ internal object HtmlRenderer {
         append(STYLES)
         append("</style></head><body>")
         if (navigation) {
-            append("<nav class=\"primary\" aria-label=\"Main\"><a href=\"/days\">")
-                .append(Html.escape(copy.days)).append("</a><a href=\"/todos\">")
-                .append(Html.escape(copy.important)).append("</a><a href=\"/logs\">")
-                .append(Html.escape(copy.logs)).append("</a><a href=\"/insights\">")
-                .append(Html.escape(copy.insights)).append("</a><a href=\"/graph\">")
-                .append(Html.escape(copy.graph)).append("</a></nav>")
+            append("<nav class=\"primary\" aria-label=\"Main\"><a class=\"mark\" href=\"/days\">Soma</a>")
+            navLink("/days", copy.days, active == "days")
+            navLink("/todos", copy.important, active == "todos")
+            navLink("/logs", copy.logs, active == "logs")
+            navLink("/insights", copy.insights, active == "insights")
+            navLink("/graph", copy.graph, active == "graph")
+            append("</nav>")
         }
         append(body)
         append("</body></html>")
     }
 
-    private const val DARK_THEME = ":root{color-scheme:dark;--paper:#000;--ink:#fff;--dim:#aaa;--line:rgba(255,255,255,.24);--surface:rgba(0,0,0,.88);--forest-opacity:.58}"
-    private const val LIGHT_THEME = ":root{color-scheme:light;--paper:#fff;--ink:#000;--dim:#555;--line:rgba(0,0,0,.25);--surface:rgba(255,255,255,.91);--forest-opacity:.22}"
+    private fun StringBuilder.navLink(href: String, label: String, current: Boolean) {
+        append("<a href=\"").append(href).append('"')
+        if (current) append(" aria-current=\"page\"")
+        append('>').append(Html.escape(label)).append("</a>")
+    }
 
+    private const val DARK_THEME = ":root{color-scheme:dark;--paper:#070706;--ink:#f1efe8;--dim:#a3a49d;--faint:#74766e;--line:rgba(241,239,232,.17);--hair:rgba(241,239,232,.09);--glass:rgba(9,10,9,.55);--nav:rgba(7,7,6,.72);--forest-opacity:.6;--veil:rgba(0,0,0,.5)}"
+    private const val LIGHT_THEME = ":root{color-scheme:light;--paper:#eceae2;--ink:#161611;--dim:#54554e;--faint:#8a8b82;--line:rgba(22,22,17,.2);--hair:rgba(22,22,17,.1);--glass:rgba(244,242,235,.62);--nav:rgba(240,238,231,.8);--forest-opacity:.26;--veil:rgba(255,255,255,.4)}"
+
+    // A moonlit reading room: warm off-white ink on near-black, the localized
+    // forest genuinely present through a frosted reading panel, an editorial type
+    // scale with uppercase tracked micro-labels, and a masthead that marks the
+    // active section. Monochrome throughout; no scripts (CSP forbids them).
     private const val STYLES = """
-        *{box-sizing:border-box}html{font-family:"Akkurat LL","Helvetica Neue",Arial,sans-serif;color:var(--ink);background:#000}
-        body{margin:0;min-height:100vh;font-size:18px;line-height:1.4;background:var(--paper)}body:before{content:"";position:fixed;inset:0;background:url('/assets/forest.webp') center/cover no-repeat;filter:grayscale(1) contrast(1.08);opacity:var(--forest-opacity);pointer-events:none}
-        main,.primary{position:relative;z-index:1;width:min(calc(100% - 32px),820px);margin:0 auto;padding:24px;background:var(--surface)}
-        main{min-height:calc(100vh - 76px);padding-top:34px;padding-bottom:42px}.primary{position:sticky;top:0;z-index:2;display:flex;gap:30px;padding-top:20px;padding-bottom:20px;border-bottom:1px solid var(--line);white-space:nowrap;overflow-x:auto}
-        a{color:var(--ink);text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}header{padding:18px 0 26px}
-        h1{font-size:32px;line-height:1.1;margin:8px 0}header p,.quiet,small{color:var(--dim)}.back{display:inline-block;margin-bottom:16px}
-        .list{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}.list>li{min-height:92px;border-bottom:1px solid var(--line)}
-        .row,.entry{display:flex;width:100%;min-height:92px;padding:18px 0;justify-content:space-between;gap:24px;align-items:center}
-        .row{text-decoration:none}.row small{display:block;margin-top:5px}.count{font-variant-numeric:tabular-nums}
-        .entry{display:block}.entry p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}.entry small{display:block;margin-top:10px}
-        .history{margin-top:18px}.history summary{cursor:pointer;color:var(--dim)}.history ol{margin:14px 0 0;padding-left:24px}.history li{padding:10px 0}.history li p{margin-top:5px}
-        audio{display:block;width:100%;margin-top:14px}.entry img{display:block;width:100%;height:auto;max-height:520px;object-fit:contain;margin-top:14px}.empty{padding:36px 0}
-        .pager{display:grid;grid-template-columns:1fr auto 1fr;gap:20px;padding:28px 0;align-items:center}.pager>*:last-child{text-align:right}
-        .tabs{display:flex;gap:24px;margin-bottom:28px;padding-bottom:4px;overflow-x:auto;white-space:nowrap}.tabs [aria-current=page]{font-weight:bold;text-decoration-thickness:2px}
-        .log-header{display:flex;justify-content:space-between;align-items:baseline;gap:20px;padding:0}.log-header h2{margin:0;font-size:22px}.log-header time{color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}.log-note{margin-top:12px!important}.log-parts{list-style:none;margin:18px 0 0;padding:0}.log-parts>li{padding:10px 0;border-top:1px solid var(--line)}.log-parts small{display:block;margin-top:5px}.receipt-totals{display:grid;grid-template-columns:1fr auto;gap:5px 20px;margin:18px 0 0;padding-top:12px;border-top:1px solid var(--line)}.receipt-totals dt{color:var(--dim)}.receipt-totals dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}.log-footer{display:flex;justify-content:space-between;gap:20px;margin-top:18px;color:var(--dim);font-size:14px}.log-footer:empty{display:none}
-        h2{font-size:22px;margin:34px 0 10px}.summary{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin:0}.summary div{min-width:0}.summary dt{color:var(--dim);font-size:14px}.summary dd{font-size:24px;margin:3px 0 0;font-variant-numeric:tabular-nums}
-        .connection-graph{display:block;width:100%;height:auto;overflow:visible}.connection-graph circle{fill:var(--ink)}.edge-line{stroke:var(--dim);stroke-width:2}.node-label{fill:var(--ink);font-size:18px;font-weight:bold}.node-detail,.edge-source{fill:var(--dim);font-size:14px}.edge-label{fill:var(--ink);font-size:14px}.connection-graph a{text-decoration:underline}.graph-note{margin-top:18px}
-        form{border-top:2px solid var(--ink);padding-top:24px}label{display:block;margin-bottom:8px}input,button{font:inherit;border:2px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:0;padding:12px}
-        input{width:100%;letter-spacing:.2em}input:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--ink);outline-offset:3px}button{width:100%;margin-top:16px;font-weight:bold}.message{border:2px solid var(--ink);padding:12px}
-        @media(max-width:520px){main,.primary{width:100%;padding-left:18px;padding-right:18px}body{font-size:17px}.primary{gap:20px}.summary{grid-template-columns:repeat(3,1fr)}.log-header{display:block}.log-header time{display:block;margin-top:6px}.log-footer{display:block}.log-footer>*{display:block;margin-top:8px}}
+        *{box-sizing:border-box}html{font-family:"Akkurat LL",-apple-system,"Segoe UI","Helvetica Neue",Arial,sans-serif;color:var(--ink);background:var(--paper);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+        body{margin:0;min-height:100vh;font-size:17px;line-height:1.52;letter-spacing:-.003em}
+        body:before{content:"";position:fixed;inset:0;background:url('/assets/forest.webp') center/cover no-repeat;filter:grayscale(1) contrast(1.04) brightness(.86);opacity:var(--forest-opacity);pointer-events:none;z-index:-2}
+        body:after{content:"";position:fixed;inset:0;background:radial-gradient(130% 90% at 50% -15%,transparent 42%,var(--veil) 100%);pointer-events:none;z-index:-1}
+        .primary{position:sticky;top:0;z-index:3;width:min(calc(100% - 28px),720px);margin:0 auto;display:flex;flex-wrap:wrap;align-items:baseline;gap:5px 22px;padding:15px 30px;background:var(--nav);backdrop-filter:blur(16px) saturate(.85);-webkit-backdrop-filter:blur(16px) saturate(.85);border-bottom:1px solid var(--line)}
+        .primary .mark{color:var(--ink);font-weight:600;text-transform:uppercase;letter-spacing:.28em;font-size:13px;margin-right:6px;text-decoration:none}
+        .primary a:not(.mark){color:var(--dim);text-decoration:none;font-size:14.5px;letter-spacing:.01em;padding:3px 0}
+        .primary a:not(.mark):hover{color:var(--ink)}.primary a[aria-current=page]{color:var(--ink);box-shadow:inset 0 -2px 0 var(--ink)}
+        main{position:relative;z-index:1;width:min(calc(100% - 28px),720px);margin:0 auto;padding:38px 30px 60px;min-height:calc(100vh - 58px);background:var(--glass);backdrop-filter:blur(18px) saturate(.9);-webkit-backdrop-filter:blur(18px) saturate(.9);border-left:1px solid var(--hair);border-right:1px solid var(--hair)}
+        a{color:var(--ink);text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}a:hover{text-decoration-thickness:2px}
+        header{padding:0 0 24px;border-bottom:1px solid var(--line);margin-bottom:8px}
+        h1{font-size:clamp(33px,8.6vw,50px);line-height:1.02;letter-spacing:-.028em;font-weight:600;margin:0}
+        header p{color:var(--dim);margin:14px 0 0;font-size:12.5px;letter-spacing:.15em;text-transform:uppercase}
+        .quiet,small{color:var(--dim)}.back{display:inline-block;margin-bottom:24px;color:var(--dim);text-decoration:none;font-size:14px;letter-spacing:.02em}.back:hover{color:var(--ink)}
+        .list{list-style:none;margin:0;padding:0}.list>li{border-bottom:1px solid var(--hair)}
+        .row,.entry{display:flex;width:100%;padding:21px 0;justify-content:space-between;gap:22px;align-items:baseline}
+        .row{text-decoration:none;margin:0 -8px;padding-left:8px;padding-right:8px;transition:background .14s ease}.row:hover{background:var(--hair)}
+        .row strong{font-weight:600;letter-spacing:-.012em}.row small{display:block;margin-top:7px;color:var(--dim);line-height:1.45}
+        .count{color:var(--dim);font-variant-numeric:tabular-nums;font-size:13px;letter-spacing:.05em;white-space:nowrap;align-self:center}
+        .entry{display:block;padding:26px 0}.entry p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:18px;line-height:1.56}
+        .entry>small{display:block;margin-top:13px;color:var(--faint);font-size:11.5px;letter-spacing:.13em;text-transform:uppercase}
+        .history{margin-top:16px}.history summary{cursor:pointer;color:var(--dim);font-size:14px;list-style:none}.history summary::-webkit-details-marker{display:none}.history summary:hover{color:var(--ink)}.history ol{margin:14px 0 0;padding:0 0 0 20px;border-left:1px solid var(--line);list-style:none}.history li{padding:9px 0}.history li p{margin:6px 0 0}
+        audio{display:block;width:100%;margin-top:16px;filter:grayscale(1) contrast(1.03);border-radius:0}
+        audio::-webkit-media-controls-enclosure{background:var(--hair);border-radius:0}
+        .entry img{display:block;width:100%;height:auto;max-height:68vh;object-fit:contain;margin-top:16px;border:1px solid var(--hair)}.empty{padding:52px 0;color:var(--dim)}
+        .pager{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;padding:32px 0 0;margin-top:14px;border-top:1px solid var(--line);align-items:center;color:var(--faint);font-size:14px;font-variant-numeric:tabular-nums}.pager a{color:var(--ink);text-decoration:none}.pager a:hover{text-decoration:underline}.pager>*:last-child{text-align:right}
+        .tabs{display:flex;flex-wrap:wrap;gap:7px 22px;margin:0 0 26px;padding-bottom:2px}.tabs a{color:var(--dim);text-decoration:none;font-size:15px}.tabs a:hover{color:var(--ink)}.tabs [aria-current=page]{color:var(--ink);box-shadow:inset 0 -2px 0 var(--ink)}
+        .log-header{display:flex;justify-content:space-between;align-items:baseline;gap:18px;padding:0}.log-header h2{margin:0}.log-header time{color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap;font-size:13.5px}.log-note{margin:12px 0 0!important;color:var(--dim)}.log-parts{list-style:none;margin:16px 0 0;padding:0}.log-parts>li{padding:12px 0;border-top:1px solid var(--hair)}.log-parts small{display:block;margin-top:6px;color:var(--dim)}.receipt-totals{display:grid;grid-template-columns:1fr auto;gap:6px 20px;margin:18px 0 0;padding-top:14px;border-top:1px solid var(--line)}.receipt-totals dt{color:var(--dim)}.receipt-totals dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}.log-footer{display:flex;justify-content:space-between;gap:20px;margin-top:16px;color:var(--faint);font-size:11.5px;letter-spacing:.11em;text-transform:uppercase}.log-footer a{color:var(--faint)}.log-footer a:hover{color:var(--ink)}.log-footer:empty{display:none}
+        h2{font-size:23px;margin:32px 0 10px;letter-spacing:-.016em;font-weight:600}.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:22px 16px;margin:6px 0 0}.summary div{min-width:0}.summary dt{color:var(--faint);font-size:11px;letter-spacing:.13em;text-transform:uppercase}.summary dd{font-size:30px;margin:5px 0 0;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+        .connection-graph{display:block;width:100%;height:auto;overflow:visible}.connection-graph circle{fill:var(--ink)}.edge-line{stroke:var(--dim);stroke-width:2}.node-label{fill:var(--ink);font-size:18px;font-weight:bold}.node-detail,.edge-source{fill:var(--dim);font-size:14px}.edge-label{fill:var(--ink);font-size:14px}.connection-graph a{text-decoration:underline}.graph-note{margin-top:18px;color:var(--dim)}
+        form{border-top:1px solid var(--line);padding-top:26px;margin-top:8px}label{display:block;margin-bottom:10px;color:var(--dim);font-size:12.5px;letter-spacing:.14em;text-transform:uppercase}input,button{font:inherit;border:1px solid var(--ink);background:transparent;color:var(--ink);border-radius:0;padding:14px}
+        input{width:100%;letter-spacing:.34em;font-size:20px;text-align:center}input:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--ink);outline-offset:3px}button{width:100%;margin-top:16px;font-weight:600;letter-spacing:.04em;cursor:pointer;background:var(--ink);color:var(--paper)}button:hover{opacity:.9}.message{border:1px solid var(--ink);padding:13px;margin-bottom:20px}
+        @media(max-width:520px){.primary,main{width:100%}.primary{padding:14px 20px;gap:4px 18px}main{padding:30px 20px 52px;border-left:none;border-right:none}body{font-size:16.5px}.summary{grid-template-columns:repeat(3,1fr)}.log-header{display:block}.log-header time{display:block;margin-top:7px}.log-footer{display:block}.log-footer>*{display:block;margin-top:8px}}
     """
 
     private const val GRAPH_EDGE_HEIGHT = 104
@@ -636,6 +680,36 @@ private data class BrowserWebCopy(
     val accessCode: String,
     val continueLabel: String,
     val useCode: String,
+    val dailyNotes: String,
+    val dailyNote: String,
+    val noNotes: String,
+    val nothingCaptured: String,
+    val transcribing: String,
+    val returnToThis: String,
+    val editHistory: String,
+    val original: String,
+    val versionLabel: String,
+    val stillOpen: String,
+    val doneArchived: String,
+    val openTab: String,
+    val nothingOpen: String,
+    val nothingHere: String,
+    val localMetadataOnly: String,
+    val connections: String,
+    val noMetadata: String,
+    val statEntries: String,
+    val statManual: String,
+    val statAi: String,
+    val statLocal: String,
+    val statTags: String,
+    val statLinks: String,
+    val kindTag: String,
+    val kindDateLink: String,
+    val kindEntryLink: String,
+    val graphSubtitle: String,
+    val noConnections: String,
+    val previous: String,
+    val next: String,
 ) {
     companion object {
         fun forLanguage(languageTag: String): BrowserWebCopy = when (languageTag.substringBefore('-').lowercase()) {
@@ -644,48 +718,128 @@ private data class BrowserWebCopy(
                 "Apstiprināti ieraksti", "Ēdienreizes", "Receptes", "Treniņi", "Čeki", "Starpsumma", "Nodoklis", "Kopā", "Arhīvs",
                 "Te vēl nekas nav saglabāts.", "avota piezīme", "versijas",
                 "Pārlūka skats", "Piekļuves kods", "Turpināt", "Ievadi tālrunī redzamo vienreizējo kodu.",
+                dailyNotes = "Ikdienas piezīmes", dailyNote = "Dienas piezīme", noNotes = "Vēl nav piezīmju.",
+                nothingCaptured = "Nekas nav pierakstīts.", transcribing = "balss piezīme, transkribē…",
+                returnToThis = "atgriezties pie šī", editHistory = "Labojumu vēsture", original = "Sākotnējais", versionLabel = "Versija",
+                stillOpen = "Vēl atvērts", doneArchived = "Pabeigts / arhivēts", openTab = "Atvērtie",
+                nothingOpen = "Nekas nav atvērts.", nothingHere = "Te vēl nekā nav.",
+                localMetadataOnly = "Tikai vietējie metadati", connections = "Savienojumi", noMetadata = "Vēl nav metadatu.",
+                statEntries = "Ieraksti", statManual = "Manuāli", statAi = "MI", statLocal = "Vietējie", statTags = "Birkas", statLinks = "Saites",
+                kindTag = "birka", kindDateLink = "datuma saite", kindEntryLink = "ieraksta saite",
+                graphSubtitle = "Vietējie savienojumi · pieci lapā", noConnections = "Vēl nav savienojumu.",
+                previous = "Iepriekšējā", next = "Nākamā",
             )
             "et" -> BrowserWebCopy(
                 "Päevad", "Oluline", "Logid", "Ülevaade", "Graafik",
                 "Kinnitatud kirjed", "Toidukorrad", "Retseptid", "Treeningud", "Kviitungid", "Vahesumma", "Maks", "Kokku", "Arhiiv",
                 "Siin pole veel midagi salvestatud.", "lähtekirje", "versiooni",
                 "Brauserivaade", "Pääsukood", "Jätka", "Sisesta telefonis kuvatav ühekordne kood.",
+                dailyNotes = "Igapäevased märkmed", dailyNote = "Päeva märge", noNotes = "Märkmeid veel pole.",
+                nothingCaptured = "Midagi pole jäädvustatud.", transcribing = "häälmärge, transkribeerin…",
+                returnToThis = "tule selle juurde tagasi", editHistory = "Muudatuste ajalugu", original = "Algne", versionLabel = "Versioon",
+                stillOpen = "Veel avatud", doneArchived = "Tehtud / arhiveeritud", openTab = "Avatud",
+                nothingOpen = "Midagi pole avatud.", nothingHere = "Siin pole veel midagi.",
+                localMetadataOnly = "Ainult kohalikud metaandmed", connections = "Seosed", noMetadata = "Metaandmeid veel pole.",
+                statEntries = "Kirjed", statManual = "Käsitsi", statAi = "AI", statLocal = "Kohalik", statTags = "Sildid", statLinks = "Lingid",
+                kindTag = "silt", kindDateLink = "kuupäevalink", kindEntryLink = "kirje link",
+                graphSubtitle = "Kohalikud seosed · viis lehel", noConnections = "Seoseid veel pole.",
+                previous = "Eelmine", next = "Järgmine",
             )
             "lt" -> BrowserWebCopy(
                 "Dienos", "Svarbu", "Žurnalai", "Įžvalgos", "Grafas",
                 "Patvirtinti įrašai", "Valgiai", "Receptai", "Treniruotės", "Kvitai", "Tarpinė suma", "Mokestis", "Iš viso", "Archyvas",
                 "Čia dar nieko neišsaugota.", "šaltinio pastaba", "versijos",
                 "Naršyklės rodinys", "Prieigos kodas", "Tęsti", "Įveskite telefone rodomą vienkartinį kodą.",
+                dailyNotes = "Kasdienės pastabos", dailyNote = "Dienos pastaba", noNotes = "Pastabų dar nėra.",
+                nothingCaptured = "Nieko neužfiksuota.", transcribing = "balso pastaba, transkribuojama…",
+                returnToThis = "grįžti prie šio", editHistory = "Keitimų istorija", original = "Originalas", versionLabel = "Versija",
+                stillOpen = "Vis dar atviri", doneArchived = "Atlikta / archyvuota", openTab = "Atviri",
+                nothingOpen = "Nieko atviro.", nothingHere = "Čia dar nieko nėra.",
+                localMetadataOnly = "Tik vietiniai metaduomenys", connections = "Ryšiai", noMetadata = "Metaduomenų dar nėra.",
+                statEntries = "Įrašai", statManual = "Rankiniai", statAi = "DI", statLocal = "Vietiniai", statTags = "Žymos", statLinks = "Nuorodos",
+                kindTag = "žyma", kindDateLink = "datos nuoroda", kindEntryLink = "įrašo nuoroda",
+                graphSubtitle = "Vietiniai ryšiai · penki puslapyje", noConnections = "Ryšių dar nėra.",
+                previous = "Ankstesnis", next = "Kitas",
             )
             "fi" -> BrowserWebCopy(
                 "Päivät", "Tärkeät", "Lokit", "Kooste", "Verkko",
                 "Vahvistetut kirjaukset", "Ateriat", "Reseptit", "Harjoitukset", "Kuitit", "Välisumma", "Vero", "Yhteensä", "Arkisto",
                 "Ei vielä tallennettuja kirjauksia.", "lähdemuistiinpano", "versiota",
                 "Selainnäkymä", "Käyttökoodi", "Jatka", "Syötä puhelimessa näkyvä kertakäyttökoodi.",
+                dailyNotes = "Päivittäiset muistiinpanot", dailyNote = "Päivän muistiinpano", noNotes = "Ei vielä muistiinpanoja.",
+                nothingCaptured = "Ei mitään tallennettua.", transcribing = "äänimuistiinpano, litteroidaan…",
+                returnToThis = "palaa tähän", editHistory = "Muokkaushistoria", original = "Alkuperäinen", versionLabel = "Versio",
+                stillOpen = "Yhä auki", doneArchived = "Valmis / arkistoitu", openTab = "Avoimet",
+                nothingOpen = "Ei mitään auki.", nothingHere = "Täällä ei ole vielä mitään.",
+                localMetadataOnly = "Vain paikalliset metatiedot", connections = "Yhteydet", noMetadata = "Ei vielä metatietoja.",
+                statEntries = "Merkinnät", statManual = "Manuaaliset", statAi = "AI", statLocal = "Paikalliset", statTags = "Tunnisteet", statLinks = "Linkit",
+                kindTag = "tunniste", kindDateLink = "päivämäärälinkki", kindEntryLink = "merkintälinkki",
+                graphSubtitle = "Paikalliset yhteydet · viisi sivulla", noConnections = "Ei vielä yhteyksiä.",
+                previous = "Edellinen", next = "Seuraava",
             )
             "sv" -> BrowserWebCopy(
                 "Dagar", "Viktigt", "Loggar", "Insikter", "Graf",
                 "Bekräftade poster", "Måltider", "Recept", "Träning", "Kvitton", "Delsumma", "Skatt", "Totalt", "Arkiv",
                 "Inget sparat här ännu.", "källanteckning", "versioner",
                 "Webbläsarvy", "Åtkomstkod", "Fortsätt", "Ange engångskoden som visas på telefonen.",
+                dailyNotes = "Dagliga anteckningar", dailyNote = "Dagens anteckning", noNotes = "Inga anteckningar än.",
+                nothingCaptured = "Inget sparat.", transcribing = "röstanteckning, transkriberar…",
+                returnToThis = "återkom till detta", editHistory = "Ändringshistorik", original = "Original", versionLabel = "Version",
+                stillOpen = "Fortfarande öppna", doneArchived = "Klart / arkiverat", openTab = "Öppna",
+                nothingOpen = "Inget öppet.", nothingHere = "Inget här än.",
+                localMetadataOnly = "Endast lokala metadata", connections = "Kopplingar", noMetadata = "Inga metadata än.",
+                statEntries = "Poster", statManual = "Manuella", statAi = "AI", statLocal = "Lokala", statTags = "Taggar", statLinks = "Länkar",
+                kindTag = "tagg", kindDateLink = "datumlänk", kindEntryLink = "postlänk",
+                graphSubtitle = "Lokala kopplingar · fem per sida", noConnections = "Inga kopplingar än.",
+                previous = "Föregående", next = "Nästa",
             )
             "de" -> BrowserWebCopy(
                 "Tage", "Wichtig", "Protokolle", "Einblicke", "Graph",
                 "Bestätigte Einträge", "Mahlzeiten", "Rezepte", "Training", "Kassenbons", "Zwischensumme", "Steuer", "Gesamt", "Archiv",
                 "Noch nichts gespeichert.", "Quellnotiz", "Versionen",
                 "Browseransicht", "Zugangscode", "Weiter", "Gib den einmaligen Code vom Telefon ein.",
+                dailyNotes = "Tägliche Notizen", dailyNote = "Tagesnotiz", noNotes = "Noch keine Notizen.",
+                nothingCaptured = "Nichts erfasst.", transcribing = "Sprachnotiz, wird transkribiert…",
+                returnToThis = "hierher zurückkehren", editHistory = "Bearbeitungsverlauf", original = "Original", versionLabel = "Version",
+                stillOpen = "Noch offen", doneArchived = "Erledigt / archiviert", openTab = "Offen",
+                nothingOpen = "Nichts offen.", nothingHere = "Hier ist noch nichts.",
+                localMetadataOnly = "Nur lokale Metadaten", connections = "Verbindungen", noMetadata = "Noch keine Metadaten.",
+                statEntries = "Einträge", statManual = "Manuell", statAi = "KI", statLocal = "Lokal", statTags = "Tags", statLinks = "Verknüpfungen",
+                kindTag = "Tag", kindDateLink = "Datumsverknüpfung", kindEntryLink = "Eintragsverknüpfung",
+                graphSubtitle = "Lokale Verbindungen · fünf pro Seite", noConnections = "Noch keine Verbindungen.",
+                previous = "Zurück", next = "Weiter",
             )
             "sk" -> BrowserWebCopy(
                 "Dni", "Dôležité", "Záznamy", "Prehľad", "Graf",
                 "Potvrdené záznamy", "Jedlá", "Recepty", "Tréningy", "Účtenky", "Medzisúčet", "Daň", "Spolu", "Archív",
                 "Zatiaľ tu nič nie je uložené.", "zdrojová poznámka", "verzie",
                 "Zobrazenie v prehliadači", "Prístupový kód", "Pokračovať", "Zadajte jednorazový kód zobrazený v telefóne.",
+                dailyNotes = "Denné poznámky", dailyNote = "Denná poznámka", noNotes = "Zatiaľ žiadne poznámky.",
+                nothingCaptured = "Nič nezaznamenané.", transcribing = "hlasová poznámka, prepisuje sa…",
+                returnToThis = "vrátiť sa k tomuto", editHistory = "História úprav", original = "Pôvodné", versionLabel = "Verzia",
+                stillOpen = "Stále otvorené", doneArchived = "Hotové / archivované", openTab = "Otvorené",
+                nothingOpen = "Nič otvorené.", nothingHere = "Zatiaľ tu nič nie je.",
+                localMetadataOnly = "Iba lokálne metadáta", connections = "Spojenia", noMetadata = "Zatiaľ žiadne metadáta.",
+                statEntries = "Záznamy", statManual = "Ručné", statAi = "AI", statLocal = "Lokálne", statTags = "Značky", statLinks = "Odkazy",
+                kindTag = "značka", kindDateLink = "odkaz na dátum", kindEntryLink = "odkaz na záznam",
+                graphSubtitle = "Lokálne spojenia · päť na stranu", noConnections = "Zatiaľ žiadne spojenia.",
+                previous = "Predchádzajúca", next = "Ďalšia",
             )
             else -> BrowserWebCopy(
                 "Days", "Important", "Logs", "Insights", "Graph",
                 "Confirmed records", "Meals", "Recipes", "Workouts", "Receipts", "Subtotal", "Tax", "Total", "Archived",
                 "Nothing saved here yet.", "source note", "versions",
                 "Browser view", "Access code", "Continue", "Use the one-time code shown on your phone.",
+                dailyNotes = "Daily notes", dailyNote = "Daily note", noNotes = "No notes yet.",
+                nothingCaptured = "Nothing captured.", transcribing = "voice note, transcribing…",
+                returnToThis = "return to this", editHistory = "Edit history", original = "Original", versionLabel = "Version",
+                stillOpen = "Still open", doneArchived = "Done / archived", openTab = "Open",
+                nothingOpen = "Nothing open.", nothingHere = "Nothing here yet.",
+                localMetadataOnly = "Local metadata only", connections = "Connections", noMetadata = "No metadata yet.",
+                statEntries = "Entries", statManual = "Manual", statAi = "AI", statLocal = "Local", statTags = "Tags", statLinks = "Links",
+                kindTag = "tag", kindDateLink = "date link", kindEntryLink = "entry link",
+                graphSubtitle = "Local connections · five per page", noConnections = "No connections yet.",
+                previous = "Previous", next = "Next",
             )
         }
     }

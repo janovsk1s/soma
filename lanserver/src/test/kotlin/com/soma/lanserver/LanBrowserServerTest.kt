@@ -63,13 +63,13 @@ class LanBrowserServerTest {
         val darkServer = server(FakeDataSource())
         val darkPage = request(darkServer.start(), "GET", "/")
         assertTrue(darkPage.text.contains("color-scheme:dark"))
-        assertTrue(darkPage.text.contains("--paper:#000;--ink:#fff;--dim:#aaa"))
+        assertTrue(darkPage.text.contains("--paper:#070706;--ink:#f1efe8"))
         assertTrue(darkPage.text.contains("url('/assets/forest.webp')"))
 
         val lightServer = server(FakeDataSource(), lightMode = true)
         val lightPage = request(lightServer.start(), "GET", "/")
         assertTrue(lightPage.text.contains("color-scheme:light"))
-        assertTrue(lightPage.text.contains("--paper:#fff;--ink:#000;--dim:#555"))
+        assertTrue(lightPage.text.contains("--paper:#eceae2;--ink:#161611"))
 
         val latvianServer = server(FakeDataSource(), languageTag = "lv")
         val latvianPage = request(latvianServer.start(), "GET", "/")

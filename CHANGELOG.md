@@ -4,6 +4,17 @@ Notable changes to Soma are documented here.
 
 ## 0.1.0-preview.35 — 2026-07-14
 
+### Changed
+
+- Browser view redesigned: a masthead with the current section marked, a nav
+  that fits instead of clipping on phones, warm off-white ink on near-black,
+  the localized forest present through a frosted reading panel, an editorial
+  type scale with uppercase tracked labels, tabular figures for dates and
+  totals, a monochrome audio player, and row and history detailing.
+- Every Browser-view heading, label, empty state, stat, and pager control is
+  now localized in all eight languages, matching the already-localized
+  navigation (previously many were hardcoded English).
+
 ### Fixed
 
 - The camera's back-arrow top bar no longer disappears once the live preview
