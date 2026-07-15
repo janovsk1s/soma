@@ -182,7 +182,14 @@ private class AndroidCloudFeatureController(private val context: Context) : Clou
             ?: return null.also { recordCloudFailure(TranscriptionFallbackReason.API_KEY_MISSING) }
         val connectionOpener = CloudConnectionOpener { url -> context.openCloudConnection(url, wifiOnly) }
         return try {
-            CloudHttp.extractTrackingText(key, kind, text, imageJpeg, connectionOpener)
+            CloudHttp.extractTrackingText(
+                key,
+                kind,
+                text,
+                imageJpeg,
+                if (imageJpeg == null) listOf(CLOUD_AI_TRACKING_MODEL) else CLOUD_AI_VISION_MODELS,
+                connectionOpener,
+            )
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
@@ -618,9 +625,10 @@ internal object CloudHttp {
         kind: LogKind,
         text: String,
         imageJpeg: ByteArray?,
+        models: List<String>,
         connectionOpener: CloudConnectionOpener,
     ): String {
-        val models = if (imageJpeg == null) listOf(CLOUD_AI_TRACKING_MODEL) else CLOUD_AI_VISION_MODELS
+        require(models.isNotEmpty()) { "At least one model candidate is required" }
         var retired: CloudProviderException? = null
         for (model in models) {
             try {
@@ -889,10 +897,13 @@ private val BARCODE_PATTERN = Regex("\\d{8,14}")
 private const val MAX_VISION_IMAGE_BYTES = 19 * 1024 * 1024
 private const val CLOUD_AI_TRACKING_MODEL = "openai/gpt-oss-20b"
 private const val CLOUD_AI_VISION_MODEL = "qwen/qwen3.6-27b"
-private const val CLOUD_AI_VISION_FALLBACK_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
-
-/** Preferred preview vision model first, then a candidate expected to outlive it. */
-internal val CLOUD_AI_VISION_MODELS = listOf(CLOUD_AI_VISION_MODEL, CLOUD_AI_VISION_FALLBACK_MODEL)
+/**
+ * Ordered vision candidates. Groq's only other vision model (llama-4-scout)
+ * retires on 2026-07-17 and names qwen3.6 as its replacement, so today the
+ * list is honestly one deep; the walk-the-candidates mechanism stays so a
+ * future successor is a one-line addition here, not a code change.
+ */
+internal val CLOUD_AI_VISION_MODELS = listOf(CLOUD_AI_VISION_MODEL)
 
 private val CLOUD_AI_REASONING_MODELS = setOf(CLOUD_AI_TRACKING_MODEL, CLOUD_AI_VISION_MODEL)
 

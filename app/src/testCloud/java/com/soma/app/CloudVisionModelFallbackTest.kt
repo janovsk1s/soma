@@ -29,11 +29,11 @@ class CloudVisionModelFallbackTest {
         val opener = ScriptedOpener(404 to MODEL_GONE, 200 to proposal("item: piens | 1 | 1.09"))
 
         val result = runBlocking {
-            CloudHttp.extractTrackingText("key", LogKind.RECEIPT, "čeks", JPEG, opener)
+            CloudHttp.extractTrackingText("key", LogKind.RECEIPT, "čeks", JPEG, CHAIN, opener)
         }
 
         assertEquals("item: piens | 1 | 1.09", result)
-        assertEquals(CLOUD_AI_VISION_MODELS, opener.requestedModels())
+        assertEquals(CHAIN, opener.requestedModels())
         assertTrue(opener.requestBodies()[0].has("reasoning_effort"))
         assertFalse(opener.requestBodies()[1].has("reasoning_effort"))
     }
@@ -43,7 +43,7 @@ class CloudVisionModelFallbackTest {
         val opener = ScriptedOpener(401 to """{"error":{"code":"invalid_api_key"}}""")
 
         try {
-            runBlocking { CloudHttp.extractTrackingText("key", LogKind.MEAL, "pusdienas", JPEG, opener) }
+            runBlocking { CloudHttp.extractTrackingText("key", LogKind.MEAL, "pusdienas", JPEG, CHAIN, opener) }
             fail("Expected the provider failure to surface")
         } catch (error: CloudProviderException) {
             assertEquals(TranscriptionFallbackReason.AUTHENTICATION_ERROR, error.fallbackReason)
@@ -57,7 +57,7 @@ class CloudVisionModelFallbackTest {
         val opener = ScriptedOpener(429 to """{"error":{"code":"rate_limit_exceeded"}}""")
 
         try {
-            runBlocking { CloudHttp.extractTrackingText("key", LogKind.WORKOUT, "treniņš", JPEG, opener) }
+            runBlocking { CloudHttp.extractTrackingText("key", LogKind.WORKOUT, "treniņš", JPEG, CHAIN, opener) }
             fail("Expected the provider failure to surface")
         } catch (error: CloudProviderException) {
             assertEquals(TranscriptionFallbackReason.RATE_LIMITED, error.fallbackReason)
@@ -71,12 +71,12 @@ class CloudVisionModelFallbackTest {
         val opener = ScriptedOpener(404 to MODEL_GONE, 404 to MODEL_GONE)
 
         try {
-            runBlocking { CloudHttp.extractTrackingText("key", LogKind.RECEIPT, "čeks", JPEG, opener) }
+            runBlocking { CloudHttp.extractTrackingText("key", LogKind.RECEIPT, "čeks", JPEG, CHAIN, opener) }
             fail("Expected the provider failure to surface")
         } catch (error: CloudProviderException) {
             assertTrue(error.modelUnavailable)
         }
-        assertEquals(CLOUD_AI_VISION_MODELS.size, opener.connections.size)
+        assertEquals(CHAIN.size, opener.connections.size)
     }
 
     @Test
@@ -84,12 +84,21 @@ class CloudVisionModelFallbackTest {
         val opener = ScriptedOpener(404 to MODEL_GONE)
 
         try {
-            runBlocking { CloudHttp.extractTrackingText("key", LogKind.RECIPE, "recepte", null, opener) }
+            runBlocking {
+                CloudHttp.extractTrackingText("key", LogKind.RECIPE, "recepte", null, listOf(CLOUD_AI_TODO_MODEL), opener)
+            }
             fail("Expected the provider failure to surface")
         } catch (error: CloudProviderException) {
             assertTrue(error.modelUnavailable)
         }
         assertEquals(listOf(CLOUD_AI_TODO_MODEL), opener.requestedModels())
+    }
+
+    @Test
+    fun `the shipping candidate list is qwen alone until Groq offers a live successor`() {
+        // llama-4-scout retires 2026-07-17 and names qwen3.6 as its replacement;
+        // adding a real successor here is a deliberate, tested decision.
+        assertEquals(listOf("qwen/qwen3.6-27b"), CLOUD_AI_VISION_MODELS)
     }
 
     private class FakeConnection(
@@ -141,6 +150,9 @@ class CloudVisionModelFallbackTest {
 
     private companion object {
         val JPEG = byteArrayOf(1, 2, 3)
+
+        /** A two-deep chain exercising the mechanism; the second entry is not a reasoning model. */
+        val CHAIN = listOf(CLOUD_AI_VISION_MODELS.first(), "test/vision-successor")
         const val MODEL_GONE = """{"error":{"code":"model_not_found","message":"the model has been retired"}}"""
     }
 }
