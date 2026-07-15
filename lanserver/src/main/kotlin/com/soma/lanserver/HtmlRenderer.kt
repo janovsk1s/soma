@@ -612,8 +612,8 @@ internal object HtmlRenderer {
         append('>').append(Html.escape(label)).append("</a>")
     }
 
-    private const val DARK_THEME = ":root{color-scheme:dark;--paper:#070706;--ink:#f1efe8;--dim:#a3a49d;--faint:#74766e;--line:rgba(241,239,232,.17);--hair:rgba(241,239,232,.09);--glass:rgba(9,10,9,.55);--nav:rgba(7,7,6,.72);--forest-opacity:.6;--veil:rgba(0,0,0,.5)}"
-    private const val LIGHT_THEME = ":root{color-scheme:light;--paper:#eceae2;--ink:#161611;--dim:#54554e;--faint:#8a8b82;--line:rgba(22,22,17,.2);--hair:rgba(22,22,17,.1);--glass:rgba(244,242,235,.62);--nav:rgba(240,238,231,.8);--forest-opacity:.26;--veil:rgba(255,255,255,.4)}"
+    private const val DARK_THEME = ":root{color-scheme:dark;--paper:#070706;--ink:#f1efe8;--dim:#a9aaa2;--faint:#7c7e76;--line:rgba(241,239,232,.18);--hair:rgba(241,239,232,.1);--glass:rgba(9,10,9,.38);--nav:rgba(7,7,6,.55);--forest-opacity:.72;--veil:rgba(0,0,0,.46)}"
+    private const val LIGHT_THEME = ":root{color-scheme:light;--paper:#eceae2;--ink:#161611;--dim:#4f504a;--faint:#83847c;--line:rgba(22,22,17,.22);--hair:rgba(22,22,17,.12);--glass:rgba(244,242,235,.46);--nav:rgba(240,238,231,.66);--forest-opacity:.34;--veil:rgba(255,255,255,.34)}"
 
     // A moonlit reading room: warm off-white ink on near-black, the localized
     // forest genuinely present through a frosted reading panel, an editorial type
@@ -624,11 +624,11 @@ internal object HtmlRenderer {
         body{margin:0;min-height:100vh;font-size:17px;line-height:1.52;letter-spacing:-.003em}
         body:before{content:"";position:fixed;inset:0;background:url('/assets/forest.webp') center/cover no-repeat;filter:grayscale(1) contrast(1.04) brightness(.86);opacity:var(--forest-opacity);pointer-events:none;z-index:-2}
         body:after{content:"";position:fixed;inset:0;background:radial-gradient(130% 90% at 50% -15%,transparent 42%,var(--veil) 100%);pointer-events:none;z-index:-1}
-        .primary{position:sticky;top:0;z-index:3;width:min(calc(100% - 28px),720px);margin:0 auto;display:flex;flex-wrap:wrap;align-items:baseline;gap:5px 22px;padding:15px 30px;background:var(--nav);backdrop-filter:blur(16px) saturate(.85);-webkit-backdrop-filter:blur(16px) saturate(.85);border-bottom:1px solid var(--line)}
+        .primary{position:sticky;top:0;z-index:3;width:min(calc(100% - 28px),720px);margin:0 auto;display:flex;flex-wrap:wrap;align-items:baseline;gap:5px 22px;padding:15px 30px;background:var(--nav);backdrop-filter:blur(11px) saturate(.85);-webkit-backdrop-filter:blur(11px) saturate(.85);border-bottom:1px solid var(--line)}
         .primary .mark{color:var(--ink);font-weight:600;text-transform:uppercase;letter-spacing:.28em;font-size:13px;margin-right:6px;text-decoration:none}
         .primary a:not(.mark){color:var(--dim);text-decoration:none;font-size:14.5px;letter-spacing:.01em;padding:3px 0}
         .primary a:not(.mark):hover{color:var(--ink)}.primary a[aria-current=page]{color:var(--ink);box-shadow:inset 0 -2px 0 var(--ink)}
-        main{position:relative;z-index:1;width:min(calc(100% - 28px),720px);margin:0 auto;padding:38px 30px 60px;min-height:calc(100vh - 58px);background:var(--glass);backdrop-filter:blur(18px) saturate(.9);-webkit-backdrop-filter:blur(18px) saturate(.9);border-left:1px solid var(--hair);border-right:1px solid var(--hair)}
+        main{position:relative;z-index:1;width:min(calc(100% - 28px),720px);margin:0 auto;padding:38px 30px 60px;min-height:calc(100vh - 58px);background:var(--glass);backdrop-filter:blur(9px) saturate(.92);-webkit-backdrop-filter:blur(9px) saturate(.92);border-left:1px solid var(--hair);border-right:1px solid var(--hair)}
         a{color:var(--ink);text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}a:hover{text-decoration-thickness:2px}
         header{padding:0 0 24px;border-bottom:1px solid var(--line);margin-bottom:8px}
         h1{font-size:clamp(33px,8.6vw,50px);line-height:1.02;letter-spacing:-.028em;font-weight:600;margin:0}
