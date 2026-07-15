@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,8 +48,8 @@ fun CalendarScreen(
 ) {
     BackHandler(onBack = onBack)
     val today = viewModel.today()
-    val selected = viewModel.selectedDate.value
-    var month by remember { mutableStateOf(YearMonth.from(viewModel.selectedDate.value)) }
+    val selected by viewModel.selectedDate.collectAsState()
+    var month by remember { mutableStateOf(YearMonth.from(selected)) }
     var marked by remember { mutableStateOf<Set<LocalDate>>(emptySet()) }
     LaunchedEffect(month) {
         marked = viewModel.datesWithEntries(month.atDay(1), month.atEndOfMonth()).toSet()
