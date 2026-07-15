@@ -33,6 +33,14 @@ and 20 candidates, and emits at most one bounded list block.
   threads are selected only on devices with enough memory and CPU capacity.
 - The Whisper model is loaded only inside transcription work and released when
   the drain closes. Realtime local transcription is not a Light Phone target.
+- The downloadable base model was gate-measured on a Light Phone III
+  (2026-07-15, cloudDebug, EFFICIENT base profile: 4 threads, greedy): a
+  recording holding 105 s of continuous English speech decoded in 121 s of
+  wall time (~1.2× audio duration; the kill criterion was ~4×), using
+  roughly 3.5–5 cores at background priority. Peak process PSS during decode
+  was 433 MB against a 70 MB idle baseline and returned to ~140 MB when the
+  drain closed; battery temperature moved 31.0 → 32.0 °C. Base therefore
+  ships with both acquisition paths; tiny remains the default.
 - Browser view is explicit, visible, and stops on screen exit, app background,
   manual stop, or its idle timeout.
 - LAN metadata insights and the static SVG graph are assembled only for an
