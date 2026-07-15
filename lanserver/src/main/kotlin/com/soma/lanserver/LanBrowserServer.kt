@@ -394,7 +394,11 @@ class LanBrowserServer(
     private fun daysResponse(request: HttpRequest): HttpResponse {
         val page = pageNumber(request)
         val result = dataSource.listDays(pageRequest(page)).bounded()
-        return htmlResponse(200, HtmlRenderer.days(page, result, config.lightMode, config.languageTag))
+        val edit = if (config.editEnabled) currentCsrf()?.let(::EditContext) else null
+        return htmlResponse(
+            200,
+            HtmlRenderer.days(page, result, config.lightMode, config.languageTag, edit, dataSource.today()),
+        )
     }
 
     private fun dayResponse(request: HttpRequest): HttpResponse {

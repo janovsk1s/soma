@@ -42,6 +42,8 @@ internal object HtmlRenderer {
         result: PagedResult<BrowserDay>,
         lightMode: Boolean = false,
         languageTag: String = "en",
+        edit: EditContext? = null,
+        today: LocalDate? = null,
     ): String = page(
         title = "Days",
         lightMode = lightMode,
@@ -51,6 +53,17 @@ internal object HtmlRenderer {
             val copy = BrowserWebCopy.forLanguage(languageTag)
             append("<main><header><h1>").append(Html.escape(copy.days)).append("</h1><p>")
                 .append(Html.escape(copy.dailyNotes)).append("</p></header>")
+            // Quick capture straight to today; lands on today's page with the
+            // new entry highlighted so the note is visibly saved.
+            if (edit != null && today != null && pageNumber == 1) {
+                val dayPath = "/day/${Html.pathSegment(today.toString())}"
+                append("<form class=\"composer top\" method=\"post\" action=\"/entry/new\">")
+                writeFields(edit.csrfToken, dayPath)
+                append("<input type=\"hidden\" name=\"date\" value=\"").append(Html.escape(today.toString())).append("\">")
+                append("<textarea name=\"text\" rows=\"2\" required aria-label=\"").append(Html.escape(copy.addToday))
+                append("\" placeholder=\"").append(Html.escape(copy.addToday))
+                append("\"></textarea><button type=\"submit\">").append(Html.escape(copy.addAction)).append("</button></form>")
+            }
             val days = result.items.take(PAGE_SIZE)
             if (days.isEmpty()) {
                 append("<p class=\"empty\">").append(Html.escape(copy.noNotes)).append("</p>")
@@ -702,7 +715,7 @@ internal object HtmlRenderer {
         input{width:100%;letter-spacing:.34em;font-size:20px;text-align:center}input:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible,textarea:focus-visible{outline:2px solid var(--ink);outline-offset:3px}button{width:100%;margin-top:16px;font-weight:600;letter-spacing:.04em;cursor:pointer;background:var(--ink);color:var(--paper)}button:hover{opacity:.9}.message{border:1px solid var(--ink);padding:13px;margin-bottom:20px}
         textarea{width:100%;font:inherit;font-size:17px;line-height:1.5;color:var(--ink);background:var(--hair);border:1px solid var(--line);border-radius:0;padding:13px;resize:vertical;min-height:84px}textarea::placeholder{color:var(--faint)}
         .editor{margin-top:14px}.editor>summary{cursor:pointer;color:var(--dim);font-size:12px;letter-spacing:.13em;text-transform:uppercase;list-style:none}.editor>summary::-webkit-details-marker{display:none}.editor>summary:hover{color:var(--ink)}.editor form{border:none;margin:0;padding:12px 0 0}
-        .composer{border-top:1px solid var(--line);padding-top:26px;margin-top:12px}.editor button,.composer button{width:auto;margin-top:12px;padding:11px 26px}
+        .composer{border-top:1px solid var(--line);padding-top:26px;margin-top:12px}.composer.top{border-top:none;padding-top:6px;margin:6px 0 24px}.editor button,.composer button{width:auto;margin-top:12px;padding:11px 26px}
         .editor .actions{display:flex;align-items:center;gap:20px}.editor .actions a{color:var(--dim);text-decoration:none;font-size:13px}.editor .actions a:hover{color:var(--ink)}
         @media(max-width:520px){body{padding:34px 0 16px;font-size:16.5px}.primary,main{width:calc(100% - 20px)}.primary{padding:13px 20px;gap:4px 18px;margin-bottom:12px}main{padding:26px 20px 38px}.summary{grid-template-columns:repeat(3,1fr)}.log-header{display:block}.log-header time{display:block;margin-top:7px}.log-footer{display:block}.log-footer>*{display:block;margin-top:8px}}
     """
@@ -772,6 +785,7 @@ private data class BrowserWebCopy(
     val errorAccessCode: String,
     val errorNotFound: String,
     val errorReadOnly: String,
+    val addToday: String,
 ) {
     companion object {
         fun forLanguage(languageTag: String): BrowserWebCopy = when (languageTag.substringBefore('-').lowercase()) {
@@ -790,7 +804,7 @@ private data class BrowserWebCopy(
                 kindTag = "birka", kindDateLink = "datuma saite", kindEntryLink = "ieraksta saite",
                 graphSubtitle = "Vietējie savienojumi · pieci lapā", noConnections = "Vēl nav savienojumu.",
                 previous = "Iepriekšējā", next = "Nākamā",
-                editAction = "labot", saveAction = "saglabāt", addAction = "pievienot", addToDay = "pievienot šai dienai…", cancelAction = "atcelt", errorNotAvailable = "Šī lapa nav pieejama.", errorStopped = "Pārlūka skats ir apturēts.", errorAccessCode = "Pārlādē lapu, lai ievadītu jaunu piekļuves kodu.", errorNotFound = "Šādas lapas nav.", errorReadOnly = "Šī darbība nav pieejama.",
+                editAction = "labot", saveAction = "saglabāt", addAction = "pievienot", addToDay = "pievienot šai dienai…", cancelAction = "atcelt", errorNotAvailable = "Šī lapa nav pieejama.", errorStopped = "Pārlūka skats ir apturēts.", errorAccessCode = "Pārlādē lapu, lai ievadītu jaunu piekļuves kodu.", errorNotFound = "Šādas lapas nav.", errorReadOnly = "Šī darbība nav pieejama.", addToday = "pieraksti domu šodienai…",
             )
             "et" -> BrowserWebCopy(
                 "Päevad", "Oluline", "Logid", "Ülevaade", "Graafik",
@@ -807,7 +821,7 @@ private data class BrowserWebCopy(
                 kindTag = "silt", kindDateLink = "kuupäevalink", kindEntryLink = "kirje link",
                 graphSubtitle = "Kohalikud seosed · viis lehel", noConnections = "Seoseid veel pole.",
                 previous = "Eelmine", next = "Järgmine",
-                editAction = "muuda", saveAction = "salvesta", addAction = "lisa", addToDay = "lisa sellele päevale…", cancelAction = "tühista", errorNotAvailable = "See leht pole saadaval.", errorStopped = "Brauserivaade on peatatud.", errorAccessCode = "Laadi leht uuesti, et sisestada uus pääsukood.", errorNotFound = "Sellist lehte pole.", errorReadOnly = "See toiming pole saadaval.",
+                editAction = "muuda", saveAction = "salvesta", addAction = "lisa", addToDay = "lisa sellele päevale…", cancelAction = "tühista", errorNotAvailable = "See leht pole saadaval.", errorStopped = "Brauserivaade on peatatud.", errorAccessCode = "Laadi leht uuesti, et sisestada uus pääsukood.", errorNotFound = "Sellist lehte pole.", errorReadOnly = "See toiming pole saadaval.", addToday = "lisa mõte tänasesse…",
             )
             "lt" -> BrowserWebCopy(
                 "Dienos", "Svarbu", "Žurnalai", "Įžvalgos", "Grafas",
@@ -824,7 +838,7 @@ private data class BrowserWebCopy(
                 kindTag = "žyma", kindDateLink = "datos nuoroda", kindEntryLink = "įrašo nuoroda",
                 graphSubtitle = "Vietiniai ryšiai · penki puslapyje", noConnections = "Ryšių dar nėra.",
                 previous = "Ankstesnis", next = "Kitas",
-                editAction = "redaguoti", saveAction = "išsaugoti", addAction = "pridėti", addToDay = "pridėti prie šios dienos…", cancelAction = "atšaukti", errorNotAvailable = "Šis puslapis nepasiekiamas.", errorStopped = "Naršyklės rodinys sustabdytas.", errorAccessCode = "Perkraukite puslapį, kad įvestumėte naują prieigos kodą.", errorNotFound = "Tokio puslapio nėra.", errorReadOnly = "Šis veiksmas nepasiekiamas.",
+                editAction = "redaguoti", saveAction = "išsaugoti", addAction = "pridėti", addToDay = "pridėti prie šios dienos…", cancelAction = "atšaukti", errorNotAvailable = "Šis puslapis nepasiekiamas.", errorStopped = "Naršyklės rodinys sustabdytas.", errorAccessCode = "Perkraukite puslapį, kad įvestumėte naują prieigos kodą.", errorNotFound = "Tokio puslapio nėra.", errorReadOnly = "Šis veiksmas nepasiekiamas.", addToday = "užrašyk mintį šiandienai…",
             )
             "fi" -> BrowserWebCopy(
                 "Päivät", "Tärkeät", "Lokit", "Kooste", "Verkko",
@@ -841,7 +855,7 @@ private data class BrowserWebCopy(
                 kindTag = "tunniste", kindDateLink = "päivämäärälinkki", kindEntryLink = "merkintälinkki",
                 graphSubtitle = "Paikalliset yhteydet · viisi sivulla", noConnections = "Ei vielä yhteyksiä.",
                 previous = "Edellinen", next = "Seuraava",
-                editAction = "muokkaa", saveAction = "tallenna", addAction = "lisää", addToDay = "lisää tähän päivään…", cancelAction = "peruuta", errorNotAvailable = "Tämä sivu ei ole käytettävissä.", errorStopped = "Selainnäkymä on pysäytetty.", errorAccessCode = "Lataa sivu uudelleen ja syötä uusi käyttökoodi.", errorNotFound = "Sivua ei ole.", errorReadOnly = "Tämä toiminto ei ole käytettävissä.",
+                editAction = "muokkaa", saveAction = "tallenna", addAction = "lisää", addToDay = "lisää tähän päivään…", cancelAction = "peruuta", errorNotAvailable = "Tämä sivu ei ole käytettävissä.", errorStopped = "Selainnäkymä on pysäytetty.", errorAccessCode = "Lataa sivu uudelleen ja syötä uusi käyttökoodi.", errorNotFound = "Sivua ei ole.", errorReadOnly = "Tämä toiminto ei ole käytettävissä.", addToday = "kirjaa ajatus tälle päivälle…",
             )
             "sv" -> BrowserWebCopy(
                 "Dagar", "Viktigt", "Loggar", "Insikter", "Graf",
@@ -858,7 +872,7 @@ private data class BrowserWebCopy(
                 kindTag = "tagg", kindDateLink = "datumlänk", kindEntryLink = "postlänk",
                 graphSubtitle = "Lokala kopplingar · fem per sida", noConnections = "Inga kopplingar än.",
                 previous = "Föregående", next = "Nästa",
-                editAction = "redigera", saveAction = "spara", addAction = "lägg till", addToDay = "lägg till denna dag…", cancelAction = "avbryt", errorNotAvailable = "Den här sidan är inte tillgänglig.", errorStopped = "Webbläsarvyn har stoppats.", errorAccessCode = "Ladda om sidan för att ange en ny åtkomstkod.", errorNotFound = "Sidan finns inte.", errorReadOnly = "Den här åtgärden är inte tillgänglig.",
+                editAction = "redigera", saveAction = "spara", addAction = "lägg till", addToDay = "lägg till denna dag…", cancelAction = "avbryt", errorNotAvailable = "Den här sidan är inte tillgänglig.", errorStopped = "Webbläsarvyn har stoppats.", errorAccessCode = "Ladda om sidan för att ange en ny åtkomstkod.", errorNotFound = "Sidan finns inte.", errorReadOnly = "Den här åtgärden är inte tillgänglig.", addToday = "skriv en tanke till idag…",
             )
             "de" -> BrowserWebCopy(
                 "Tage", "Wichtig", "Protokolle", "Einblicke", "Graph",
@@ -875,7 +889,7 @@ private data class BrowserWebCopy(
                 kindTag = "Tag", kindDateLink = "Datumsverknüpfung", kindEntryLink = "Eintragsverknüpfung",
                 graphSubtitle = "Lokale Verbindungen · fünf pro Seite", noConnections = "Noch keine Verbindungen.",
                 previous = "Zurück", next = "Weiter",
-                editAction = "bearbeiten", saveAction = "speichern", addAction = "hinzufügen", addToDay = "zu diesem Tag hinzufügen…", cancelAction = "abbrechen", errorNotAvailable = "Diese Seite ist nicht verfügbar.", errorStopped = "Die Browseransicht wurde beendet.", errorAccessCode = "Lade die Seite neu, um einen neuen Zugangscode einzugeben.", errorNotFound = "Diese Seite gibt es nicht.", errorReadOnly = "Diese Aktion ist nicht verfügbar.",
+                editAction = "bearbeiten", saveAction = "speichern", addAction = "hinzufügen", addToDay = "zu diesem Tag hinzufügen…", cancelAction = "abbrechen", errorNotAvailable = "Diese Seite ist nicht verfügbar.", errorStopped = "Die Browseransicht wurde beendet.", errorAccessCode = "Lade die Seite neu, um einen neuen Zugangscode einzugeben.", errorNotFound = "Diese Seite gibt es nicht.", errorReadOnly = "Diese Aktion ist nicht verfügbar.", addToday = "einen Gedanken für heute…",
             )
             "sk" -> BrowserWebCopy(
                 "Dni", "Dôležité", "Záznamy", "Prehľad", "Graf",
@@ -892,7 +906,7 @@ private data class BrowserWebCopy(
                 kindTag = "značka", kindDateLink = "odkaz na dátum", kindEntryLink = "odkaz na záznam",
                 graphSubtitle = "Lokálne spojenia · päť na stranu", noConnections = "Zatiaľ žiadne spojenia.",
                 previous = "Predchádzajúca", next = "Ďalšia",
-                editAction = "upraviť", saveAction = "uložiť", addAction = "pridať", addToDay = "pridať k tomuto dňu…", cancelAction = "zrušiť", errorNotAvailable = "Táto stránka nie je dostupná.", errorStopped = "Zobrazenie v prehliadači bolo zastavené.", errorAccessCode = "Znovu načítajte stránku a zadajte nový prístupový kód.", errorNotFound = "Taká stránka neexistuje.", errorReadOnly = "Táto akcia nie je dostupná.",
+                editAction = "upraviť", saveAction = "uložiť", addAction = "pridať", addToDay = "pridať k tomuto dňu…", cancelAction = "zrušiť", errorNotAvailable = "Táto stránka nie je dostupná.", errorStopped = "Zobrazenie v prehliadači bolo zastavené.", errorAccessCode = "Znovu načítajte stránku a zadajte nový prístupový kód.", errorNotFound = "Taká stránka neexistuje.", errorReadOnly = "Táto akcia nie je dostupná.", addToday = "pridaj myšlienku na dnes…",
             )
             else -> BrowserWebCopy(
                 "Days", "Important", "Logs", "Insights", "Graph",
@@ -909,7 +923,7 @@ private data class BrowserWebCopy(
                 kindTag = "tag", kindDateLink = "date link", kindEntryLink = "entry link",
                 graphSubtitle = "Local connections · five per page", noConnections = "No connections yet.",
                 previous = "Previous", next = "Next",
-                editAction = "edit", saveAction = "save", addAction = "add", addToDay = "add to this day…", cancelAction = "cancel", errorNotAvailable = "This page is not available.", errorStopped = "Browser view has stopped.", errorAccessCode = "Reload the page to enter a fresh access code.", errorNotFound = "That page does not exist.", errorReadOnly = "This action is not available.",
+                editAction = "edit", saveAction = "save", addAction = "add", addToDay = "add to this day…", cancelAction = "cancel", errorNotAvailable = "This page is not available.", errorStopped = "Browser view has stopped.", errorAccessCode = "Reload the page to enter a fresh access code.", errorNotFound = "That page does not exist.", errorReadOnly = "This action is not available.", addToday = "add a thought to today…",
             )
         }
     }

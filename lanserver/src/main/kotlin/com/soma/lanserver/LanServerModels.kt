@@ -388,6 +388,9 @@ sealed interface BrowserWriteResult {
  * implementations stay read-only.
  */
 interface ReadOnlySomaDataSource {
+    /** The phone's current local date, used to offer quick capture to today. */
+    fun today(): LocalDate = LocalDate.now()
+
     fun listDays(request: PageRequest): PagedResult<BrowserDay>
 
     /** Appends a new text entry to [date]'s note, creating the note if needed. */

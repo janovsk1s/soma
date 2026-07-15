@@ -47,6 +47,7 @@ class RenderWebviewPreview {
             totalCount = 18,
         )
         write("02-days", HtmlRenderer.days(1, days, languageTag = lang))
+        write("02-days-editing", HtmlRenderer.days(1, days, languageTag = lang, edit = EditContext("preview-csrf"), today = today))
 
         val entries = PagedResult(
             items = listOf(
