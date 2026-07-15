@@ -798,7 +798,15 @@ class SomaViewModel(application: Application) : AndroidViewModel(application) {
                             keyProvider = app.imageKeyProvider,
                         ).second.let { original ->
                             try {
-                                CloudVisionImage.prepare(original, image.rotationDegrees)
+                                CloudVisionImage.prepare(
+                                    original,
+                                    image.rotationDegrees,
+                                    maxPixels = if (kind == LogKind.RECEIPT) {
+                                        CloudVisionImage.RECEIPT_MAX_PIXELS
+                                    } else {
+                                        CloudVisionImage.DEFAULT_MAX_PIXELS
+                                    },
+                                )
                             } finally {
                                 original.fill(0)
                             }

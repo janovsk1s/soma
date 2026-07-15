@@ -34,6 +34,7 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -203,6 +204,7 @@ private class AndroidCloudFeatureController(private val context: Context) : Clou
                 imageJpeg,
                 if (imageJpeg == null) listOf(CLOUD_AI_TRACKING_MODEL) else CLOUD_AI_VISION_MODELS,
                 connectionOpener,
+                shrinkImage = CloudVisionImage::shrinkForRetry,
             )
         } catch (error: CancellationException) {
             throw error
@@ -739,8 +741,43 @@ internal object CloudHttp {
      * Walks the model candidates so a retired preview vision model degrades to
      * the next one instead of killing photo proposals. Failures that belong to
      * the account (key, credits, rate limits) are never retried on a sibling.
+     *
+     * One exception, because the tracking proposal is an explicit user action:
+     * when the provider answers a photo request with a 429 and names a short
+     * wait, the request pauses for exactly that long and retries once with a
+     * smaller render — free-tier budgets are per minute, and the smaller image
+     * roughly halves the token cost that hit the ceiling.
      */
     suspend fun extractTrackingText(
+        apiKey: String,
+        kind: LogKind,
+        text: String,
+        imageJpeg: ByteArray?,
+        models: List<String>,
+        connectionOpener: CloudConnectionOpener,
+        onRateLimitPause: suspend (seconds: Long) -> Unit = { seconds -> delay(seconds * 1_000) },
+        shrinkImage: (ByteArray) -> ByteArray? = { null },
+    ): String {
+        return try {
+            walkTrackingModels(apiKey, kind, text, imageJpeg, models, connectionOpener)
+        } catch (error: CloudProviderException) {
+            val wait = error.retryAfterSeconds
+            val retryable = error.fallbackReason == TranscriptionFallbackReason.RATE_LIMITED &&
+                imageJpeg != null && wait != null && wait <= MAX_RATE_LIMIT_WAIT_SECONDS
+            if (!retryable) throw error
+            onRateLimitPause(wait!!.toLong())
+            walkTrackingModels(
+                apiKey,
+                kind,
+                text,
+                shrinkImage(imageJpeg!!) ?: imageJpeg,
+                models,
+                connectionOpener,
+            )
+        }
+    }
+
+    private suspend fun walkTrackingModels(
         apiKey: String,
         kind: LogKind,
         text: String,
@@ -999,6 +1036,12 @@ internal object CloudHttp {
                 throw CloudProviderException(
                     cloudFailureReason(status, response),
                     cloudModelUnavailable(status, response),
+                    retryAfterSeconds = if (status == 429) {
+                        connection.getHeaderField("Retry-After")?.trim()?.toIntOrNull()
+                            ?.takeIf { it > 0 }
+                    } else {
+                        null
+                    },
                 )
             }
             return JSONObject(response)
@@ -1009,6 +1052,7 @@ internal object CloudHttp {
 
     private const val CONNECT_TIMEOUT_MILLIS = 20_000
     private const val READ_TIMEOUT_MILLIS = 90_000
+    private const val MAX_RATE_LIMIT_WAIT_SECONDS = 20
     private const val MAX_RESPONSE_BYTES = 2 * 1024 * 1024
     private const val MAX_NOTE_CHARACTERS = 4_000
     private const val MAX_TRACKING_LINES = 100
@@ -1032,6 +1076,8 @@ private val CLOUD_AI_REASONING_MODELS = setOf(CLOUD_AI_TRACKING_MODEL, CLOUD_AI_
 internal class CloudProviderException(
     val fallbackReason: TranscriptionFallbackReason,
     val modelUnavailable: Boolean = false,
+    /** The provider's own Retry-After in seconds, when it sent one with a 429. */
+    val retryAfterSeconds: Int? = null,
 ) : IOException("Cloud provider request failed")
 
 private class CloudSecretStore(context: Context) {
