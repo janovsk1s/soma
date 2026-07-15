@@ -204,7 +204,6 @@ private class AndroidCloudFeatureController(private val context: Context) : Clou
                 imageJpeg,
                 if (imageJpeg == null) listOf(CLOUD_AI_TRACKING_MODEL) else CLOUD_AI_VISION_MODELS,
                 connectionOpener,
-                shrinkImage = CloudVisionImage::shrinkForRetry,
             )
         } catch (error: CancellationException) {
             throw error
@@ -744,9 +743,10 @@ internal object CloudHttp {
      *
      * One exception, because the tracking proposal is an explicit user action:
      * when the provider answers a photo request with a 429 and names a short
-     * wait, the request pauses for exactly that long and retries once with a
-     * smaller render — free-tier budgets are per minute, and the smaller image
-     * roughly halves the token cost that hit the ceiling.
+     * wait, the request pauses for exactly that long and retries once at full
+     * quality — free-tier budgets are per minute, so the same image usually
+     * fits once the window rolls over. The image is never downscaled: a
+     * degraded proposal is worse than an honest failure.
      */
     suspend fun extractTrackingText(
         apiKey: String,
@@ -756,7 +756,6 @@ internal object CloudHttp {
         models: List<String>,
         connectionOpener: CloudConnectionOpener,
         onRateLimitPause: suspend (seconds: Long) -> Unit = { seconds -> delay(seconds * 1_000) },
-        shrinkImage: (ByteArray) -> ByteArray? = { null },
     ): String {
         return try {
             walkTrackingModels(apiKey, kind, text, imageJpeg, models, connectionOpener)
@@ -766,14 +765,7 @@ internal object CloudHttp {
                 imageJpeg != null && wait != null && wait <= MAX_RATE_LIMIT_WAIT_SECONDS
             if (!retryable) throw error
             onRateLimitPause(wait!!.toLong())
-            walkTrackingModels(
-                apiKey,
-                kind,
-                text,
-                shrinkImage(imageJpeg!!) ?: imageJpeg,
-                models,
-                connectionOpener,
-            )
+            walkTrackingModels(apiKey, kind, text, imageJpeg, models, connectionOpener)
         }
     }
 

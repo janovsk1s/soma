@@ -80,7 +80,7 @@ class CloudVisionModelFallbackTest {
     }
 
     @Test
-    fun `a photo rate limit with a short wait pauses once and retries smaller`() {
+    fun `a photo rate limit with a short wait pauses once and retries at full quality`() {
         val opener = ScriptedOpener(
             429 to """{"error":{"code":"rate_limit_exceeded"}}""",
             200 to proposal("item: piens | 1 | 1.09"),
@@ -89,21 +89,22 @@ class CloudVisionModelFallbackTest {
 
         val result = runBlocking {
             CloudHttp.extractTrackingText(
-                "key", LogKind.RECEIPT, "čeks", JPEG, opener,
+                "key", LogKind.RECEIPT, "čeks", JPEG, CLOUD_AI_VISION_MODELS, opener,
                 onRateLimitPause = { pauses += it },
-                shrinkImage = { "tiny".toByteArray() },
             )
         }
 
         assertEquals("item: piens | 1 | 1.09", result)
         assertEquals(listOf(7L), pauses)
         assertEquals(2, opener.connections.size)
-        // The retry carries the smaller render, not the original image.
-        val retryImage = opener.requestBodies()[1]
-            .getJSONArray("messages").getJSONObject(1)
-            .getJSONArray("content").getJSONObject(1)
-            .getJSONObject("image_url").getString("url")
-        assertTrue(retryImage.endsWith(android.util.Base64.encodeToString("tiny".toByteArray(), android.util.Base64.NO_WRAP)))
+        // The retry resends the identical image — accuracy is never traded away.
+        val bodies = opener.requestBodies()
+        val imageOf = { body: JSONObject ->
+            body.getJSONArray("messages").getJSONObject(1)
+                .getJSONArray("content").getJSONObject(1)
+                .getJSONObject("image_url").getString("url")
+        }
+        assertEquals(imageOf(bodies[0]), imageOf(bodies[1]))
     }
 
     @Test
@@ -115,9 +116,8 @@ class CloudVisionModelFallbackTest {
         try {
             runBlocking {
                 CloudHttp.extractTrackingText(
-                    "key", LogKind.RECEIPT, "čeks", JPEG, opener,
+                    "key", LogKind.RECEIPT, "čeks", JPEG, CLOUD_AI_VISION_MODELS, opener,
                     onRateLimitPause = { pauses += it },
-                    shrinkImage = { it },
                 )
             }
             fail("Expected the rate limit to surface")
@@ -137,7 +137,7 @@ class CloudVisionModelFallbackTest {
         try {
             runBlocking {
                 CloudHttp.extractTrackingText(
-                    "key", LogKind.MEAL, "pusdienas", null, opener,
+                    "key", LogKind.MEAL, "pusdienas", null, listOf("openai/gpt-oss-20b"), opener,
                     onRateLimitPause = { pauses += it },
                 )
             }
