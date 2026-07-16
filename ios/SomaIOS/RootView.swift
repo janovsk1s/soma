@@ -1108,6 +1108,8 @@ private struct ReflectionSheet: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { SomaScreenBackground() }
             .navigationTitle(day.formatted(date: .abbreviated, time: .omitted))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1245,9 +1247,11 @@ private struct EntryEditor: View {
                 }
                 TextEditor(text: $text)
                     .font(.body)
+                    .scrollContentBackground(.hidden)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
             }
+                .background { SomaScreenBackground() }
                 .navigationTitle("Entry")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -1302,8 +1306,13 @@ private struct EntryHistorySheet: View {
                             .textSelection(.enabled)
                     }
                     .padding(.vertical, 2)
+                    .listRowBackground(Color.clear)
                 }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .scrollIndicators(.hidden)
+            .background { SomaScreenBackground() }
             .navigationTitle("Earlier wording")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1328,8 +1337,10 @@ private struct CaptureSheet: View {
             TextEditor(text: $text)
                 .focused($focused)
                 .font(.title3)
+                .scrollContentBackground(.hidden)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
+                .background { SomaScreenBackground() }
                 .navigationTitle(title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -1478,6 +1489,8 @@ private struct ImportantDetailSheet: View {
                 }
                 .padding(20)
             }
+            .scrollIndicators(.hidden)
+            .background { SomaScreenBackground() }
             .navigationTitle("Important")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

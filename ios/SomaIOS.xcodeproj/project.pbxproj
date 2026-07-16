@@ -23,6 +23,7 @@
 		100000000000000000000117 /* SomaReminder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000F /* SomaReminder.swift */; };
 		100000000000000000000118 /* SomaHealth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000011 /* SomaHealth.swift */; };
 		100000000000000000000119 /* SomaVision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000013 /* SomaVision.swift */; };
+		10000000000000000000011A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000014 /* Assets.xcassets */; };
 		10000000000000000000010D /* en.webp in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000020 /* en.webp */; };
 		10000000000000000000010E /* lv.webp in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000021 /* lv.webp */; };
 		10000000000000000000010F /* et.webp in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000022 /* et.webp */; };
@@ -52,6 +53,7 @@
 		100000000000000000000011 /* SomaHealth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomaHealth.swift; sourceTree = "<group>"; };
 		100000000000000000000012 /* SomaIOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SomaIOS.entitlements; sourceTree = "<group>"; };
 		100000000000000000000013 /* SomaVision.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomaVision.swift; sourceTree = "<group>"; };
+		100000000000000000000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		100000000000000000000020 /* en.webp */ = {isa = PBXFileReference; lastKnownFileType = image.webp; name = en.webp; path = ../../lanserver/src/main/resources/com/soma/lanserver/forest/en.webp; sourceTree = "<group>"; };
 		100000000000000000000021 /* lv.webp */ = {isa = PBXFileReference; lastKnownFileType = image.webp; name = lv.webp; path = ../../lanserver/src/main/resources/com/soma/lanserver/forest/lv.webp; sourceTree = "<group>"; };
 		100000000000000000000022 /* et.webp */ = {isa = PBXFileReference; lastKnownFileType = image.webp; name = et.webp; path = ../../lanserver/src/main/resources/com/soma/lanserver/forest/et.webp; sourceTree = "<group>"; };
@@ -97,6 +99,7 @@
 				100000000000000000000011 /* SomaHealth.swift */,
 				100000000000000000000012 /* SomaIOS.entitlements */,
 				100000000000000000000013 /* SomaVision.swift */,
+				100000000000000000000014 /* Assets.xcassets */,
 				100000000000000000000020 /* en.webp */,
 				100000000000000000000021 /* lv.webp */,
 				100000000000000000000022 /* et.webp */,
@@ -162,6 +165,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				10000000000000000000011A /* Assets.xcassets in Resources */,
 				10000000000000000000010D /* en.webp in Resources */,
 				10000000000000000000010E /* lv.webp in Resources */,
 				10000000000000000000010F /* et.webp in Resources */,
@@ -206,6 +210,7 @@
 		100000000000000000000601 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CODE_SIGN_ENTITLEMENTS = SomaIOS/SomaIOS.entitlements;
 				CODE_SIGN_STYLE = Automatic;
@@ -238,6 +243,7 @@
 		100000000000000000000602 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CODE_SIGN_ENTITLEMENTS = SomaIOS/SomaIOS.entitlements;
 				CODE_SIGN_STYLE = Automatic;
