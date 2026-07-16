@@ -12,7 +12,6 @@ final class SomaIntelligence {
     private let appleSpeech: AppleSpeechTranscriber
     private var activeTranscriptions = Set<UUID>()
     private var activeSuggestions = Set<UUID>()
-    private var activeTracking = Set<UUID>()
 
     init(
         store: SomaStore,
@@ -38,16 +37,11 @@ final class SomaIntelligence {
 
     func processNewEntry(_ entry: SomaEntry) async {
         guard !entry.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        await suggestImportant(for: entry)
-        await suggestTracking(for: entry)
-    }
-
-    private func suggestImportant(for entry: SomaEntry) async {
         guard activeSuggestions.insert(entry.id).inserted else { return }
         defer { activeSuggestions.remove(entry.id) }
 
-        // Deterministic rules run first so suggestions never depend on a model,
-        // a key, or a network. AI only sees the note when the rules find nothing.
+        // Deterministic rules run first so Important suggestions never depend on
+        // a model, a key, or a network. AI only answers what the rules left open.
         let ruleCandidates = SomaRules.importantCandidates(in: entry.text)
         if !ruleCandidates.isEmpty {
             store.replaceSuggestions(
@@ -56,19 +50,17 @@ final class SomaIntelligence {
                 texts: ruleCandidates,
                 engine: .localRules
             )
-            return
         }
 
-        if settings.onDeviceSuggestionsEnabled {
+        let wantsImportant = ruleCandidates.isEmpty
+        let wantsTracking = settings.trackingSuggestionsEnabled
+        guard wantsImportant || wantsTracking else { return }
+
+        if (wantsImportant && settings.onDeviceSuggestionsEnabled) || wantsTracking {
             do {
-                let actions = try await appleActions.extractImportant(from: entry.text)
+                let insights = try await appleActions.extractInsights(from: entry.text)
                 try Task.checkCancellation()
-                store.replaceSuggestions(
-                    for: entry.id,
-                    sourceUpdatedAt: entry.updatedAt,
-                    texts: actions,
-                    engine: .appleFoundationModel
-                )
+                apply(insights, to: entry, wantsImportant: wantsImportant, engine: .appleFoundationModel)
                 return
             } catch is CancellationError {
                 return
@@ -85,18 +77,13 @@ final class SomaIntelligence {
             return
         }
         do {
-            let actions = try await cloud.extractImportant(
+            let insights = try await cloud.extractInsights(
                 text: entry.text,
                 apiKey: key,
                 wifiOnly: settings.wifiOnly
             )
             try Task.checkCancellation()
-            store.replaceSuggestions(
-                for: entry.id,
-                sourceUpdatedAt: entry.updatedAt,
-                texts: actions,
-                engine: .groqGPTOSS20B
-            )
+            apply(insights, to: entry, wantsImportant: wantsImportant, engine: .groqGPTOSS20B)
         } catch is CancellationError {
             return
         } catch let error as CloudProviderError {
@@ -106,51 +93,46 @@ final class SomaIntelligence {
         }
     }
 
-    // Meals and workouts: Apple's on-device model first; the Groq path only runs
-    // when the on-device model is unavailable AND cloud suggestions are opted in.
-    private func suggestTracking(for entry: SomaEntry) async {
-        guard settings.trackingSuggestionsEnabled else { return }
-        guard activeTracking.insert(entry.id).inserted else { return }
-        defer { activeTracking.remove(entry.id) }
-
-        do {
-            let proposals = try await appleActions.extractTracking(from: entry.text)
-            try Task.checkCancellation()
+    private func apply(
+        _ insights: NoteInsights,
+        to entry: SomaEntry,
+        wantsImportant: Bool,
+        engine: SuggestionEngine
+    ) {
+        if wantsImportant {
+            store.replaceSuggestions(
+                for: entry.id,
+                sourceUpdatedAt: entry.updatedAt,
+                texts: insights.actions,
+                engine: engine
+            )
+        }
+        if settings.trackingSuggestionsEnabled {
             store.replaceTrackingSuggestions(
                 for: entry.id,
                 sourceUpdatedAt: entry.updatedAt,
-                proposals: proposals,
-                engine: .appleFoundationModel
+                proposals: insights.trackingProposals,
+                engine: engine
             )
-            return
-        } catch is CancellationError {
-            return
-        } catch {
-            // Capability-gated; fall through to the opted-in cloud path.
         }
+    }
 
-        guard settings.cloudSuggestionsEnabled else { return }
-        guard let key = settings.key(for: .groq), !key.isEmpty else { return }
-        do {
-            let proposals = try await cloud.extractTracking(
-                text: entry.text,
-                apiKey: key,
-                wifiOnly: settings.wifiOnly
-            )
-            try Task.checkCancellation()
-            store.replaceTrackingSuggestions(
-                for: entry.id,
-                sourceUpdatedAt: entry.updatedAt,
-                proposals: proposals,
-                engine: .groqGPTOSS20B
-            )
-        } catch is CancellationError {
+    // Photo notes get one on-device Vision pass at capture; recognized text is
+    // offered as an accept-gated chip and never applied on its own.
+    func extractPhotoText(for entry: SomaEntry) async {
+        guard
+            entry.text.isEmpty,
+            let fileName = entry.imageFileName,
+            !store.hasPhotoTextSuggestion(for: entry.id),
+            let url = store.availableImageURL(fileName: fileName)
+        else {
             return
-        } catch let error as CloudProviderError {
-            settings.record(error.reason)
-        } catch {
-            settings.record(.providerError)
         }
+        let recognized = await Task.detached(priority: .utility) {
+            PhotoTextReader.recognizeText(at: url)
+        }.value
+        guard let recognized else { return }
+        store.setPhotoTextSuggestion(for: entry.id, text: recognized)
     }
 
     func transcribe(_ entry: SomaEntry) async {

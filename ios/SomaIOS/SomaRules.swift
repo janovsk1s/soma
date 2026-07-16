@@ -13,7 +13,13 @@ enum SomaRules {
         for sentence in sentences(in: text) {
             guard results.count < maximumCandidates else { break }
             guard sentence.count <= 240 else { continue }
-            guard isObligation(sentence) || containsReference(sentence) else { continue }
+            guard
+                isObligation(sentence) ||
+                containsReference(sentence) ||
+                mentionsUpcomingDate(sentence)
+            else {
+                continue
+            }
             let fingerprint = fold(sentence)
             guard seen.insert(fingerprint).inserted else { continue }
             results.append(sentence)
@@ -107,8 +113,6 @@ enum SomaRules {
 
     private static let referencePatterns: [NSRegularExpression] = {
         let patterns = [
-            // Phone numbers: international prefix then at least seven digits.
-            #"(?:\+|\b00)[0-9][0-9 \-()]{5,}[0-9]"#,
             // Booking/order codes: 5–9 uppercase alphanumerics mixing letters and digits.
             #"\b(?=[A-Z0-9]{5,9}\b)(?=[A-Z0-9]*[0-9])(?=[A-Z0-9]*[A-Z])[A-Z0-9]+\b"#,
             // Long digit runs: order and parcel numbers.
@@ -117,9 +121,39 @@ enum SomaRules {
         return patterns.compactMap { try? NSRegularExpression(pattern: $0) }
     }()
 
+    // Apple's detector handles phone-number shapes across locales far better
+    // than a regex; codes and digit runs stay regex because no detector has them.
+    private static let phoneDetector = try? NSDataDetector(
+        types: NSTextCheckingResult.CheckingType.phoneNumber.rawValue
+    )
+
+    private static let dateDetector = try? NSDataDetector(
+        types: NSTextCheckingResult.CheckingType.date.rawValue
+    )
+
     private static func containsReference(_ sentence: String) -> Bool {
         let range = NSRange(sentence.startIndex..., in: sentence)
+        if phoneDetector?.firstMatch(in: sentence, range: range) != nil {
+            return true
+        }
         return referencePatterns.contains { $0.firstMatch(in: sentence, range: range) != nil }
+    }
+
+    /// A sentence naming a future moment ("dentist on Thursday at 3") is worth
+    /// keeping even without an obligation word. Past and immediate dates ("this
+    /// morning") stay out — notes describing the day are not todos.
+    private static func mentionsUpcomingDate(_ sentence: String) -> Bool {
+        guard let dateDetector else { return false }
+        let range = NSRange(sentence.startIndex..., in: sentence)
+        let horizon = Date().addingTimeInterval(2 * 60 * 60)
+        var upcoming = false
+        dateDetector.enumerateMatches(in: sentence, range: range) { match, _, stop in
+            if let date = match?.date, date > horizon {
+                upcoming = true
+                stop.pointee = true
+            }
+        }
+        return upcoming
     }
 
     // MARK: - Folding

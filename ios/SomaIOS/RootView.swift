@@ -121,6 +121,10 @@ private struct TodayView: View {
                                     TrackingSuggestionsRow(suggestions: tracking)
                                         .transition(.opacity.combined(with: .move(edge: .top)))
                                 }
+                                if let photoText = store.pendingPhotoText(for: entry.id) {
+                                    PhotoTextRow(suggestion: photoText)
+                                        .transition(.opacity.combined(with: .move(edge: .top)))
+                                }
                             }
                             .animation(.snappy, value: store.pendingSuggestions(for: entry.id))
                             .animation(.snappy, value: store.pendingTrackingSuggestions(for: entry.id))
@@ -376,10 +380,11 @@ private struct TodayView: View {
             try data.write(to: url, options: [.atomic, .completeFileProtection])
         }.value
 
-        guard store.addPhoto(fileName: fileName) != nil else {
+        guard let entry = store.addPhoto(fileName: fileName) else {
             try? FileManager.default.removeItem(at: url)
             throw StoreError.writeFailed
         }
+        Task { await intelligence.extractPhotoText(for: entry) }
     }
 }
 
@@ -402,6 +407,7 @@ private struct CaptureBar: View {
 
     @State private var text = ""
     @State private var holdState: HoldState = .idle
+    @AppStorage("ios.hint.holdToTalk") private var holdHintRetired = false
     @FocusState private var focused: Bool
 
     private var trimmed: String {
@@ -409,6 +415,7 @@ private struct CaptureBar: View {
     }
 
     var body: some View {
+        VStack(spacing: 5) {
         HStack(alignment: .bottom, spacing: 8) {
             HStack(alignment: .bottom, spacing: 6) {
                 if recorder.isRecording {
@@ -486,6 +493,7 @@ private struct CaptureBar: View {
                 .buttonStyle(.plain)
                 .modifier(NativeGlassCircle())
                 .disabled(recorder.isRecording)
+                .accessibilityLabel("Take a photo")
 
                 Button(action: onRecord) {
                     Image(systemName: recorder.isRecording ? "stop.fill" : "mic.fill")
@@ -497,7 +505,17 @@ private struct CaptureBar: View {
                 .buttonStyle(.plain)
                 .modifier(NativeRecordControl(recording: recorder.isRecording))
                 .sensoryFeedback(.impact, trigger: recorder.isRecording)
+                .accessibilityLabel(recorder.isRecording ? "Stop recording" : "Record a voice note")
             }
+        }
+
+        // The Light Phone's quiet, retiring hint: one dim line until the gesture
+        // has been used once.
+        if !holdHintRetired, !focused, !recorder.isRecording {
+            Text("hold to talk · slide right to keep recording")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
         }
         .animation(.snappy, value: focused)
         .animation(.snappy, value: recorder.isRecording)
@@ -517,6 +535,7 @@ private struct CaptureBar: View {
                 guard case .second(true, let drag) = value else { return }
                 if holdState == .idle, !recorder.isRecording {
                     holdState = .holding
+                    holdHintRetired = true
                     onRecord()
                 }
                 if holdState == .holding, let drag, drag.translation.width > 60 {
@@ -581,6 +600,8 @@ private struct EntryRow: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(isPlaying ? "Stop voice note" : "Play voice note")
+                    .accessibilityValue(entry.text)
                     .onReceive(
                         NotificationCenter.default
                             .publisher(for: AVPlayerItem.didPlayToEndTimeNotification)
@@ -703,6 +724,7 @@ private struct EntryPhoto: View {
         }
         .clipShape(.rect(cornerRadius: 12))
         .privacySensitive()
+        .accessibilityLabel("Photo note")
         .task(id: fileName) {
             guard let url = store.availableImageURL(fileName: fileName) else { return }
             image = await Task.detached(priority: .utility) {
@@ -763,6 +785,50 @@ private struct SuggestionRow: View {
         .accessibilityHint("Tap the suggestion to add it to Important.")
         .contextMenu {
             Text(suggestion.engine.displayName)
+        }
+    }
+}
+
+private struct PhotoTextRow: View {
+    @Environment(SomaStore.self) private var store
+    @Environment(SomaIntelligence.self) private var intelligence
+    let suggestion: PhotoTextSuggestion
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "text.viewfinder")
+                .foregroundStyle(.secondary)
+            Button {
+                withAnimation {
+                    guard let updated = store.accept(suggestion) else { return }
+                    Task { await intelligence.processNewEntry(updated) }
+                }
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Keep photo text?")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(suggestion.text)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .buttonStyle(.plain)
+            Button("Dismiss", systemImage: "xmark") {
+                withAnimation { _ = store.dismiss(suggestion) }
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.borderless)
+            .frame(minWidth: 44, minHeight: 44)
+        }
+        .padding(10)
+        .background(.ultraThinMaterial, in: .rect(cornerRadius: 14))
+        .accessibilityElement(children: .contain)
+        .accessibilityHint("Tap to make the photo's text part of the note.")
+        .contextMenu {
+            Text("Recognized on this iPhone")
         }
     }
 }

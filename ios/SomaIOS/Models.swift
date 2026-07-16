@@ -148,6 +148,16 @@ struct SomaLog: Identifiable, Codable, Hashable, Sendable {
     var sourceEntryID: UUID? = nil
 }
 
+struct PhotoTextSuggestion: Identifiable, Codable, Hashable, Sendable {
+    var id: UUID
+    var entryID: UUID
+    var text: String
+    var createdAt: Date
+    var dismissedAt: Date? = nil
+
+    var isPending: Bool { dismissedAt == nil }
+}
+
 struct TrackingSuggestion: Identifiable, Codable, Hashable, Sendable {
     var id: UUID
     var entryID: UUID

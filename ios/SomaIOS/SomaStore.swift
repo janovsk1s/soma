@@ -13,6 +13,7 @@ final class SomaStore {
     private(set) var revisions: [EntryRevision] = []
     private(set) var logs: [SomaLog] = []
     private(set) var trackingSuggestions: [TrackingSuggestion] = []
+    private(set) var photoTextSuggestions: [PhotoTextSuggestion] = []
     private(set) var deviceID: UUID
     private(set) var storageIssue: StoreError?
     var selectedDay = Date()
@@ -46,6 +47,7 @@ final class SomaStore {
             revisions = snapshot.revisions ?? []
             logs = snapshot.logs ?? []
             trackingSuggestions = snapshot.trackingSuggestions ?? []
+            photoTextSuggestions = snapshot.photoTextSuggestions ?? []
             if wasPlaintext {
                 _ = writeSnapshot()
             }
@@ -570,6 +572,63 @@ final class SomaStore {
         } == true
     }
 
+    // MARK: - Photo text
+
+    // Records persist even when dismissed so a photo is only ever OCR'd once.
+    func hasPhotoTextSuggestion(for entryID: UUID) -> Bool {
+        photoTextSuggestions.contains { $0.entryID == entryID }
+    }
+
+    func pendingPhotoText(for entryID: UUID) -> PhotoTextSuggestion? {
+        photoTextSuggestions.first { $0.entryID == entryID && $0.isPending }
+    }
+
+    func setPhotoTextSuggestion(for entryID: UUID, text: String) {
+        guard !hasPhotoTextSuggestion(for: entryID) else { return }
+        guard let cleaned = Self.boundedText(text) else { return }
+        _ = commit {
+            photoTextSuggestions.append(
+                PhotoTextSuggestion(
+                    id: UUID(),
+                    entryID: entryID,
+                    text: cleaned,
+                    createdAt: Date()
+                )
+            )
+            return true
+        }
+    }
+
+    // Accepting makes the recognized text the entry's text (revision-safe via
+    // the ordinary update path), so the photo becomes searchable.
+    @discardableResult
+    func accept(_ suggestion: PhotoTextSuggestion) -> SomaEntry? {
+        guard
+            let index = photoTextSuggestions.firstIndex(where: { $0.id == suggestion.id }),
+            let entry = entry(id: suggestion.entryID)
+        else {
+            return nil
+        }
+        let updated = update(entry: entry, text: photoTextSuggestions[index].text)
+        guard updated != nil else { return nil }
+        _ = commit {
+            photoTextSuggestions[index].dismissedAt = Date()
+            return true
+        }
+        return updated
+    }
+
+    @discardableResult
+    func dismiss(_ suggestion: PhotoTextSuggestion) -> Bool {
+        guard let index = photoTextSuggestions.firstIndex(where: { $0.id == suggestion.id }) else {
+            return false
+        }
+        return commit {
+            photoTextSuggestions[index].dismissedAt = Date()
+            return true
+        } == true
+    }
+
     func replaceSuggestions(
         for entryID: UUID,
         sourceUpdatedAt: Date,
@@ -737,6 +796,7 @@ final class SomaStore {
         let previousRevisions = revisions
         let previousLogs = logs
         let previousTracking = trackingSuggestions
+        let previousPhotoText = photoTextSuggestions
         let value = mutation()
         guard writeSnapshot() else {
             entries = previousEntries
@@ -745,6 +805,7 @@ final class SomaStore {
             revisions = previousRevisions
             logs = previousLogs
             trackingSuggestions = previousTracking
+            photoTextSuggestions = previousPhotoText
             return nil
         }
         return value
@@ -758,7 +819,8 @@ final class SomaStore {
             suggestions: suggestions,
             revisions: revisions,
             logs: logs,
-            trackingSuggestions: trackingSuggestions
+            trackingSuggestions: trackingSuggestions,
+            photoTextSuggestions: photoTextSuggestions
         )
         do {
             let data = try Self.encoder.encode(snapshot)
@@ -943,6 +1005,7 @@ final class SomaStore {
         var revisions: [EntryRevision]?
         var logs: [SomaLog]?
         var trackingSuggestions: [TrackingSuggestion]?
+        var photoTextSuggestions: [PhotoTextSuggestion]?
     }
 
     private static let encoder: JSONEncoder = {

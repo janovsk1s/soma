@@ -22,6 +22,7 @@
 		100000000000000000000116 /* SomaCrypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000E /* SomaCrypto.swift */; };
 		100000000000000000000117 /* SomaReminder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000F /* SomaReminder.swift */; };
 		100000000000000000000118 /* SomaHealth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000011 /* SomaHealth.swift */; };
+		100000000000000000000119 /* SomaVision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000013 /* SomaVision.swift */; };
 		10000000000000000000010D /* en.webp in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000020 /* en.webp */; };
 		10000000000000000000010E /* lv.webp in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000021 /* lv.webp */; };
 		10000000000000000000010F /* et.webp in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000022 /* et.webp */; };
@@ -50,6 +51,7 @@
 		10000000000000000000000F /* SomaReminder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomaReminder.swift; sourceTree = "<group>"; };
 		100000000000000000000011 /* SomaHealth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomaHealth.swift; sourceTree = "<group>"; };
 		100000000000000000000012 /* SomaIOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SomaIOS.entitlements; sourceTree = "<group>"; };
+		100000000000000000000013 /* SomaVision.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomaVision.swift; sourceTree = "<group>"; };
 		100000000000000000000020 /* en.webp */ = {isa = PBXFileReference; lastKnownFileType = image.webp; name = en.webp; path = ../../lanserver/src/main/resources/com/soma/lanserver/forest/en.webp; sourceTree = "<group>"; };
 		100000000000000000000021 /* lv.webp */ = {isa = PBXFileReference; lastKnownFileType = image.webp; name = lv.webp; path = ../../lanserver/src/main/resources/com/soma/lanserver/forest/lv.webp; sourceTree = "<group>"; };
 		100000000000000000000022 /* et.webp */ = {isa = PBXFileReference; lastKnownFileType = image.webp; name = et.webp; path = ../../lanserver/src/main/resources/com/soma/lanserver/forest/et.webp; sourceTree = "<group>"; };
@@ -94,6 +96,7 @@
 				10000000000000000000000F /* SomaReminder.swift */,
 				100000000000000000000011 /* SomaHealth.swift */,
 				100000000000000000000012 /* SomaIOS.entitlements */,
+				100000000000000000000013 /* SomaVision.swift */,
 				100000000000000000000020 /* en.webp */,
 				100000000000000000000021 /* lv.webp */,
 				100000000000000000000022 /* et.webp */,
@@ -193,6 +196,7 @@
 				100000000000000000000116 /* SomaCrypto.swift in Sources */,
 				100000000000000000000117 /* SomaReminder.swift in Sources */,
 				100000000000000000000118 /* SomaHealth.swift in Sources */,
+				100000000000000000000119 /* SomaVision.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
