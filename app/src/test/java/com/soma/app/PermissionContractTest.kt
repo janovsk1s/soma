@@ -12,7 +12,7 @@ import org.robolectric.annotation.Config
 /**
  * Release gate: the merged manifest requests exactly the permissions the flavor
  * needs — microphone, camera, notifications everywhere; INTERNET only where a
- * network feature exists; ACCESS_NETWORK_STATE only in the cloud flavor. This
+ * network feature exists; ACCESS_NETWORK_STATE only in an outbound flavor. This
  * pins the `tools:node="remove"` entries that strip WorkManager's optional
  * permissions, so a dependency upgrade cannot quietly widen the manifest.
  */
@@ -36,10 +36,14 @@ class PermissionContractTest {
             add("android.permission.RECORD_AUDIO")
             add("android.permission.CAMERA")
             add("android.permission.POST_NOTIFICATIONS")
-            if (BuildConfig.BROWSER_VIEW_AVAILABLE || BuildConfig.CLOUD_FEATURES_AVAILABLE) {
+            if (
+                BuildConfig.BROWSER_VIEW_AVAILABLE ||
+                BuildConfig.CLOUD_FEATURES_AVAILABLE ||
+                BuildConfig.CODEX_BRIDGE_AVAILABLE
+            ) {
                 add("android.permission.INTERNET")
             }
-            if (BuildConfig.CLOUD_FEATURES_AVAILABLE) {
+            if (BuildConfig.CLOUD_FEATURES_AVAILABLE || BuildConfig.CODEX_BRIDGE_AVAILABLE) {
                 add("android.permission.ACCESS_NETWORK_STATE")
             }
         }.toSortedSet()

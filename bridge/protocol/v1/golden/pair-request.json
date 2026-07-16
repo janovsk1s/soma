@@ -1,0 +1,14 @@
+{
+  "protocolVersion": 1,
+  "deviceID": "A9FC857C-7AE0-41EF-B5D2-20C0A04F743B",
+  "deviceName": "Adrians’s iPhone",
+  "platform": "ios",
+  "publicKey": "BES8Ht6G9xnbNVq7j9C2O6IXtmE7MbF5pdvIrU3g0aDDtx1b12B7vNzyx6Zz8Wj3uUXXng8fSPlwY+QZyI7VfLA=",
+  "requestedCapabilities": [
+    "context.read",
+    "codex.thread",
+    "codex.turn",
+    "codex.stream",
+    "proposal.read"
+  ]
+}

@@ -11,7 +11,16 @@ struct RootView: View {
         case search
     }
 
-    @State private var selection: SomaTab = .today
+    @State private var selection: SomaTab
+    @State private var revealLatestRequest = 0
+
+    init() {
+        _selection = State(
+            initialValue: ProcessInfo.processInfo.arguments.contains("-soma-codex-settings")
+                ? .settings
+                : .today
+        )
+    }
 
     var body: some View {
         ZStack {
@@ -19,13 +28,16 @@ struct RootView: View {
 
             TabView(selection: $selection) {
                 Tab("Today", systemImage: "circle.fill", value: SomaTab.today) {
-                    TodayView()
+                    TodayView(revealLatestRequest: revealLatestRequest)
                 }
                 Tab("Important", systemImage: "checkmark.circle", value: SomaTab.important) {
                     ImportantView()
                 }
                 Tab("Settings", systemImage: "gearshape", value: SomaTab.settings) {
-                    SettingsView()
+                    SettingsView {
+                        revealLatestRequest += 1
+                        selection = .today
+                    }
                 }
                 Tab("Search", systemImage: "magnifyingglass", value: SomaTab.search, role: .search) {
                     SearchView(onOpenDay: { selection = .today })
@@ -38,11 +50,13 @@ struct RootView: View {
 }
 
 private struct TodayView: View {
+    let revealLatestRequest: Int
     @Environment(SomaStore.self) private var store
     @Environment(SomaIntelligence.self) private var intelligence
     @Environment(HealthWorkouts.self) private var health
     @Environment(LanBrowserServer.self) private var browser
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.scenePhase) private var scenePhase
     @State private var showingCamera = false
     @State private var showingCalendar = false
@@ -93,15 +107,37 @@ private struct TodayView: View {
         NavigationStack {
             Group {
                 if dayIsEmpty {
-                    ContentUnavailableView(
-                        isViewingLatestDay ? "Nothing here yet" : "A quiet day",
-                        systemImage: "circle",
-                        description: Text(
-                            isViewingLatestDay
-                                ? "Drop a thought and return to your day."
-                                : "Nothing was kept on this day."
-                        )
-                    )
+                    GeometryReader { geometry in
+                        ScrollView {
+                            ContentUnavailableView(
+                                isViewingLatestDay ? "Nothing here yet" : "A quiet day",
+                                systemImage: "circle",
+                                description: Text(
+                                    isViewingLatestDay
+                                        ? (
+                                            dynamicTypeSize.isAccessibilitySize
+                                                ? "Capture a thought."
+                                                : "Drop a thought and return to your day."
+                                        )
+                                        : (
+                                            dynamicTypeSize.isAccessibilitySize
+                                                ? "Nothing was kept."
+                                                : "Nothing was kept on this day."
+                                        )
+                                )
+                                .foregroundStyle(.primary.opacity(0.75))
+                            )
+                            .frame(
+                                maxWidth: .infinity,
+                                minHeight: dynamicTypeSize.isAccessibilitySize
+                                    ? nil : geometry.size.height
+                            )
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 24 : 0)
+                        }
+                        .scrollIndicators(.hidden)
+                        .scrollBounceBehavior(.basedOnSize)
+                    }
                 } else {
                     // ScrollViewReader drives the programmatic scrolls: ScrollPosition
                     // writes are silently ignored by List (verified — the day never
@@ -261,7 +297,8 @@ private struct TodayView: View {
                         onDiscardPhoto: { withAnimation { stagedPhoto = nil } },
                         onCamera: { showingCamera = true },
                         onLibrary: { showingLibrary = true },
-                        onRecord: toggleRecording
+                        onRecord: toggleRecording,
+                        onCancelRecord: { recorder.cancel() }
                     )
                 }
                 .animation(.snappy, value: recentlyDeleted == nil)
@@ -285,8 +322,16 @@ private struct TodayView: View {
             .task(id: "\(SomaDay.key(store.selectedDay))-\(health.isEnabled)") {
                 workoutLines = await health.workoutLines(for: store.selectedDay)
             }
+            .onChange(of: revealLatestRequest) {
+                scrollToEndRequest += 1
+            }
             .onChange(of: scenePhase) { _, phase in
+                if phase == .background {
+                    intelligence.scheduleMetadataBackgroundRefreshIfNeeded()
+                    return
+                }
                 guard phase == .active else { return }
+                Task { await intelligence.resumeMetadataWork(limit: 12) }
                 let todayKey = SomaDay.key(Date())
                 if todayKey != lastSeenTodayKey {
                     // The date rolled while the app was away; follow it only if the
@@ -303,6 +348,10 @@ private struct TodayView: View {
             // reflection sheet for end-to-end verification.
             .task {
                 let arguments = ProcessInfo.processInfo.arguments
+                if arguments.contains("-soma-demo") {
+                    _ = store.installDemoContent()
+                    store.selectedDay = Date()
+                }
                 if arguments.contains("-soma-stage-photo"),
                    let url = Bundle.main.url(forResource: "lv", withExtension: "webp"),
                    let data = try? Data(contentsOf: url),
@@ -421,21 +470,43 @@ private struct TodayView: View {
         .disabled(isViewingLatestDay)
     }
 
-    // Tap returns to today; holding opens the calendar.
+    // The date itself is a reliable shortcut back to now. Calendar browsing keeps
+    // its own small affordance so the two actions never compete.
     private var dayTitle: some View {
-        Text(store.selectedDay.formatted(.dateTime.weekday(.wide).month().day()))
-            .font(.headline)
-            .foregroundStyle(.primary)
-            .contentShape(.rect)
-        .onTapGesture {
-            withAnimation { store.selectedDay = Date() }
+        HStack(spacing: 8) {
+            Button {
+                withAnimation { store.selectedDay = Date() }
+            } label: {
+                Text(
+                    store.selectedDay.formatted(
+                        .dateTime
+                            .weekday(dynamicTypeSize.isAccessibilitySize ? .abbreviated : .wide)
+                            .month()
+                            .day()
+                    )
+                )
+                .lineLimit(1)
+                .font(.headline)
+                .foregroundStyle(.primary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Go to today")
+            .accessibilityValue(
+                store.selectedDay.formatted(.dateTime.weekday(.wide).month().day())
+            )
+            .accessibilityHint("Returns the timeline to today.")
+
+            Button {
+                showingCalendar = true
+            } label: {
+                Image(systemName: "calendar")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Choose another day")
+            .accessibilityHint("Opens the calendar.")
         }
-        .onLongPressGesture {
-            showingCalendar = true
-        }
-        .accessibilityAddTraits(.isButton)
-        .accessibilityLabel("Day")
-        .accessibilityHint("Tap for today, hold for the calendar.")
     }
 
     // Ambient lines at the end of the day: workouts straight from Health (kept only
@@ -467,19 +538,25 @@ private struct TodayView: View {
                 .listRowSeparator(.hidden)
             }
             ForEach(store.logs(for: store.selectedDay)) { log in
-                Button {
-                    if log.detail != nil { receiptLog = log }
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: log.kind.systemImage)
-                            .font(.caption)
-                        Text(log.title)
-                            .font(.callout)
-                        Spacer()
+                HStack(spacing: 10) {
+                    Image(systemName: log.kind.systemImage)
+                        .font(.caption)
+                    Text(log.title)
+                        .font(.callout)
+                    Spacer()
+                    if log.detail != nil {
+                        Image(systemName: "chevron.right")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
                     }
-                    .padding(.leading, Self.quietLineInset)
                 }
-                .buttonStyle(.plain)
+                .padding(.leading, Self.quietLineInset)
+                .contentShape(.rect)
+                .onTapGesture {
+                    if log.detail != nil { receiptLog = log }
+                }
+                .accessibilityAddTraits(log.detail == nil ? [] : .isButton)
+                .accessibilityHint(log.detail == nil ? "" : "Shows receipt details.")
                 .foregroundStyle(.secondary)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
@@ -669,9 +746,11 @@ private struct CaptureBar: View {
     private enum HoldState {
         case idle
         case holding
+        case canceling
         case locked
     }
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     let recorder: AudioRecorder
     let stagedThumbnail: UIImage?
@@ -680,6 +759,7 @@ private struct CaptureBar: View {
     let onCamera: () -> Void
     let onLibrary: () -> Void
     let onRecord: () -> Void
+    let onCancelRecord: () -> Void
 
     @State private var text = ""
     @State private var holdState: HoldState = .idle
@@ -692,7 +772,7 @@ private struct CaptureBar: View {
 
     var body: some View {
         VStack(spacing: 5) {
-        HStack(alignment: .bottom, spacing: 8) {
+        captureLayout {
             VStack(alignment: .leading, spacing: 0) {
             // A captured photo stages here (ChatGPT-style): add a caption, record
             // a spoken comment onto it, or send it as it is.
@@ -708,7 +788,7 @@ private struct CaptureBar: View {
                         onDiscardPhoto()
                     }
                     .labelStyle(.iconOnly)
-                    .font(.body)
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(.primary, .ultraThinMaterial)
                     .buttonStyle(.plain)
                     .offset(x: 8, y: -6)
@@ -726,13 +806,17 @@ private struct CaptureBar: View {
                             Text(recorder.elapsed.formattedDuration)
                                 .monospacedDigit()
                             if holdState == .holding {
-                                Text("slide right to keep")
+                                Text("left to cancel · right to keep")
                                     .font(.caption)
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(.secondary)
+                            } else if holdState == .canceling {
+                                Label("release to cancel", systemImage: "xmark.circle.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.red)
                             } else if holdState == .locked {
                                 Image(systemName: "lock.fill")
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(.secondary)
                             }
                         }
                         // Words appear as they are spoken (on-device); the head
@@ -750,7 +834,12 @@ private struct CaptureBar: View {
                     .frame(minHeight: controlSize - 24)
                     .padding(.vertical, 12)
                 } else {
-                    TextField("Write something", text: $text, axis: .vertical)
+                    TextField(
+                        "",
+                        text: $text,
+                        prompt: Text("Write something").foregroundStyle(.primary.opacity(0.72)),
+                        axis: .vertical
+                    )
                         .lineLimit(1...5)
                         .focused($focused)
                         .frame(minHeight: controlSize - 24)
@@ -763,7 +852,7 @@ private struct CaptureBar: View {
                         }
                     }
                     .labelStyle(.iconOnly)
-                    .font(.title2)
+                    .font(.system(size: 24, weight: .semibold))
                     .padding(.bottom, 12)
                 }
             }
@@ -784,55 +873,28 @@ private struct CaptureBar: View {
             }
             .padding(.horizontal, 16)
             .modifier(NativeGlassComposer())
+            .frame(maxWidth: .infinity)
             .onChange(of: recorder.isRecording) { _, recording in
                 if !recording { holdState = .idle }
             }
 
-            if focused {
-                Button("Hide keyboard", systemImage: "keyboard.chevron.compact.down") {
-                    focused = false
-                }
-                .labelStyle(.iconOnly)
-                .font(.body)
-                .frame(width: controlSize, height: controlSize)
-                .buttonStyle(.plain)
-                .modifier(NativeGlassCircle())
-            } else {
-                // Tap for the camera card; hold to pick from the library instead
-                // (the LightOS long-press-for-photos family gesture).
-                Image(systemName: "camera.fill")
-                    .font(.body)
-                    .frame(width: controlSize, height: controlSize)
-                    .contentShape(.rect)
-                    .onTapGesture(perform: onCamera)
-                    .onLongPressGesture(perform: onLibrary)
-                    .modifier(NativeGlassCircle())
-                    .opacity(recorder.isRecording ? 0.4 : 1)
-                    .allowsHitTesting(!recorder.isRecording)
-                    .accessibilityLabel("Take a photo")
-                    .accessibilityHint("Hold to choose from your photo library.")
-                    .accessibilityAddTraits(.isButton)
-
-                Button(action: onRecord) {
-                    Image(systemName: recorder.isRecording ? "stop.fill" : "mic.fill")
-                        .font(.title3)
-                        .frame(width: controlSize, height: controlSize)
-                        .foregroundStyle(recorder.isRecording ? .white : .primary)
-                        .contentTransition(.symbolEffect(.replace))
-                }
-                .buttonStyle(.plain)
-                .modifier(NativeRecordControl(recording: recorder.isRecording))
-                .sensoryFeedback(.impact, trigger: recorder.isRecording)
-                .accessibilityLabel(recorder.isRecording ? "Stop recording" : "Record a voice note")
-            }
+            captureControls
         }
 
         // The Light Phone's quiet, retiring hint: one dim line until the gesture
         // has been used once.
-        if !holdHintRetired, !focused, !recorder.isRecording {
-            Text("hold to talk · slide right to keep recording")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+        if
+            !holdHintRetired,
+            !focused,
+            !recorder.isRecording,
+            !dynamicTypeSize.isAccessibilitySize
+        {
+            Text("hold the bar to talk")
+                .font(.caption)
+                .foregroundStyle(.primary.opacity(0.72))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity)
         }
         }
         .animation(.snappy, value: focused)
@@ -840,13 +902,79 @@ private struct CaptureBar: View {
         .animation(.snappy, value: trimmed.isEmpty)
         .animation(.snappy, value: stagedThumbnail == nil)
         .sensoryFeedback(.impact(weight: .light), trigger: holdState)
-        // Compact bars cap their own type scaling (as Apple's do); accessibility
-        // sizes otherwise push the field into the buttons.
-        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     }
 
-    // Hold to record, release to stop and keep the note; slide right past the
-    // threshold while holding to lock the recording open (stop ends it).
+    private var captureLayout: AnyLayout {
+        if dynamicTypeSize.isAccessibilitySize {
+            AnyLayout(VStackLayout(alignment: .trailing, spacing: 8))
+        } else {
+            AnyLayout(HStackLayout(alignment: .bottom, spacing: 8))
+        }
+    }
+
+    @ViewBuilder
+    private var captureControls: some View {
+        HStack(spacing: 8) {
+            if recorder.isRecording {
+                Button("Cancel recording", systemImage: "xmark") {
+                    holdState = .idle
+                    onCancelRecord()
+                }
+                .labelStyle(.iconOnly)
+                .font(.system(size: 17, weight: .semibold))
+                .frame(width: controlSize, height: controlSize)
+                .buttonStyle(.plain)
+                .foregroundStyle(.red)
+                .modifier(NativeGlassCircle())
+
+                Button("Stop and save recording", systemImage: "stop.fill") {
+                    holdState = .idle
+                    onRecord()
+                }
+                .labelStyle(.iconOnly)
+                .font(.system(size: 20, weight: .semibold))
+                .frame(width: controlSize, height: controlSize)
+                .foregroundStyle(.white)
+                .buttonStyle(.plain)
+                .modifier(NativeRecordControl(recording: true))
+            } else {
+                Menu {
+                    Button("Choose from Photo Library", systemImage: "photo.on.rectangle") {
+                        onLibrary()
+                    }
+                    Button("Record a Voice Note", systemImage: "mic.fill") {
+                        focused = false
+                        onRecord()
+                    }
+                    if focused {
+                        Divider()
+                        Button("Hide Keyboard", systemImage: "keyboard.chevron.compact.down") {
+                            focused = false
+                        }
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(width: controlSize, height: controlSize)
+                }
+                .buttonStyle(.plain)
+                .modifier(NativeGlassCircle())
+                .accessibilityLabel("More capture options")
+
+                Button("Take a photo", systemImage: "camera.fill") {
+                    onCamera()
+                }
+                .labelStyle(.iconOnly)
+                .font(.system(size: 20, weight: .semibold))
+                .frame(width: controlSize, height: controlSize)
+                .buttonStyle(.plain)
+                .modifier(NativeRecordControl(recording: false))
+                .sensoryFeedback(.impact, trigger: stagedThumbnail != nil)
+            }
+        }
+    }
+
+    // Hold to record, release to keep, slide left to cancel, or right to lock.
     private var holdToTalk: some Gesture {
         LongPressGesture(minimumDuration: 0.3)
             .sequenced(before: DragGesture(minimumDistance: 0))
@@ -857,8 +985,20 @@ private struct CaptureBar: View {
                     holdHintRetired = true
                     onRecord()
                 }
-                if holdState == .holding, let drag, drag.translation.width > 60 {
-                    holdState = .locked
+                if let drag {
+                    if holdState != .locked, drag.translation.width > 60 {
+                        holdState = .locked
+                    } else if
+                        holdState != .locked,
+                        drag.translation.width < -60
+                    {
+                        holdState = .canceling
+                    } else if
+                        holdState == .canceling,
+                        drag.translation.width > -40
+                    {
+                        holdState = .holding
+                    }
                 }
             }
             .onEnded { value in
@@ -869,6 +1009,9 @@ private struct CaptureBar: View {
                 if holdState == .holding {
                     holdState = .idle
                     if recorder.isRecording { onRecord() }
+                } else if holdState == .canceling {
+                    holdState = .idle
+                    if recorder.isRecording { onCancelRecord() }
                 }
             }
     }
@@ -955,6 +1098,12 @@ private struct EntryRow: View {
                 }
                 if let provenance = entry.transcriptionProvenance {
                     Text(provenanceLabel(provenance))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                let connectionCount = store.connections(for: entry.id).count
+                if connectionCount > 0 {
+                    Label("\(connectionCount) related", systemImage: "link")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -1292,6 +1441,7 @@ private struct EntryEditor: View {
     @State private var text: String
     @State private var errorMessage: String?
     @State private var showingHistory = false
+    @State private var showingCodex = false
 
     init(entry: SomaEntry) {
         self.entry = entry
@@ -1312,20 +1462,66 @@ private struct EntryEditor: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                 let tags = store.tags(for: entry.id)
-                if !tags.isEmpty {
-                    HStack(spacing: 8) {
-                        ForEach(tags, id: \.self) { tag in
-                            Text("#\(tag)")
-                                .font(.caption)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .background(.ultraThinMaterial, in: .capsule)
+                let connections = store.connections(for: entry.id)
+                if !tags.isEmpty || !connections.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        if !tags.isEmpty {
+                            ScrollView(.horizontal) {
+                                HStack(spacing: 8) {
+                                    ForEach(tags, id: \.self) { tag in
+                                        Text("#\(tag)")
+                                            .font(.caption)
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 5)
+                                            .background(.ultraThinMaterial, in: .capsule)
+                                    }
+                                }
+                            }
+                            .scrollIndicators(.hidden)
                         }
-                        Spacer()
+                        if !connections.isEmpty {
+                            Text("Related")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            ForEach(Array(connections.prefix(4))) { connection in
+                                if
+                                    let relatedID = connection.otherEntryID(than: entry.id),
+                                    let related = store.entry(id: relatedID)
+                                {
+                                    NavigationLink {
+                                        ConnectedEntryView(entry: related)
+                                    } label: {
+                                        HStack(alignment: .top, spacing: 10) {
+                                            Image(systemName: "link")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                                .frame(width: 18)
+                                            VStack(alignment: .leading, spacing: 3) {
+                                                Text(related.text)
+                                                    .lineLimit(2)
+                                                    .frame(
+                                                        maxWidth: .infinity,
+                                                        alignment: .leading
+                                                    )
+                                                Text(
+                                                    "\(connection.kind.displayName) · \(connection.labels.joined(separator: ", ")) · \(metadataDayLabel(related.day))"
+                                                )
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                                .lineLimit(2)
+                                            }
+                                        }
+                                        .contentShape(.rect)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
                     }
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
+                    .padding(14)
+                    .background(.ultraThinMaterial, in: .rect(cornerRadius: 18))
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 10)
                 }
             }
                 .background { SomaScreenBackground() }
@@ -1335,13 +1531,20 @@ private struct EntryEditor: View {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") { dismiss() }
                     }
-                    if !store.revisions(for: entry.id).isEmpty {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button("History", systemImage: "clock.arrow.circlepath") {
-                                showingHistory = true
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Menu {
+                            Button("Ask Codex", systemImage: "sparkles") {
+                                showingCodex = true
                             }
-                            .labelStyle(.iconOnly)
+                            if !store.revisions(for: entry.id).isEmpty {
+                                Button("History", systemImage: "clock.arrow.circlepath") {
+                                    showingHistory = true
+                                }
+                            }
+                        } label: {
+                            Label("Entry actions", systemImage: "sparkles")
                         }
+                        .labelStyle(.iconOnly)
                     }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Done") {
@@ -1357,6 +1560,9 @@ private struct EntryEditor: View {
                 .sheet(isPresented: $showingHistory) {
                     EntryHistorySheet(entryID: entry.id)
                 }
+                .sheet(isPresented: $showingCodex) {
+                    SomaCodexEntryView(entryID: entry.id)
+                }
         }
         .alert("Couldn’t save", isPresented: .constant(errorMessage != nil)) {
             Button("OK") { errorMessage = nil }
@@ -1364,6 +1570,48 @@ private struct EntryEditor: View {
             Text(errorMessage ?? "")
         }
     }
+}
+
+private struct ConnectedEntryView: View {
+    @Environment(SomaStore.self) private var store
+    let entry: SomaEntry
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if let fileName = entry.imageFileName {
+                    EntryPhoto(fileName: fileName)
+                }
+                Text(entry.text)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+                let tags = store.tags(for: entry.id)
+                if !tags.isEmpty {
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 8) {
+                            ForEach(tags, id: \.self) { tag in
+                                Text("#\(tag)")
+                                    .font(.caption)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(.ultraThinMaterial, in: .capsule)
+                            }
+                        }
+                    }
+                    .scrollIndicators(.hidden)
+                }
+            }
+            .padding(16)
+        }
+        .background { SomaScreenBackground() }
+        .navigationTitle(metadataDayLabel(entry.day))
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private func metadataDayLabel(_ key: String) -> String {
+    guard let date = SomaDay.date(fromKey: key) else { return key }
+    return date.formatted(date: .abbreviated, time: .omitted)
 }
 
 private struct EntryHistorySheet: View {
@@ -1569,12 +1817,16 @@ private struct ImportantDetailSheet: View {
 
 private struct SettingsView: View {
     @Environment(SomaStore.self) private var store
+    @Environment(SomaBridgeClient.self) private var bridge
+    let onShowDemo: () -> Void
     @State private var exporting = false
     @State private var confirmingReadableExport = false
     @State private var importing = false
     @State private var errorMessage: String?
     @State private var reminder = DailyReminder()
     @State private var showingDeveloper = false
+    @State private var showingBridge =
+        ProcessInfo.processInfo.arguments.contains("-soma-codex-settings")
     @Environment(HealthWorkouts.self) private var health
     @Environment(LanBrowserServer.self) private var browser
 
@@ -1600,6 +1852,35 @@ private struct SettingsView: View {
                     Text("Context")
                 } footer: {
                     Text("The exported JSON contains readable note text. Keep it somewhere private. API keys, AI suggestions, settings, audio, and photos are never included.")
+                }
+                .listRowBackground(FrostedRowBackground())
+                Section {
+                    Button {
+                        if !store.hasDemoContent, !store.installDemoContent() {
+                            errorMessage = store.storageStatus
+                            return
+                        }
+                        withAnimation {
+                            store.selectedDay = Date()
+                            onShowDemo()
+                        }
+                    } label: {
+                        Label(
+                            store.hasDemoContent ? "Show demo entries" : "Add demo entries",
+                            systemImage: store.hasDemoContent ? "arrow.right.circle" : "sparkles"
+                        )
+                    }
+                    if store.hasDemoContent {
+                        Button("Remove demo entries", systemImage: "trash", role: .destructive) {
+                            if !store.removeDemoContent() {
+                                errorMessage = store.storageStatus
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Preview")
+                } footer: {
+                    Text("Adds a small local day with realistic notes, metadata, connections, an Important item, and quiet logs. You can remove it without changing your own entries.")
                 }
                 .listRowBackground(FrostedRowBackground())
                 Section {
@@ -1644,6 +1925,29 @@ private struct SettingsView: View {
                 }
                 .listRowBackground(FrostedRowBackground())
                 Section {
+                    NavigationLink {
+                        SomaBridgeSettingsView()
+                    } label: {
+                        Label(
+                            bridge.isPaired ? "Codex on \(bridge.bridgeName)" : "Codex on Mac",
+                            systemImage: "macbook.and.iphone"
+                        )
+                    }
+                    if bridge.isPaired {
+                        LabeledContent(
+                            "Bridge",
+                            value: bridge.status.map {
+                                $0.codexReady ? "Ready" : "Sign in on Mac"
+                            } ?? "Paired"
+                        )
+                    }
+                } header: {
+                    Text("Connected intelligence")
+                } footer: {
+                    Text("Your Codex login stays on the Mac. When you approve an Ask, the selected and connected note text travels through that Mac to the configured Codex/OpenAI model service.")
+                }
+                .listRowBackground(FrostedRowBackground())
+                Section {
                     Toggle(
                         "Browser view",
                         isOn: Binding(
@@ -1678,6 +1982,9 @@ private struct SettingsView: View {
             .navigationTitle("Settings")
             .navigationDestination(isPresented: $showingDeveloper) {
                 DeveloperView()
+            }
+            .navigationDestination(isPresented: $showingBridge) {
+                SomaBridgeSettingsView()
             }
             .confirmationDialog(
                 "Export readable context?",
@@ -1736,6 +2043,7 @@ private struct SettingsView: View {
 }
 
 private struct IntelligenceSettingsView: View {
+    @Environment(SomaStore.self) private var store
     @Environment(SomaIntelligence.self) private var intelligence
     @State private var editingProvider: CloudSpeechProvider?
     @State private var keyText = ""
@@ -1748,13 +2056,22 @@ private struct IntelligenceSettingsView: View {
                 Toggle("Transcribe voice notes", isOn: $settings.voiceTranscriptionEnabled)
                 Toggle("Suggest Important items", isOn: $settings.onDeviceSuggestionsEnabled)
                 Toggle("Meal & workout suggestions", isOn: $settings.trackingSuggestionsEnabled)
-                Toggle("Automatic tags", isOn: $settings.autoTagsEnabled)
+                Toggle("Organize entries automatically", isOn: $settings.autoTagsEnabled)
+                if settings.autoTagsEnabled {
+                    Button("Rebuild metadata and connections", systemImage: "arrow.clockwise") {
+                        guard store.clearGeneratedMetadata() else {
+                            errorMessage = store.storageStatus
+                            return
+                        }
+                        Task { await intelligence.resumeMetadataWork(limit: 24) }
+                    }
+                }
                 LabeledContent("Apple Speech", value: intelligence.speechModelStatus)
                 LabeledContent("Foundation Models", value: intelligence.foundationModelStatus)
             } header: {
                 Text("On Device")
             } footer: {
-                Text("On-device processing keeps note text and audio on this iPhone.")
+                Text("Soma quietly creates topic metadata and connects related entries on this iPhone. Generated organization never changes what you wrote.")
             }
             .listRowBackground(FrostedRowBackground())
 
@@ -1805,6 +2122,13 @@ private struct IntelligenceSettingsView: View {
         .background { SomaScreenBackground() }
         .navigationTitle("Intelligence")
         .navigationBarTitleDisplayMode(.inline)
+        .onChange(of: settings.autoTagsEnabled) { _, enabled in
+            if enabled {
+                Task { await intelligence.resumeMetadataWork(limit: 24) }
+            } else {
+                intelligence.scheduleMetadataBackgroundRefreshIfNeeded()
+            }
+        }
         .sheet(item: $editingProvider) { provider in
             NavigationStack {
                 Form {

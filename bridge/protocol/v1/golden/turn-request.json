@@ -1,0 +1,25 @@
+{
+  "question": "Help me see the connection between these thoughts.",
+  "context": {
+    "schemaVersion": 1,
+    "selectedEntryID": "F565198B-4807-4C32-8BE4-C7C98AA33CA1",
+    "entries": [
+      {
+        "id": "F565198B-4807-4C32-8BE4-C7C98AA33CA1",
+        "day": "2026-07-16",
+        "text": "Call Marta after the garden meeting and ask about September.",
+        "createdAt": "2026-07-16T08:35:12Z",
+        "updatedAt": "2026-07-16T08:35:12Z",
+        "tags": [
+          "garden",
+          "september"
+        ],
+        "people": [
+          "Marta"
+        ],
+        "places": [],
+        "organizations": []
+      }
+    ]
+  }
+}

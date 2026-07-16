@@ -1,0 +1,352 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soma.local/bridge/protocol/v1/protocol.schema.json",
+  "title": "Soma Bridge Protocol v1",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/pairRequest"
+    },
+    {
+      "$ref": "#/$defs/pairResponse"
+    },
+    {
+      "$ref": "#/$defs/turnRequest"
+    },
+    {
+      "$ref": "#/$defs/job"
+    },
+    {
+      "$ref": "#/$defs/proposal"
+    }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "isoInstant": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 40
+    },
+    "capability": {
+      "type": "string",
+      "enum": [
+        "context.read",
+        "codex.thread",
+        "codex.turn",
+        "codex.stream",
+        "proposal.read",
+        "proposal.approve",
+        "sync.read",
+        "sync.write"
+      ]
+    },
+    "pairRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "deviceID",
+        "deviceName",
+        "platform",
+        "publicKey",
+        "requestedCapabilities"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": 1
+        },
+        "deviceID": {
+          "$ref": "#/$defs/uuid"
+        },
+        "deviceName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "platform": {
+          "enum": [
+            "ios",
+            "android"
+          ]
+        },
+        "publicKey": {
+          "description": "Base64 P-256 public key in uncompressed X9.63 form.",
+          "type": "string",
+          "minLength": 88,
+          "maxLength": 88
+        },
+        "requestedCapabilities": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/capability"
+          }
+        }
+      }
+    },
+    "pairResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "bridgeID",
+        "bridgeName",
+        "deviceID",
+        "platform",
+        "capabilities",
+        "certificateFingerprint",
+        "pairedAt"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": 1
+        },
+        "bridgeID": {
+          "$ref": "#/$defs/uuid"
+        },
+        "bridgeName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "deviceID": {
+          "$ref": "#/$defs/uuid"
+        },
+        "platform": {
+          "enum": [
+            "ios",
+            "android"
+          ]
+        },
+        "capabilities": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/capability"
+          }
+        },
+        "certificateFingerprint": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "pairedAt": {
+          "$ref": "#/$defs/isoInstant"
+        }
+      }
+    },
+    "contextEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "day",
+        "text",
+        "createdAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "day": {
+          "type": "string",
+          "format": "date"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 20000
+        },
+        "createdAt": {
+          "$ref": "#/$defs/isoInstant"
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/isoInstant"
+        },
+        "tags": {
+          "$ref": "#/$defs/facets"
+        },
+        "people": {
+          "$ref": "#/$defs/facets"
+        },
+        "places": {
+          "$ref": "#/$defs/facets"
+        },
+        "organizations": {
+          "$ref": "#/$defs/facets"
+        },
+        "sourceFingerprint": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "facets": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "selectedEntryID",
+        "entries"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "selectedEntryID": {
+          "$ref": "#/$defs/uuid"
+        },
+        "entries": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/contextEntry"
+          }
+        }
+      }
+    },
+    "turnRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "question",
+        "context"
+      ],
+      "properties": {
+        "threadID": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 160
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "context": {
+          "$ref": "#/$defs/context"
+        }
+      }
+    },
+    "job": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "jobID",
+        "threadID",
+        "turnID",
+        "status",
+        "output",
+        "error",
+        "createdAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "jobID": {
+          "$ref": "#/$defs/uuid"
+        },
+        "threadID": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "turnID": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "status": {
+          "enum": [
+            "running",
+            "completed",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "output": {
+          "type": "string",
+          "maxLength": 100000
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 1000
+        },
+        "createdAt": {
+          "$ref": "#/$defs/isoInstant"
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/isoInstant"
+        }
+      }
+    },
+    "proposal": {
+      "description": "Future mutation surface. A proposal never mutates Soma until a native client approves it against the exact source fingerprint.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposalID",
+        "kind",
+        "sourceEntryID",
+        "sourceFingerprint",
+        "summary",
+        "payload",
+        "createdAt"
+      ],
+      "properties": {
+        "proposalID": {
+          "$ref": "#/$defs/uuid"
+        },
+        "kind": {
+          "enum": [
+            "entryEdit",
+            "important",
+            "metadata",
+            "connection",
+            "log"
+          ]
+        },
+        "sourceEntryID": {
+          "$ref": "#/$defs/uuid"
+        },
+        "sourceFingerprint": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "payload": {
+          "type": "object",
+          "maxProperties": 32
+        },
+        "createdAt": {
+          "$ref": "#/$defs/isoInstant"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,136 @@
+export const CODEX_DISABLED_FEATURES = Object.freeze([
+  "apps",
+  "artifact",
+  "auth_elicitation",
+  "browser_use",
+  "browser_use_external",
+  "browser_use_full_cdp_access",
+  "code_mode",
+  "code_mode_host",
+  "code_mode_only",
+  "computer_use",
+  "deferred_executor",
+  "enable_fanout",
+  "enable_mcp_apps",
+  "exec_permission_approvals",
+  "goals",
+  "guardian_approval",
+  "hooks",
+  "image_generation",
+  "in_app_browser",
+  "memories",
+  "multi_agent",
+  "multi_agent_v2",
+  "network_proxy",
+  "plugins",
+  "plugin_sharing",
+  "realtime_conversation",
+  "remote_plugin",
+  "request_permissions_tool",
+  "shell_snapshot",
+  "shell_tool",
+  "shell_zsh_fork",
+  "skill_mcp_dependency_install",
+  "standalone_web_search",
+  "tool_call_mcp_elicitation",
+  "tool_suggest",
+  "unified_exec",
+  "unified_exec_zsh_fork",
+  "workspace_dependencies",
+]);
+
+export const CODEX_ALLOWED_ENABLED_FEATURES = Object.freeze(new Set([
+  "enable_request_compression",
+  "fast_mode",
+  "mentions_v2",
+  "personality",
+  "remote_compaction_v2",
+]));
+
+export const CODEX_GLOBAL_ARGUMENTS = Object.freeze([
+  "-c",
+  'web_search="disabled"',
+  "-c",
+  'history.persistence="none"',
+  "-c",
+  'shell_environment_policy.inherit="none"',
+  "-c",
+  "mcp_servers={}",
+  "-c",
+  "plugins={}",
+  ...CODEX_DISABLED_FEATURES.flatMap((feature) => ["--disable", feature]),
+]);
+
+export const CODEX_APP_SERVER_ARGUMENTS = Object.freeze([
+  ...CODEX_GLOBAL_ARGUMENTS,
+  "app-server",
+  "--listen",
+  "stdio://",
+]);
+
+export const CODEX_THREAD_CONFIG = Object.freeze({
+  web_search: "disabled",
+  history: { persistence: "none" },
+  mcp_servers: {},
+  plugins: {},
+  shell_environment_policy: { inherit: "none" },
+  features: {
+    apps: false,
+    artifact: false,
+    auth_elicitation: false,
+    browser_use: false,
+    browser_use_external: false,
+    browser_use_full_cdp_access: false,
+    code_mode: false,
+    code_mode_host: false,
+    code_mode_only: false,
+    computer_use: false,
+    deferred_executor: false,
+    enable_fanout: false,
+    enable_mcp_apps: false,
+    exec_permission_approvals: false,
+    goals: false,
+    guardian_approval: false,
+    hooks: false,
+    image_generation: false,
+    memories: false,
+    multi_agent: false,
+    multi_agent_v2: false,
+    network_proxy: false,
+    plugins: false,
+    plugin_sharing: false,
+    realtime_conversation: false,
+    remote_plugin: false,
+    request_permissions_tool: false,
+    shell_snapshot: false,
+    shell_tool: false,
+    shell_zsh_fork: false,
+    skill_mcp_dependency_install: false,
+    standalone_web_search: false,
+    tool_call_mcp_elicitation: false,
+    tool_suggest: false,
+    unified_exec: false,
+    unified_exec_zsh_fork: false,
+    workspace_dependencies: false,
+  },
+});
+
+export function lockedCodexThreadConfig(effectiveConfig = {}) {
+  const disabledMCPServers = Object.fromEntries(
+    Object.keys(effectiveConfig.mcp_servers ?? {}).map((name) => [
+      name,
+      { enabled: false },
+    ]),
+  );
+  const disabledPlugins = Object.fromEntries(
+    Object.keys(effectiveConfig.plugins ?? {}).map((name) => [
+      name,
+      { enabled: false },
+    ]),
+  );
+  return {
+    ...CODEX_THREAD_CONFIG,
+    mcp_servers: disabledMCPServers,
+    plugins: disabledPlugins,
+  };
+}

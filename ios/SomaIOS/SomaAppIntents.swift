@@ -24,12 +24,18 @@ struct AddThoughtIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let saved = await MainActor.run {
+        let entry = await MainActor.run {
             let store = SomaStore.shared
             store.selectedDay = Date()
-            return store.addText(thought) != nil
+            return store.addText(thought)
         }
-        return .result(dialog: saved ? "Added to Soma." : "There was nothing to add.")
+        if entry != nil {
+            let intelligence = await MainActor.run {
+                SomaIntelligence(store: SomaStore.shared)
+            }
+            await intelligence.scheduleMetadataBackgroundRefreshIfNeeded()
+        }
+        return .result(dialog: entry != nil ? "Added to Soma." : "There was nothing to add.")
     }
 }
 

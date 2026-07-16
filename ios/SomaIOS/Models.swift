@@ -153,13 +153,65 @@ struct SomaLog: Identifiable, Codable, Hashable, Sendable {
     var amountCents: Int? = nil
 }
 
-// Additive, never load-bearing: tags sit beside an entry and must never mutate
-// its text or timestamps — the Android metadata layer's contract.
+enum MetadataEngine: String, Codable, Sendable {
+    case localLanguageAnalysis
+    case appleFoundationModel
+    case groqGPTOSS20B
+}
+
+// Additive, never load-bearing: generated context sits beside an entry and must
+// never mutate its text or timestamps. Optional fields keep snapshots created by
+// the original tags-only implementation readable.
 struct EntryMetadata: Identifiable, Codable, Hashable, Sendable {
     var id: UUID
     var entryID: UUID
     var tags: [String]
     var createdAt: Date
+    var people: [String]? = nil
+    var places: [String]? = nil
+    var organizations: [String]? = nil
+    var keywords: [String]? = nil
+    var sourceUpdatedAt: Date? = nil
+    var sourceFingerprint: String? = nil
+    var engine: MetadataEngine? = nil
+
+    var allKeywords: [String] {
+        tags + (keywords ?? [])
+    }
+}
+
+enum EntryConnectionKind: String, Codable, Sendable {
+    case person
+    case place
+    case organization
+    case topic
+
+    var displayName: String {
+        switch self {
+        case .person: "Same person"
+        case .place: "Same place"
+        case .organization: "Same organization"
+        case .topic: "Related topic"
+        }
+    }
+}
+
+struct EntryConnection: Identifiable, Codable, Hashable, Sendable {
+    var id: UUID
+    var sourceEntryID: UUID
+    var targetEntryID: UUID
+    var kind: EntryConnectionKind
+    var labels: [String]
+    var strength: Double
+    var createdAt: Date
+    var sourceFingerprint: String
+    var targetFingerprint: String
+
+    func otherEntryID(than entryID: UUID) -> UUID? {
+        if sourceEntryID == entryID { return targetEntryID }
+        if targetEntryID == entryID { return sourceEntryID }
+        return nil
+    }
 }
 
 struct PhotoTextSuggestion: Identifiable, Codable, Hashable, Sendable {
@@ -198,7 +250,7 @@ struct ImportantSuggestion: Identifiable, Codable, Hashable, Sendable {
 }
 
 struct SomaContextBundle: Codable, Sendable {
-    static let currentSchemaVersion = 2
+    static let currentSchemaVersion = 3
     static let supportedSchemaVersions = 1...currentSchemaVersion
 
     var schemaVersion: Int
@@ -206,6 +258,8 @@ struct SomaContextBundle: Codable, Sendable {
     var sourceDeviceID: UUID
     var entries: [SomaEntry]
     var important: [ImportantItem]
+    var entryMetadata: [EntryMetadata]? = nil
+    var entryConnections: [EntryConnection]? = nil
 }
 
 enum SomaDay {

@@ -115,6 +115,14 @@ final class AudioRecorder {
     }
 
     func stop() {
+        endRecording(keeping: true)
+    }
+
+    func cancel() {
+        endRecording(keeping: false)
+    }
+
+    private func endRecording(keeping: Bool) {
         guard isRecording, let box = tapBox, let url = fileURL else { return }
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
@@ -129,7 +137,7 @@ final class AudioRecorder {
         fileURL = nil
         finish()
 
-        if duration > 0.2 {
+        if keeping, duration > 0.2 {
             try? FileManager.default.setAttributes(
                 [.protectionKey: FileProtectionType.complete],
                 ofItemAtPath: url.path(percentEncoded: false)

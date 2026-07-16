@@ -25,6 +25,9 @@
 		100000000000000000000119 /* SomaVision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000013 /* SomaVision.swift */; };
 		10000000000000000000011C /* SomaReceipts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000016 /* SomaReceipts.swift */; };
 		10000000000000000000011D /* SomaLanServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000017 /* SomaLanServer.swift */; };
+		10000000000000000000011E /* SomaMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000018 /* SomaMetadata.swift */; };
+		10000000000000000000011F /* SomaBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000001A /* SomaBridge.swift */; };
+		100000000000000000000120 /* SomaBridgeViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000001B /* SomaBridgeViews.swift */; };
 		10000000000000000000011A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000014 /* Assets.xcassets */; };
 		10000000000000000000011B /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000015 /* Localizable.xcstrings */; };
 		10000000000000000000010D /* en.webp in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000020 /* en.webp */; };
@@ -60,6 +63,10 @@
 		100000000000000000000015 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		100000000000000000000016 /* SomaReceipts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomaReceipts.swift; sourceTree = "<group>"; };
 		100000000000000000000017 /* SomaLanServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomaLanServer.swift; sourceTree = "<group>"; };
+		100000000000000000000018 /* SomaMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomaMetadata.swift; sourceTree = "<group>"; };
+		100000000000000000000019 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		10000000000000000000001A /* SomaBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomaBridge.swift; sourceTree = "<group>"; };
+		10000000000000000000001B /* SomaBridgeViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomaBridgeViews.swift; sourceTree = "<group>"; };
 		100000000000000000000020 /* en.webp */ = {isa = PBXFileReference; lastKnownFileType = image.webp; name = en.webp; path = ../../lanserver/src/main/resources/com/soma/lanserver/forest/en.webp; sourceTree = "<group>"; };
 		100000000000000000000021 /* lv.webp */ = {isa = PBXFileReference; lastKnownFileType = image.webp; name = lv.webp; path = ../../lanserver/src/main/resources/com/soma/lanserver/forest/lv.webp; sourceTree = "<group>"; };
 		100000000000000000000022 /* et.webp */ = {isa = PBXFileReference; lastKnownFileType = image.webp; name = et.webp; path = ../../lanserver/src/main/resources/com/soma/lanserver/forest/et.webp; sourceTree = "<group>"; };
@@ -109,6 +116,10 @@
 				100000000000000000000015 /* Localizable.xcstrings */,
 				100000000000000000000016 /* SomaReceipts.swift */,
 				100000000000000000000017 /* SomaLanServer.swift */,
+				100000000000000000000018 /* SomaMetadata.swift */,
+				100000000000000000000019 /* Info.plist */,
+				10000000000000000000001A /* SomaBridge.swift */,
+				10000000000000000000001B /* SomaBridgeViews.swift */,
 				100000000000000000000020 /* en.webp */,
 				100000000000000000000021 /* lv.webp */,
 				100000000000000000000022 /* et.webp */,
@@ -213,6 +224,9 @@
 				100000000000000000000119 /* SomaVision.swift in Sources */,
 				10000000000000000000011C /* SomaReceipts.swift in Sources */,
 				10000000000000000000011D /* SomaLanServer.swift in Sources */,
+				10000000000000000000011E /* SomaMetadata.swift in Sources */,
+				10000000000000000000011F /* SomaBridge.swift in Sources */,
+				100000000000000000000120 /* SomaBridgeViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -229,9 +243,11 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SomaIOS/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Soma;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Soma reads your workouts from Health only to show them quietly in their day. Nothing is stored unless you keep a line.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Soma connects only to a Mac you explicitly pair on a private network or tailnet.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Soma uses the camera only when you choose to capture a private photo note.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Soma uses the microphone only when you record a voice note.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Soma uses on-device speech recognition to turn your voice notes into editable text.";
@@ -262,9 +278,11 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SomaIOS/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Soma;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Soma reads your workouts from Health only to show them quietly in their day. Nothing is stored unless you keep a line.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Soma connects only to a Mac you explicitly pair on a private network or tailnet.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Soma uses the camera only when you choose to capture a private photo note.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Soma uses the microphone only when you record a voice note.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Soma uses on-device speech recognition to turn your voice notes into editable text.";

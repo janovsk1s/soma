@@ -97,7 +97,7 @@ final class AISettings {
         onDeviceSuggestionsEnabled = defaults.object(forKey: Keys.onDeviceSuggestionsEnabled) as? Bool ?? true
         cloudSuggestionsEnabled = defaults.bool(forKey: Keys.cloudSuggestionsEnabled)
         trackingSuggestionsEnabled = defaults.object(forKey: Keys.trackingSuggestionsEnabled) as? Bool ?? true
-        autoTagsEnabled = defaults.bool(forKey: Keys.autoTagsEnabled)
+        autoTagsEnabled = defaults.object(forKey: Keys.autoTagsEnabled) as? Bool ?? true
         provider = CloudSpeechProvider(
             rawValue: defaults.string(forKey: Keys.provider) ?? ""
         ) ?? .groq

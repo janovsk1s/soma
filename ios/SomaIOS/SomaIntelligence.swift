@@ -1,9 +1,12 @@
+import BackgroundTasks
 import Foundation
 import Observation
 
 @MainActor
 @Observable
 final class SomaIntelligence {
+    static let metadataBackgroundTaskIdentifier = "com.soma.native.metadata"
+
     let settings: AISettings
 
     private let store: SomaStore
@@ -11,7 +14,7 @@ final class SomaIntelligence {
     private let appleActions: AppleFoundationIntelligence
     private let appleSpeech: AppleSpeechTranscriber
     private var activeTranscriptions = Set<UUID>()
-    private var activeSuggestions = Set<UUID>()
+    private var processingTokens: [UUID: UUID] = [:]
 
     init(
         store: SomaStore,
@@ -51,8 +54,13 @@ final class SomaIntelligence {
 
     func processNewEntry(_ entry: SomaEntry) async {
         guard !entry.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        guard activeSuggestions.insert(entry.id).inserted else { return }
-        defer { activeSuggestions.remove(entry.id) }
+        let token = UUID()
+        processingTokens[entry.id] = token
+        defer {
+            if processingTokens[entry.id] == token {
+                processingTokens[entry.id] = nil
+            }
+        }
 
         // Deterministic rules run first so Important suggestions never depend on
         // a model, a key, or a network. AI only answers what the rules left open.
@@ -66,15 +74,48 @@ final class SomaIntelligence {
             )
         }
 
-        let wantsImportant = ruleCandidates.isEmpty
-        let wantsTracking = settings.trackingSuggestionsEnabled
-        guard wantsImportant || wantsTracking else { return }
+        let fingerprint = SomaMetadataAnalyzer.fingerprint(entry.text)
+        let localMetadata = await Task.detached(priority: .utility) {
+            SomaMetadataAnalyzer.extract(from: entry.text)
+        }.value
+        guard isCurrent(token, for: entry.id) else { return }
+        if settings.autoTagsEnabled {
+            await persistMetadata(
+                localMetadata,
+                for: entry,
+                fingerprint: fingerprint,
+                engine: .localLanguageAnalysis,
+                token: token
+            )
+        }
 
-        if (wantsImportant && settings.onDeviceSuggestionsEnabled) || wantsTracking {
+        let canSuggestImportant = ruleCandidates.isEmpty
+        let wantsOnDeviceImportant =
+            canSuggestImportant && settings.onDeviceSuggestionsEnabled
+        let wantsTracking = settings.trackingSuggestionsEnabled
+        let wantsMetadata = settings.autoTagsEnabled
+        guard wantsOnDeviceImportant || wantsTracking || wantsMetadata else { return }
+
+        if wantsOnDeviceImportant || wantsTracking || wantsMetadata {
             do {
                 let insights = try await appleActions.extractInsights(from: entry.text)
                 try Task.checkCancellation()
-                apply(insights, to: entry, wantsImportant: wantsImportant, engine: .appleFoundationModel)
+                guard isCurrent(token, for: entry.id) else { return }
+                apply(
+                    insights,
+                    to: entry,
+                    wantsImportant: wantsOnDeviceImportant,
+                    engine: .appleFoundationModel
+                )
+                if wantsMetadata {
+                    await persistMetadata(
+                        localMetadata.merging(tags: insights.tags),
+                        for: entry,
+                        fingerprint: fingerprint,
+                        engine: .appleFoundationModel,
+                        token: token
+                    )
+                }
                 return
             } catch is CancellationError {
                 return
@@ -97,7 +138,22 @@ final class SomaIntelligence {
                 wifiOnly: settings.wifiOnly
             )
             try Task.checkCancellation()
-            apply(insights, to: entry, wantsImportant: wantsImportant, engine: .groqGPTOSS20B)
+            guard isCurrent(token, for: entry.id) else { return }
+            apply(
+                insights,
+                to: entry,
+                wantsImportant: canSuggestImportant,
+                engine: .groqGPTOSS20B
+            )
+            if wantsMetadata {
+                await persistMetadata(
+                    localMetadata.merging(tags: insights.tags),
+                    for: entry,
+                    fingerprint: fingerprint,
+                    engine: .groqGPTOSS20B,
+                    token: token
+                )
+            }
         } catch is CancellationError {
             return
         } catch let error as CloudProviderError {
@@ -129,11 +185,56 @@ final class SomaIntelligence {
                 engine: engine
             )
         }
-        // Tags are ambient but opt-in, and additive only — they never touch the
-        // entry's text or timestamps.
-        if settings.autoTagsEnabled {
-            store.setTags(for: entry.id, tags: insights.tags)
-        }
+    }
+
+    private func persistMetadata(
+        _ generated: GeneratedEntryMetadata,
+        for entry: SomaEntry,
+        fingerprint: String,
+        engine: MetadataEngine,
+        token: UUID
+    ) async {
+        guard isCurrent(token, for: entry.id) else { return }
+        let candidates = store.entries
+            .filter { $0.id != entry.id && !$0.isDeleted && !$0.text.isEmpty }
+            .sorted { $0.updatedAt > $1.updatedAt }
+            .prefix(300)
+            .compactMap { candidate -> MetadataConnectionCandidate? in
+                guard let metadata = store.metadata(for: candidate.id) else { return nil }
+                return MetadataConnectionCandidate(entry: candidate, metadata: metadata)
+            }
+        let sourceMetadata = EntryMetadata(
+            id: UUID(),
+            entryID: entry.id,
+            tags: generated.tags,
+            createdAt: Date(),
+            people: generated.people,
+            places: generated.places,
+            organizations: generated.organizations,
+            keywords: generated.keywords,
+            sourceUpdatedAt: entry.updatedAt,
+            sourceFingerprint: fingerprint,
+            engine: engine
+        )
+        let proposals = await Task.detached(priority: .utility) {
+            SomaMetadataAnalyzer.connectionProposals(
+                for: entry,
+                metadata: sourceMetadata,
+                candidates: Array(candidates)
+            )
+        }.value
+        guard isCurrent(token, for: entry.id) else { return }
+        _ = store.setMetadata(
+            for: entry.id,
+            sourceFingerprint: fingerprint,
+            generated: generated,
+            engine: engine,
+            proposals: proposals
+        )
+    }
+
+    private func isCurrent(_ token: UUID, for entryID: UUID) -> Bool {
+        processingTokens[entryID] == token
     }
 
     // Photo notes get one on-device Vision pass at capture; recognized text is
@@ -274,6 +375,39 @@ final class SomaIntelligence {
         for entry in queued {
             guard !Task.isCancelled else { return }
             await transcribe(entry)
+        }
+        await resumeMetadataWork(limit: 24)
+    }
+
+    func resumeMetadataWork(limit: Int = 24) async {
+        guard settings.autoTagsEnabled else { return }
+        let pending = store.entriesNeedingMetadata(limit: limit)
+        for entry in pending {
+            guard !Task.isCancelled else { return }
+            await processNewEntry(entry)
+        }
+        scheduleMetadataBackgroundRefreshIfNeeded()
+    }
+
+    func scheduleMetadataBackgroundRefreshIfNeeded() {
+        guard
+            settings.autoTagsEnabled,
+            !store.entriesNeedingMetadata(limit: 1).isEmpty
+        else {
+            BGTaskScheduler.shared.cancel(
+                taskRequestWithIdentifier: Self.metadataBackgroundTaskIdentifier
+            )
+            return
+        }
+        let request = BGAppRefreshTaskRequest(
+            identifier: Self.metadataBackgroundTaskIdentifier
+        )
+        request.earliestBeginDate = Date().addingTimeInterval(15 * 60)
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            // Background execution is best-effort. The durable fingerprint scan
+            // runs again on launch and scene activation.
         }
     }
 

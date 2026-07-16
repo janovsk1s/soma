@@ -8,6 +8,7 @@ struct SomaIOSApp: App {
     @State private var intelligence: SomaIntelligence
     @State private var health = HealthWorkouts()
     @State private var browser: LanBrowserServer
+    @State private var bridge: SomaBridgeClient
     @AppStorage("ios.dev.lightMode") private var developerLightMode = false
 
     init() {
@@ -15,6 +16,7 @@ struct SomaIOSApp: App {
         _store = State(initialValue: store)
         _intelligence = State(initialValue: SomaIntelligence(store: store))
         _browser = State(initialValue: LanBrowserServer(store: store))
+        _bridge = State(initialValue: SomaBridgeClient(store: store))
         SomaShortcuts.updateAppShortcutParameters()
     }
 
@@ -25,8 +27,14 @@ struct SomaIOSApp: App {
                 .environment(intelligence)
                 .environment(health)
                 .environment(browser)
+                .environment(bridge)
                 .preferredColorScheme(developerLightMode ? .light : .dark)
                 .task { await intelligence.resumePendingWork() }
+        }
+        .backgroundTask(
+            .appRefresh(SomaIntelligence.metadataBackgroundTaskIdentifier)
+        ) {
+            await intelligence.resumeMetadataWork(limit: 24)
         }
     }
 }

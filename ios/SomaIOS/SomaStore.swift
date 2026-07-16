@@ -15,6 +15,7 @@ final class SomaStore {
     private(set) var trackingSuggestions: [TrackingSuggestion] = []
     private(set) var photoTextSuggestions: [PhotoTextSuggestion] = []
     private(set) var entryMetadata: [EntryMetadata] = []
+    private(set) var entryConnections: [EntryConnection] = []
     private(set) var deviceID: UUID
     private(set) var storageIssue: StoreError?
     var selectedDay = Date()
@@ -50,6 +51,7 @@ final class SomaStore {
             trackingSuggestions = snapshot.trackingSuggestions ?? []
             photoTextSuggestions = snapshot.photoTextSuggestions ?? []
             entryMetadata = snapshot.entryMetadata ?? []
+            entryConnections = snapshot.entryConnections ?? []
             if wasPlaintext {
                 _ = writeSnapshot()
             }
@@ -192,6 +194,10 @@ final class SomaStore {
             entries[index].updatedAt = now
             entries[index].lastUserEditedAt = now
             suggestions.removeAll { $0.entryID == entry.id }
+            entryMetadata.removeAll { $0.entryID == entry.id }
+            entryConnections.removeAll {
+                $0.sourceEntryID == entry.id || $0.targetEntryID == entry.id
+            }
             return entries[index]
         }
     }
@@ -213,6 +219,10 @@ final class SomaStore {
             entries[index].updatedAt = now
             entries[index].transcriptionRunID = nil
             suggestions.removeAll { $0.entryID == entry.id }
+            entryMetadata.removeAll { $0.entryID == entry.id }
+            entryConnections.removeAll {
+                $0.sourceEntryID == entry.id || $0.targetEntryID == entry.id
+            }
             return true
         } == true
     }
@@ -282,6 +292,10 @@ final class SomaStore {
             entries[index].transcriptionState = nil
             entries[index].transcriptionProvenance = nil
             revisions.removeAll { $0.entryID == entry.id }
+            entryMetadata.removeAll { $0.entryID == entry.id }
+            entryConnections.removeAll {
+                $0.sourceEntryID == entry.id || $0.targetEntryID == entry.id
+            }
             return true
         } == true
         if purged, let audioURL {
@@ -661,30 +675,147 @@ final class SomaStore {
         } == true
     }
 
-    // MARK: - Entry metadata (tags)
+    // MARK: - Entry metadata and ambient connections
 
-    func tags(for entryID: UUID) -> [String] {
-        entryMetadata.first { $0.entryID == entryID }?.tags ?? []
+    func metadata(for entryID: UUID) -> EntryMetadata? {
+        entryMetadata.first { $0.entryID == entryID }
     }
 
-    func setTags(for entryID: UUID, tags: [String]) {
-        let cleaned = tags
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-            .filter { !$0.isEmpty && $0.count <= 40 }
-        _ = commit {
-            entryMetadata.removeAll { $0.entryID == entryID }
-            if !cleaned.isEmpty {
-                entryMetadata.append(
-                    EntryMetadata(
-                        id: UUID(),
-                        entryID: entryID,
-                        tags: Array(cleaned.prefix(3)),
-                        createdAt: Date()
-                    )
-                )
+    func tags(for entryID: UUID) -> [String] {
+        metadata(for: entryID)?.tags ?? []
+    }
+
+    func needsMetadata(_ entry: SomaEntry) -> Bool {
+        guard !entry.isDeleted, !entry.text.isEmpty else { return false }
+        let fingerprint = SomaMetadataAnalyzer.fingerprint(entry.text)
+        return metadata(for: entry.id)?.sourceFingerprint != fingerprint
+    }
+
+    func entriesNeedingMetadata(limit: Int) -> [SomaEntry] {
+        entries
+            .filter(needsMetadata)
+            .sorted { $0.updatedAt > $1.updatedAt }
+            .prefix(max(0, limit))
+            .map { $0 }
+    }
+
+    @discardableResult
+    func clearGeneratedMetadata() -> Bool {
+        commit {
+            entryMetadata.removeAll()
+            entryConnections.removeAll()
+            return true
+        } == true
+    }
+
+    @discardableResult
+    func setMetadata(
+        for entryID: UUID,
+        sourceFingerprint: String,
+        generated: GeneratedEntryMetadata,
+        engine: MetadataEngine,
+        proposals: [EntryConnectionProposal] = []
+    ) -> Bool {
+        guard
+            let sourceEntry = entry(id: entryID),
+            SomaMetadataAnalyzer.fingerprint(sourceEntry.text) == sourceFingerprint
+        else {
+            return false
+        }
+        let tags = Self.cleanedMetadataValues(generated.tags, limit: 5, lowercase: true)
+        let people = Self.cleanedMetadataValues(generated.people, limit: 8)
+        let places = Self.cleanedMetadataValues(generated.places, limit: 8)
+        let organizations = Self.cleanedMetadataValues(generated.organizations, limit: 8)
+        let keywords = Self.cleanedMetadataValues(generated.keywords, limit: 12, lowercase: true)
+        let validProposals = proposals.filter { proposal in
+            guard
+                proposal.targetEntryID != entryID,
+                let target = entry(id: proposal.targetEntryID),
+                SomaMetadataAnalyzer.fingerprint(target.text) == proposal.targetFingerprint,
+                metadata(for: target.id)?.sourceFingerprint == proposal.targetFingerprint,
+                proposal.strength.isFinite,
+                (0...1).contains(proposal.strength)
+            else {
+                return false
             }
             return true
         }
+        return commit {
+            entryMetadata.removeAll { $0.entryID == entryID }
+            entryConnections.removeAll {
+                $0.sourceEntryID == entryID || $0.targetEntryID == entryID
+            }
+            entryMetadata.append(
+                EntryMetadata(
+                    id: UUID(),
+                    entryID: entryID,
+                    tags: tags,
+                    createdAt: Date(),
+                    people: people,
+                    places: places,
+                    organizations: organizations,
+                    keywords: keywords,
+                    sourceUpdatedAt: sourceEntry.updatedAt,
+                    sourceFingerprint: sourceFingerprint,
+                    engine: engine
+                )
+            )
+            let now = Date()
+            entryConnections.append(contentsOf: validProposals.prefix(6).map {
+                EntryConnection(
+                    id: UUID(),
+                    sourceEntryID: entryID,
+                    targetEntryID: $0.targetEntryID,
+                    kind: $0.kind,
+                    labels: Self.cleanedMetadataValues($0.labels, limit: 3),
+                    strength: $0.strength,
+                    createdAt: now,
+                    sourceFingerprint: sourceFingerprint,
+                    targetFingerprint: $0.targetFingerprint
+                )
+            })
+            return true
+        } == true
+    }
+
+    // Compatibility for the first tags-only implementation.
+    func setTags(for entryID: UUID, tags: [String]) {
+        guard let entry = entry(id: entryID) else { return }
+        let existing = metadata(for: entryID)
+        _ = setMetadata(
+            for: entryID,
+            sourceFingerprint: SomaMetadataAnalyzer.fingerprint(entry.text),
+            generated: GeneratedEntryMetadata(
+                tags: tags,
+                people: existing?.people ?? [],
+                places: existing?.places ?? [],
+                organizations: existing?.organizations ?? [],
+                keywords: existing?.keywords ?? []
+            ),
+            engine: existing?.engine ?? .localLanguageAnalysis
+        )
+    }
+
+    func connections(for entryID: UUID) -> [EntryConnection] {
+        entryConnections
+            .filter { $0.sourceEntryID == entryID || $0.targetEntryID == entryID }
+            .filter { connection in
+                guard
+                    let otherID = connection.otherEntryID(than: entryID),
+                    entry(id: otherID) != nil,
+                    metadata(for: connection.sourceEntryID)?.sourceFingerprint
+                        == connection.sourceFingerprint,
+                    metadata(for: connection.targetEntryID)?.sourceFingerprint
+                        == connection.targetFingerprint
+                else {
+                    return false
+                }
+                return true
+            }
+            .sorted {
+                if $0.strength != $1.strength { return $0.strength > $1.strength }
+                return $0.createdAt > $1.createdAt
+            }
     }
 
     // MARK: - Photo text
@@ -840,13 +971,190 @@ final class SomaStore {
         } == true
     }
 
+    // MARK: - Reversible preview content
+
+    private static let demoEntryIDs: Set<UUID> = [
+        UUID(uuidString: "D3A00000-0000-4000-8000-000000000001")!,
+        UUID(uuidString: "D3A00000-0000-4000-8000-000000000002")!,
+        UUID(uuidString: "D3A00000-0000-4000-8000-000000000003")!,
+        UUID(uuidString: "D3A00000-0000-4000-8000-000000000004")!,
+    ]
+
+    var hasDemoContent: Bool {
+        entries.contains { Self.demoEntryIDs.contains($0.id) && !$0.isDeleted }
+    }
+
+    @discardableResult
+    func installDemoContent() -> Bool {
+        let now = Date()
+        let day = SomaDay.key(now)
+        let entryIDs = Self.demoEntryIDs.sorted {
+            $0.uuidString < $1.uuidString
+        }
+        guard entryIDs.count == 4 else { return false }
+
+        let texts = [
+            "Slow morning. Coffee by the window, then a short walk before opening the laptop.",
+            "Call with Maya: keep Soma calm. The camera should feel instant; everything else can stay out of the way.",
+            "Lunch at Karmelitermarkt — tomato soup, rye bread, and sparkling water.",
+            "Remember to send Maya the revised Soma prototype before Friday.",
+        ]
+        let times = [
+            now.addingTimeInterval(-26 * 60),
+            now.addingTimeInterval(-18 * 60),
+            now.addingTimeInterval(-9 * 60),
+            now.addingTimeInterval(-3 * 60),
+        ]
+        let demoEntries = zip(zip(entryIDs, texts), times).map { pair, createdAt in
+            SomaEntry(
+                id: pair.0,
+                day: day,
+                kind: .text,
+                text: pair.1,
+                createdAt: createdAt,
+                updatedAt: createdAt
+            )
+        }
+        let generated = [
+            GeneratedEntryMetadata(
+                tags: ["morning", "wellbeing"],
+                people: [],
+                places: [],
+                organizations: [],
+                keywords: ["coffee", "walk", "routine"]
+            ),
+            GeneratedEntryMetadata(
+                tags: ["soma", "design"],
+                people: ["Maya"],
+                places: [],
+                organizations: ["Soma"],
+                keywords: ["camera", "calm", "capture"]
+            ),
+            GeneratedEntryMetadata(
+                tags: ["food", "vienna"],
+                people: [],
+                places: ["Karmelitermarkt"],
+                organizations: [],
+                keywords: ["lunch", "tomato soup", "rye bread"]
+            ),
+            GeneratedEntryMetadata(
+                tags: ["follow-up", "soma"],
+                people: ["Maya"],
+                places: [],
+                organizations: ["Soma"],
+                keywords: ["prototype", "friday", "send"]
+            ),
+        ]
+        let fingerprints = Dictionary(
+            uniqueKeysWithValues: demoEntries.map {
+                ($0.id, SomaMetadataAnalyzer.fingerprint($0.text))
+            }
+        )
+        let metadata = zip(demoEntries, generated).enumerated().map { index, pair in
+            EntryMetadata(
+                id: UUID(
+                    uuidString: String(
+                        format: "D3A30000-0000-4000-8000-%012d",
+                        index + 1
+                    )
+                )!,
+                entryID: pair.0.id,
+                tags: pair.1.tags,
+                createdAt: pair.0.createdAt,
+                people: pair.1.people,
+                places: pair.1.places,
+                organizations: pair.1.organizations,
+                keywords: pair.1.keywords,
+                sourceUpdatedAt: pair.0.updatedAt,
+                sourceFingerprint: fingerprints[pair.0.id],
+                engine: .localLanguageAnalysis
+            )
+        }
+        let mayaConnection = EntryConnection(
+            id: UUID(uuidString: "D3A40000-0000-4000-8000-000000000001")!,
+            sourceEntryID: entryIDs[3],
+            targetEntryID: entryIDs[1],
+            kind: .person,
+            labels: ["Maya", "Soma"],
+            strength: 0.94,
+            createdAt: times[3],
+            sourceFingerprint: fingerprints[entryIDs[3]]!,
+            targetFingerprint: fingerprints[entryIDs[1]]!
+        )
+        let importantItem = ImportantItem(
+            id: UUID(uuidString: "D3A10000-0000-4000-8000-000000000001")!,
+            text: texts[3],
+            state: .open,
+            createdAt: times[3],
+            updatedAt: times[3],
+            sourceEntryID: entryIDs[3]
+        )
+        let demoLogs = [
+            SomaLog(
+                id: UUID(uuidString: "D3A20000-0000-4000-8000-000000000001")!,
+                day: day,
+                kind: .workout,
+                title: "Morning walk · 24 min",
+                createdAt: times[0],
+                updatedAt: times[0],
+                sourceEntryID: entryIDs[0]
+            ),
+            SomaLog(
+                id: UUID(uuidString: "D3A20000-0000-4000-8000-000000000002")!,
+                day: day,
+                kind: .meal,
+                title: "tomato soup · rye bread · sparkling water",
+                createdAt: times[2],
+                updatedAt: times[2],
+                sourceEntryID: entryIDs[2]
+            ),
+        ]
+
+        return commit {
+            removeDemoRecords()
+            entries.append(contentsOf: demoEntries)
+            important.append(importantItem)
+            logs.append(contentsOf: demoLogs)
+            entryMetadata.append(contentsOf: metadata)
+            entryConnections.append(mayaConnection)
+            return true
+        } == true
+    }
+
+    @discardableResult
+    func removeDemoContent() -> Bool {
+        commit {
+            removeDemoRecords()
+            return true
+        } == true
+    }
+
+    private func removeDemoRecords() {
+        entries.removeAll { Self.demoEntryIDs.contains($0.id) }
+        important.removeAll {
+            $0.id == UUID(uuidString: "D3A10000-0000-4000-8000-000000000001")
+        }
+        logs.removeAll { $0.sourceEntryID.map(Self.demoEntryIDs.contains) == true }
+        suggestions.removeAll { Self.demoEntryIDs.contains($0.entryID) }
+        revisions.removeAll { Self.demoEntryIDs.contains($0.entryID) }
+        trackingSuggestions.removeAll { Self.demoEntryIDs.contains($0.entryID) }
+        photoTextSuggestions.removeAll { Self.demoEntryIDs.contains($0.entryID) }
+        entryMetadata.removeAll { Self.demoEntryIDs.contains($0.entryID) }
+        entryConnections.removeAll {
+            Self.demoEntryIDs.contains($0.sourceEntryID) ||
+                Self.demoEntryIDs.contains($0.targetEntryID)
+        }
+    }
+
     func contextBundle() -> SomaContextBundle {
         SomaContextBundle(
             schemaVersion: SomaContextBundle.currentSchemaVersion,
             exportedAt: Date(),
             sourceDeviceID: deviceID,
             entries: entries.map(Self.exportableEntry),
-            important: important.map(Self.exportableImportant)
+            important: important.map(Self.exportableImportant),
+            entryMetadata: entryMetadata,
+            entryConnections: entryConnections
         )
     }
 
@@ -860,6 +1168,15 @@ final class SomaStore {
         guard commit({
             entries = Self.mergeEntries(local: entries, incoming: sanitizedEntries)
             important = Self.merge(local: important, incoming: sanitizedImportant)
+            entryMetadata = Self.mergeMetadata(
+                local: entryMetadata,
+                incoming: bundle.entryMetadata ?? []
+            )
+            entryConnections = Self.mergeConnections(
+                local: entryConnections,
+                incoming: bundle.entryConnections ?? [],
+                validEntryIDs: Set(entries.map(\.id))
+            )
             return true
         }) == true else {
             throw ContextError.persistenceFailed
@@ -952,6 +1269,7 @@ final class SomaStore {
         let previousTracking = trackingSuggestions
         let previousPhotoText = photoTextSuggestions
         let previousMetadata = entryMetadata
+        let previousConnections = entryConnections
         let value = mutation()
         guard writeSnapshot() else {
             entries = previousEntries
@@ -962,6 +1280,7 @@ final class SomaStore {
             trackingSuggestions = previousTracking
             photoTextSuggestions = previousPhotoText
             entryMetadata = previousMetadata
+            entryConnections = previousConnections
             return nil
         }
         return value
@@ -977,12 +1296,16 @@ final class SomaStore {
             logs: logs,
             trackingSuggestions: trackingSuggestions,
             photoTextSuggestions: photoTextSuggestions,
-            entryMetadata: entryMetadata
+            entryMetadata: entryMetadata,
+            entryConnections: entryConnections
         )
         do {
             let data = try Self.encoder.encode(snapshot)
             let sealed = try cipher.seal(data)
-            try sealed.write(to: storeURL, options: [.atomic, .completeFileProtection])
+            try sealed.write(
+                to: storeURL,
+                options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication]
+            )
             storageIssue = nil
             return true
         } catch {
@@ -1010,8 +1333,16 @@ final class SomaStore {
         guard
             bundle.entries.count <= maximumRecords,
             bundle.important.count <= maximumRecords,
+            (bundle.entryMetadata?.count ?? 0) <= maximumRecords,
+            (bundle.entryConnections?.count ?? 0) <= maximumRecords,
             Set(bundle.entries.map(\.id)).count == bundle.entries.count,
-            Set(bundle.important.map(\.id)).count == bundle.important.count
+            Set(bundle.important.map(\.id)).count == bundle.important.count,
+            Set((bundle.entryMetadata ?? []).map(\.id)).count
+                == (bundle.entryMetadata?.count ?? 0),
+            Set((bundle.entryMetadata ?? []).map(\.entryID)).count
+                == (bundle.entryMetadata?.count ?? 0),
+            Set((bundle.entryConnections ?? []).map(\.id)).count
+                == (bundle.entryConnections?.count ?? 0)
         else {
             throw ContextError.invalidBundle
         }
@@ -1027,6 +1358,37 @@ final class SomaStore {
             }
         }
         guard bundle.important.allSatisfy({ $0.text.utf8.count <= maximumTextBytes }) else {
+            throw ContextError.invalidBundle
+        }
+        let entryIDs = Set(bundle.entries.map(\.id))
+        guard
+            (bundle.entryMetadata ?? []).allSatisfy({
+                entryIDs.contains($0.entryID) &&
+                $0.tags.count <= 5 &&
+                ($0.people?.count ?? 0) <= 8 &&
+                ($0.places?.count ?? 0) <= 8 &&
+                ($0.organizations?.count ?? 0) <= 8 &&
+                ($0.keywords?.count ?? 0) <= 12 &&
+                ($0.tags +
+                    ($0.people ?? []) +
+                    ($0.places ?? []) +
+                    ($0.organizations ?? []) +
+                    ($0.keywords ?? [])
+                ).allSatisfy { !$0.isEmpty && $0.utf8.count <= 320 } &&
+                ($0.sourceFingerprint?.utf8.count ?? 0) <= 128
+            }),
+            (bundle.entryConnections ?? []).allSatisfy({
+                $0.sourceEntryID != $0.targetEntryID &&
+                entryIDs.contains($0.sourceEntryID) &&
+                entryIDs.contains($0.targetEntryID) &&
+                $0.labels.count <= 3 &&
+                $0.labels.allSatisfy { !$0.isEmpty && $0.utf8.count <= 320 } &&
+                $0.strength.isFinite &&
+                (0...1).contains($0.strength) &&
+                $0.sourceFingerprint.utf8.count <= 128 &&
+                $0.targetFingerprint.utf8.count <= 128
+            })
+        else {
             throw ContextError.invalidBundle
         }
     }
@@ -1081,6 +1443,35 @@ final class SomaStore {
         return Array(merged.values)
     }
 
+    private static func mergeMetadata(
+        local: [EntryMetadata],
+        incoming: [EntryMetadata]
+    ) -> [EntryMetadata] {
+        var merged = Dictionary(uniqueKeysWithValues: local.map { ($0.entryID, $0) })
+        for record in incoming {
+            if let current = merged[record.entryID], current.createdAt >= record.createdAt {
+                continue
+            }
+            merged[record.entryID] = record
+        }
+        return Array(merged.values)
+    }
+
+    private static func mergeConnections(
+        local: [EntryConnection],
+        incoming: [EntryConnection],
+        validEntryIDs: Set<UUID>
+    ) -> [EntryConnection] {
+        var merged = Dictionary(uniqueKeysWithValues: local.map { ($0.id, $0) })
+        for record in incoming where
+            validEntryIDs.contains(record.sourceEntryID) &&
+            validEntryIDs.contains(record.targetEntryID)
+        {
+            merged[record.id] = record
+        }
+        return Array(merged.values)
+    }
+
     private static func sanitizedLocalEntry(_ entry: SomaEntry) -> SomaEntry {
         var sanitized = entry
         if let fileName = sanitized.audioFileName, !isValidAudioFileName(fileName) {
@@ -1130,6 +1521,33 @@ final class SomaStore {
         return cleaned
     }
 
+    private static func cleanedMetadataValues(
+        _ values: [String],
+        limit: Int,
+        lowercase: Bool = false
+    ) -> [String] {
+        var seen = Set<String>()
+        return values.compactMap { value in
+            var cleaned = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            if lowercase { cleaned = cleaned.lowercased() }
+            guard
+                !cleaned.isEmpty,
+                cleaned.count <= 80,
+                cleaned.utf8.count <= 320
+            else {
+                return nil
+            }
+            let key = cleaned.folding(
+                options: [.caseInsensitive, .diacriticInsensitive],
+                locale: nil
+            )
+            guard seen.insert(key).inserted else { return nil }
+            return cleaned
+        }
+        .prefix(limit)
+        .map { $0 }
+    }
+
     private static func isValidAudioFileName(_ fileName: String) -> Bool {
         guard
             fileName == URL(fileURLWithPath: fileName).lastPathComponent,
@@ -1164,6 +1582,7 @@ final class SomaStore {
         var trackingSuggestions: [TrackingSuggestion]?
         var photoTextSuggestions: [PhotoTextSuggestion]?
         var entryMetadata: [EntryMetadata]?
+        var entryConnections: [EntryConnection]?
     }
 
     private static let encoder: JSONEncoder = {

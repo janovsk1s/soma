@@ -38,6 +38,7 @@ android {
             dimension = "network"
             buildConfigField("Boolean", "BROWSER_VIEW_AVAILABLE", "true")
             buildConfigField("Boolean", "CLOUD_FEATURES_AVAILABLE", "false")
+            buildConfigField("Boolean", "CODEX_BRIDGE_AVAILABLE", "false")
         }
         create("purist") {
             dimension = "network"
@@ -45,12 +46,21 @@ android {
             versionNameSuffix = "-purist"
             buildConfigField("Boolean", "BROWSER_VIEW_AVAILABLE", "false")
             buildConfigField("Boolean", "CLOUD_FEATURES_AVAILABLE", "false")
+            buildConfigField("Boolean", "CODEX_BRIDGE_AVAILABLE", "false")
         }
         create("cloud") {
             dimension = "network"
             versionNameSuffix = "-cloud"
             buildConfigField("Boolean", "BROWSER_VIEW_AVAILABLE", "true")
             buildConfigField("Boolean", "CLOUD_FEATURES_AVAILABLE", "true")
+            buildConfigField("Boolean", "CODEX_BRIDGE_AVAILABLE", "false")
+        }
+        create("connected") {
+            dimension = "network"
+            versionNameSuffix = "-connected"
+            buildConfigField("Boolean", "BROWSER_VIEW_AVAILABLE", "true")
+            buildConfigField("Boolean", "CLOUD_FEATURES_AVAILABLE", "true")
+            buildConfigField("Boolean", "CODEX_BRIDGE_AVAILABLE", "true")
         }
     }
 
@@ -58,6 +68,11 @@ android {
         getByName("browser").kotlin.srcDir("src/offline/java")
         getByName("purist").kotlin.srcDir("src/offline/java")
         getByName("cloud").kotlin.srcDir("src/browser/java")
+        getByName("connected").kotlin.srcDirs(
+            "src/cloud/java",
+            "src/browser/java",
+            "src/connected/java",
+        )
     }
 
     signingConfigs {
@@ -138,6 +153,7 @@ dependencies {
     implementation(project(":whisper"))
     "browserImplementation"(project(":lanserver"))
     "cloudImplementation"(project(":lanserver"))
+    "connectedImplementation"(project(":lanserver"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

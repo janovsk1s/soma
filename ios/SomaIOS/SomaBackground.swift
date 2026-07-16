@@ -1,16 +1,29 @@
-import CoreImage
+import ImageIO
 import SwiftUI
 import UIKit
 
 struct SomaForestBackground: View {
     @Environment(\.colorScheme) private var colorScheme
+    @State private var image: UIImage?
 
     var body: some View {
         GeometryReader { proxy in
             ZStack {
-                Color(white: colorScheme == .dark ? 0.04 : 0.91)
+                LinearGradient(
+                    colors: colorScheme == .dark
+                        ? [
+                            Color(red: 0.055, green: 0.075, blue: 0.065),
+                            Color(white: 0.025),
+                        ]
+                        : [
+                            Color(red: 0.88, green: 0.90, blue: 0.88),
+                            Color(white: 0.94),
+                        ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
 
-                if let image = SessionForest.image {
+                if let image {
                     Image(uiImage: image)
                         .resizable()
                         .interpolation(.high)
@@ -21,6 +34,7 @@ struct SomaForestBackground: View {
                         .contrast(1.05)
                         .brightness(-0.18)
                         .opacity(colorScheme == .dark ? 1 : 0.58)
+                        .transition(.opacity)
                 }
 
                 RadialGradient(
@@ -37,6 +51,11 @@ struct SomaForestBackground: View {
         }
         .ignoresSafeArea()
         .accessibilityHidden(true)
+        .task {
+            guard image == nil else { return }
+            image = await SessionForestLoader.shared.image()
+        }
+        .animation(.easeOut(duration: 0.28), value: image != nil)
     }
 }
 
@@ -73,35 +92,51 @@ struct SomaScreenBackground: View {
 
 private enum SessionForest {
     private static let names = ["en", "lv", "et", "lt", "fi", "sv", "de", "sk"]
-    private static let name = names.randomElement() ?? "lv"
+    static let name = names.randomElement() ?? "lv"
 
-    static let image: UIImage? = {
-        guard
-            let url = Bundle.main.url(forResource: name, withExtension: "webp"),
-            let data = try? Data(contentsOf: url),
-            let decoded = UIImage(data: data)
-        else {
+    /// Decode the selected WebP directly into its display buffer. SwiftUI performs
+    /// the final scale on the GPU, avoiding a 3× CPU upscale and ~33 MB temporary
+    /// bitmap during the first frame.
+    static func decodeImage() -> UIImage? {
+        guard let url = Bundle.main.url(forResource: name, withExtension: "webp") else {
             return nil
         }
-        return upscaled(decoded) ?? decoded
-    }()
-
-    /// The bundled forests are 1280×721, so filling a portrait phone stretches them
-    /// ~3.5×, which the renderer's bilinear sampling smears. One Lanczos upscale plus
-    /// a gentle unsharp mask at load keeps the fill crisp.
-    private static func upscaled(_ source: UIImage) -> UIImage? {
-        guard let input = CIImage(image: source) else { return nil }
-        let scaled = input.applyingFilter(
-            "CILanczosScaleTransform",
-            parameters: [kCIInputScaleKey: 3.0, kCIInputAspectRatioKey: 1.0]
-        )
-        let sharpened = scaled.applyingFilter(
-            "CIUnsharpMask",
-            parameters: [kCIInputRadiusKey: 2.5, kCIInputIntensityKey: 0.55]
-        )
-        guard let cgImage = CIContext().createCGImage(sharpened, from: sharpened.extent) else {
+        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else {
             return nil
         }
-        return UIImage(cgImage: cgImage, scale: source.scale, orientation: .up)
+        let decodeOptions = [
+            kCGImageSourceShouldCache: true,
+            kCGImageSourceShouldCacheImmediately: true,
+        ] as CFDictionary
+        guard let image = CGImageSourceCreateImageAtIndex(source, 0, decodeOptions) else {
+            return nil
+        }
+        return UIImage(cgImage: image)
+    }
+}
+
+private actor SessionForestLoader {
+    static let shared = SessionForestLoader()
+
+    private var cachedImage: UIImage?
+    private var loadTask: Task<UIImage?, Never>?
+
+    func image() async -> UIImage? {
+        if let cachedImage {
+            return cachedImage
+        }
+        if let loadTask {
+            return await loadTask.value
+        }
+
+        let task = Task.detached(priority: .userInitiated) {
+            SessionForest.decodeImage()
+        }
+        loadTask = task
+        let image = await task.value
+        cachedImage = image
+        loadTask = nil
+        return image
     }
 }
