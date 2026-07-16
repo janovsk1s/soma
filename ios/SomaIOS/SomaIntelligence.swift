@@ -31,6 +31,20 @@ final class SomaIntelligence {
         appleActions.statusDescription
     }
 
+    var canReflect: Bool {
+        appleActions.isAvailable
+    }
+
+    func reflect(on day: Date) async throws -> String {
+        let key = SomaDay.key(day)
+        let texts = store.entries
+            .filter { $0.day == key && !$0.isDeleted && !$0.text.isEmpty }
+            .sorted { $0.createdAt < $1.createdAt }
+            .map(\.text)
+        guard !texts.isEmpty else { throw AppleIntelligenceError.unavailable }
+        return try await appleActions.reflect(onDay: texts.joined(separator: "\n\n"))
+    }
+
     var speechModelStatus: String {
         appleSpeech.statusDescription
     }

@@ -51,6 +51,19 @@ private struct TodayView: View {
     @State private var showJumpToLatest = false
     @State private var scrollPosition = ScrollPosition()
     @State private var lastSeenTodayKey = SomaDay.key(Date())
+    @State private var stagedPhoto: StagedPhoto?
+    @State private var showingReflection = false
+
+    struct StagedPhoto {
+        let photo: CapturedPhoto
+        let thumbnail: UIImage?
+
+        init(photo: CapturedPhoto) {
+            self.photo = photo
+            thumbnail = UIImage(data: photo.jpegData)?
+                .preparingThumbnail(of: CGSize(width: 240, height: 240))
+        }
+    }
 
     private var isViewingLatestDay: Bool {
         SomaDay.key(store.selectedDay) >= SomaDay.key(Date())
@@ -187,14 +200,9 @@ private struct TodayView: View {
             .safeAreaInset(edge: .bottom) {
                 CaptureBar(
                     recorder: recorder,
-                    onSave: { text in
-                        guard let entry = store.addText(text) else {
-                            errorMessage = saveFailureMessage
-                            return false
-                        }
-                        Task { await intelligence.processNewEntry(entry) }
-                        return true
-                    },
+                    stagedThumbnail: stagedPhoto?.thumbnail,
+                    onSave: { text in saveComposed(text: text) },
+                    onDiscardPhoto: { withAnimation { stagedPhoto = nil } },
                     onCamera: { showingCamera = true },
                     onRecord: toggleRecording
                 )
@@ -231,22 +239,33 @@ private struct TodayView: View {
                 }
             }
             #if DEBUG
-            // Headless recording harness: the simulator has a (host) microphone
-            // but no way to script taps, so a launch argument drives one
-            // record-stop cycle for end-to-end verification.
+            // Headless harnesses: the simulator cannot script taps, so launch
+            // arguments drive a record-stop cycle, stage a photo, or open the
+            // reflection sheet for end-to-end verification.
             .task {
-                guard
-                    let argument = ProcessInfo.processInfo.arguments
+                let arguments = ProcessInfo.processInfo.arguments
+                if arguments.contains("-soma-stage-photo"),
+                   let url = Bundle.main.url(forResource: "lv", withExtension: "webp"),
+                   let data = try? Data(contentsOf: url),
+                   let image = UIImage(data: data),
+                   let jpeg = image.jpegData(compressionQuality: 0.9) {
+                    stagedPhoto = StagedPhoto(photo: CapturedPhoto(jpegData: jpeg))
+                }
+                if arguments.contains("-soma-autoreflect") {
+                    try? await Task.sleep(for: .seconds(1.5))
+                    showingReflection = true
+                }
+                if
+                    let argument = arguments
                         .first(where: { $0.hasPrefix("-soma-autorecord-seconds=") }),
                     let seconds = Double(argument.split(separator: "=").last ?? "")
-                else {
-                    return
-                }
-                try? await Task.sleep(for: .seconds(1))
-                toggleRecording()
-                try? await Task.sleep(for: .seconds(seconds))
-                if recorder.isRecording {
+                {
+                    try? await Task.sleep(for: .seconds(1))
                     toggleRecording()
+                    try? await Task.sleep(for: .seconds(seconds))
+                    if recorder.isRecording {
+                        toggleRecording()
+                    }
                 }
             }
             #endif
@@ -258,8 +277,18 @@ private struct TodayView: View {
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
             }
-            .fullScreenCover(isPresented: $showingCamera) {
-                OneShotCameraView(onCaptured: savePhoto)
+            // A card, not a takeover: the photo lands in the composer as a staged
+            // thumbnail, where a caption or a spoken comment can join it.
+            .sheet(isPresented: $showingCamera) {
+                OneShotCameraView { photo in
+                    withAnimation { stagedPhoto = StagedPhoto(photo: photo) }
+                }
+                .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showingReflection) {
+                ReflectionSheet(day: store.selectedDay)
+                    .presentationDetents([.height(280), .medium])
+                    .presentationDragIndicator(.visible)
             }
             .alert("Soma", isPresented: .constant(errorMessage != nil)) {
                 Button("OK") { errorMessage = nil }
@@ -350,6 +379,26 @@ private struct TodayView: View {
                     }
                 }
             }
+            // On request only, generated on-device, kept nowhere.
+            if intelligence.canReflect,
+               store.selectedEntries.contains(where: { !$0.text.isEmpty }) {
+                Button {
+                    showingReflection = true
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "moon.stars")
+                            .font(.caption)
+                        Text("reflect")
+                            .font(.callout)
+                        Spacer()
+                    }
+                    .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .accessibilityHint("A quiet on-device reflection of this day. Nothing is saved.")
+            }
         }
     }
 
@@ -366,6 +415,36 @@ private struct TodayView: View {
         store.selectedDay = SomaDay.key(shifted) > SomaDay.key(Date()) ? Date() : shifted
     }
 
+    // One save for whatever is composed: text alone, photo alone, or photo with
+    // caption. A staged photo plus a recording becomes a single spoken-comment note.
+    private func saveComposed(text: String) -> Bool {
+        guard let staged = stagedPhoto else {
+            guard let entry = store.addText(text) else {
+                errorMessage = saveFailureMessage
+                return false
+            }
+            Task { await intelligence.processNewEntry(entry) }
+            return true
+        }
+
+        guard let fileName = writePhotoFile(staged.photo) else {
+            errorMessage = saveFailureMessage
+            return false
+        }
+        guard let entry = store.addPhoto(fileName: fileName, text: text) else {
+            removePhotoFile(fileName)
+            errorMessage = saveFailureMessage
+            return false
+        }
+        stagedPhoto = nil
+        if entry.text.isEmpty {
+            Task { await intelligence.extractPhotoText(for: entry) }
+        } else {
+            Task { await intelligence.processNewEntry(entry) }
+        }
+        return true
+    }
+
     private func toggleRecording() {
         if recorder.isRecording {
             recorder.stop()
@@ -375,12 +454,25 @@ private struct TodayView: View {
             do {
                 let directory = try store.audioDirectory()
                 try await recorder.start(in: directory) { fileName, duration in
-                    guard let entry = store.addVoice(fileName: fileName, duration: duration) else {
+                    let photoFileName = stagedPhoto.flatMap { writePhotoFile($0.photo) }
+                    guard
+                        let entry = store.addVoice(
+                            fileName: fileName,
+                            duration: duration,
+                            imageFileName: photoFileName
+                        )
+                    else {
                         try? FileManager.default.removeItem(
                             at: directory.appending(path: fileName)
                         )
+                        if let photoFileName {
+                            removePhotoFile(photoFileName)
+                        }
                         errorMessage = store.storageStatus
                         return
+                    }
+                    if photoFileName != nil {
+                        stagedPhoto = nil
                     }
                     Task { await intelligence.transcribe(entry) }
                 }
@@ -390,21 +482,21 @@ private struct TodayView: View {
         }
     }
 
-    private func savePhoto(_ photo: CapturedPhoto) async throws {
-        let directory = try store.imageDirectory()
+    private func writePhotoFile(_ photo: CapturedPhoto) -> String? {
+        guard let directory = try? store.imageDirectory() else { return nil }
         let fileName = "\(UUID().uuidString).jpg"
         let url = directory.appending(path: fileName)
-        let data = photo.jpegData
-
-        try await Task.detached(priority: .userInitiated) {
-            try data.write(to: url, options: [.atomic, .completeFileProtection])
-        }.value
-
-        guard let entry = store.addPhoto(fileName: fileName) else {
-            try? FileManager.default.removeItem(at: url)
-            throw StoreError.writeFailed
+        do {
+            try photo.jpegData.write(to: url, options: [.atomic, .completeFileProtection])
+            return fileName
+        } catch {
+            return nil
         }
-        Task { await intelligence.extractPhotoText(for: entry) }
+    }
+
+    private func removePhotoFile(_ fileName: String) {
+        guard let directory = try? store.imageDirectory() else { return }
+        try? FileManager.default.removeItem(at: directory.appending(path: fileName))
     }
 }
 
@@ -421,7 +513,9 @@ private struct CaptureBar: View {
 
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     let recorder: AudioRecorder
+    let stagedThumbnail: UIImage?
     let onSave: (String) -> Bool
+    let onDiscardPhoto: () -> Void
     let onCamera: () -> Void
     let onRecord: () -> Void
 
@@ -437,6 +531,29 @@ private struct CaptureBar: View {
     var body: some View {
         VStack(spacing: 5) {
         HStack(alignment: .bottom, spacing: 8) {
+            VStack(alignment: .leading, spacing: 0) {
+            // A captured photo stages here (ChatGPT-style): add a caption, record
+            // a spoken comment onto it, or send it as it is.
+            if let stagedThumbnail {
+                ZStack(alignment: .topTrailing) {
+                    Image(uiImage: stagedThumbnail)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 64, height: 64)
+                        .clipShape(.rect(cornerRadius: 12))
+                        .accessibilityLabel("Staged photo")
+                    Button("Remove photo", systemImage: "xmark.circle.fill") {
+                        onDiscardPhoto()
+                    }
+                    .labelStyle(.iconOnly)
+                    .font(.body)
+                    .foregroundStyle(.primary, .ultraThinMaterial)
+                    .buttonStyle(.plain)
+                    .offset(x: 8, y: -6)
+                }
+                .padding(.top, 14)
+                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+            }
             HStack(alignment: .bottom, spacing: 6) {
                 if recorder.isRecording {
                     VStack(alignment: .leading, spacing: 3) {
@@ -477,7 +594,7 @@ private struct CaptureBar: View {
                         .frame(minHeight: controlSize - 24)
                         .padding(.vertical, 12)
                 }
-                if !trimmed.isEmpty, !recorder.isRecording {
+                if !trimmed.isEmpty || stagedThumbnail != nil, !recorder.isRecording {
                     Button("Save", systemImage: "arrow.up.circle.fill") {
                         if onSave(trimmed) {
                             text = ""
@@ -488,11 +605,10 @@ private struct CaptureBar: View {
                     .padding(.bottom, 12)
                 }
             }
-            .padding(.horizontal, 16)
-            .modifier(NativeGlassComposer())
             .overlay {
                 // The TextField swallows touches, so hold-to-talk lives on a clear
                 // overlay that is only present while the composer is empty and idle.
+                // It covers only the field row — the staged photo's X stays tappable.
                 if !focused, trimmed.isEmpty {
                     Rectangle()
                         .fill(Color.clear)
@@ -503,6 +619,9 @@ private struct CaptureBar: View {
                         .gesture(holdToTalk)
                 }
             }
+            }
+            .padding(.horizontal, 16)
+            .modifier(NativeGlassComposer())
             .onChange(of: recorder.isRecording) { _, recording in
                 if !recording { holdState = .idle }
             }
@@ -552,6 +671,7 @@ private struct CaptureBar: View {
         .animation(.snappy, value: focused)
         .animation(.snappy, value: recorder.isRecording)
         .animation(.snappy, value: trimmed.isEmpty)
+        .animation(.snappy, value: stagedThumbnail == nil)
         .sensoryFeedback(.impact(weight: .light), trigger: holdState)
         // Compact bars cap their own type scaling (as Apple's do); accessibility
         // sizes otherwise push the field into the buttons.
@@ -616,11 +736,8 @@ private struct EntryRow: View {
             VStack(alignment: .leading, spacing: 5) {
                 if let fileName = entry.imageFileName {
                     EntryPhoto(fileName: fileName)
-                    if !entry.text.isEmpty {
-                        Text(entry.text)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                } else if entry.kind == .voice, let fileName = entry.audioFileName {
+                }
+                if entry.kind == .voice, let fileName = entry.audioFileName {
                     Button {
                         togglePlayback(fileName: fileName)
                     } label: {
@@ -653,7 +770,7 @@ private struct EntryRow: View {
                         player = nil
                         isPlaying = false
                     }
-                } else {
+                } else if entry.imageFileName == nil || !entry.text.isEmpty {
                     Text(entry.text)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -817,6 +934,62 @@ private struct SuggestionRow: View {
         .accessibilityHint("Tap the suggestion to add it to Important.")
         .contextMenu {
             Text(suggestion.engine.displayName)
+        }
+    }
+}
+
+private struct ReflectionSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(SomaIntelligence.self) private var intelligence
+    let day: Date
+    @State private var reflection: String?
+    @State private var failed = false
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let reflection {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text(reflection)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text("on this iPhone · nothing is saved")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(20)
+                    }
+                    .scrollIndicators(.hidden)
+                } else if failed {
+                    ContentUnavailableView(
+                        "No reflection right now",
+                        systemImage: "moon.stars",
+                        description: Text("Reflections need Apple Intelligence on this iPhone.")
+                    )
+                } else {
+                    VStack(spacing: 12) {
+                        ProgressView()
+                        Text("listening to the day…")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .navigationTitle(day.formatted(date: .abbreviated, time: .omitted))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .task {
+            do {
+                reflection = try await intelligence.reflect(on: day)
+            } catch {
+                failed = true
+            }
         }
     }
 }

@@ -104,9 +104,22 @@ final class SomaStore {
         }
     }
 
+    // A staged photo may ride along: photo and spoken comment become one entry.
     @discardableResult
-    func addVoice(fileName: String, duration: TimeInterval) -> SomaEntry? {
+    func addVoice(
+        fileName: String,
+        duration: TimeInterval,
+        imageFileName: String? = nil
+    ) -> SomaEntry? {
         guard Self.isValidAudioFileName(fileName) else { return nil }
+        if let imageFileName {
+            guard
+                Self.isValidImageFileName(imageFileName),
+                availableImageURL(fileName: imageFileName) != nil
+            else {
+                return nil
+            }
+        }
         let now = Date()
         let entry = SomaEntry(
             id: UUID(),
@@ -117,6 +130,7 @@ final class SomaStore {
             updatedAt: now,
             audioFileName: fileName,
             audioDuration: duration,
+            imageFileName: imageFileName,
             transcriptionState: .queued
         )
         return commit {
@@ -126,10 +140,11 @@ final class SomaStore {
     }
 
     @discardableResult
-    func addPhoto(fileName: String) -> SomaEntry? {
+    func addPhoto(fileName: String, text: String = "") -> SomaEntry? {
         guard
             Self.isValidImageFileName(fileName),
-            availableImageURL(fileName: fileName) != nil
+            availableImageURL(fileName: fileName) != nil,
+            let caption = Self.boundedText(text, allowingEmpty: true)
         else {
             return nil
         }
@@ -138,7 +153,7 @@ final class SomaStore {
             id: UUID(),
             day: SomaDay.key(selectedDay),
             kind: .text,
-            text: "",
+            text: caption,
             createdAt: now,
             updatedAt: now,
             imageFileName: fileName
