@@ -1620,6 +1620,66 @@
           }
         }
       }
+    },
+    "Browser view": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pārlūka skats"
+          }
+        }
+      }
+    },
+    "Address": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adrese"
+          }
+        }
+      }
+    },
+    "Access code": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Piekļuves kods"
+          }
+        }
+      }
+    },
+    "Read-only, plain HTTP, for a trusted Wi-Fi only. It stops with the app.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tikai lasāms, vienkāršs HTTP, tikai uzticamā Wi-Fi tīklā. Izslēdzas kopā ar lietotni."
+          }
+        }
+      }
+    },
+    "That code didn’t match.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kods nesakrita."
+          }
+        }
+      }
+    },
+    "Enter": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ienākt"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

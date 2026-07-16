@@ -41,6 +41,7 @@ private struct TodayView: View {
     @Environment(SomaStore.self) private var store
     @Environment(SomaIntelligence.self) private var intelligence
     @Environment(HealthWorkouts.self) private var health
+    @Environment(LanBrowserServer.self) private var browser
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
     @State private var showingCamera = false
@@ -328,6 +329,9 @@ private struct TodayView: View {
                 if arguments.contains("-soma-edit-first") {
                     try? await Task.sleep(for: .seconds(1))
                     editingEntry = store.selectedEntries.first
+                }
+                if arguments.contains("-soma-start-lanserver") {
+                    browser.start()
                 }
                 if
                     let argument = arguments
@@ -1572,6 +1576,7 @@ private struct SettingsView: View {
     @State private var reminder = DailyReminder()
     @State private var showingDeveloper = false
     @Environment(HealthWorkouts.self) private var health
+    @Environment(LanBrowserServer.self) private var browser
 
     var body: some View {
         @Bindable var health = health
@@ -1636,6 +1641,26 @@ private struct SettingsView: View {
                     LabeledContent("Sync", value: "Manual context bundles")
                 } footer: {
                     Text("Bundles merge by stable IDs and newest edit. This is the boundary a future encrypted device-to-device sync service will use.")
+                }
+                .listRowBackground(FrostedRowBackground())
+                Section {
+                    Toggle(
+                        "Browser view",
+                        isOn: Binding(
+                            get: { browser.isRunning },
+                            set: { _ in browser.toggle() }
+                        )
+                    )
+                    if browser.isRunning {
+                        if let address = browser.addressText {
+                            LabeledContent("Address", value: address)
+                        }
+                        LabeledContent("Access code", value: browser.accessCode)
+                    }
+                } header: {
+                    Text("Browser view")
+                } footer: {
+                    Text("Read-only, plain HTTP, for a trusted Wi-Fi only. It stops with the app.")
                 }
                 .listRowBackground(FrostedRowBackground())
                 Section("About") {
