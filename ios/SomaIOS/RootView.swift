@@ -50,7 +50,7 @@ private struct TodayView: View {
     @State private var errorMessage: String?
     @State private var workoutLines: [HealthWorkouts.Line] = []
     @State private var showJumpToLatest = false
-    @State private var scrollPosition = ScrollPosition()
+    @State private var scrollToEndRequest = 0
     @State private var lastSeenTodayKey = SomaDay.key(Date())
     @State private var stagedPhoto: StagedPhoto?
     @State private var showingReflection = false
@@ -58,6 +58,7 @@ private struct TodayView: View {
     @State private var undoDismissTask: Task<Void, Never>?
     @State private var showingLibrary = false
     @State private var pickedItem: PhotosPickerItem?
+    @State private var savedTick = 0
 
     struct StagedPhoto {
         let photo: CapturedPhoto
@@ -100,6 +101,10 @@ private struct TodayView: View {
                         )
                     )
                 } else {
+                    // ScrollViewReader drives the programmatic scrolls: ScrollPosition
+                    // writes are silently ignored by List (verified — the day never
+                    // moved), while proxy.scrollTo resolves ids reliably.
+                    ScrollViewReader { proxy in
                     List {
                         ForEach(store.selectedEntries) { entry in
                             VStack(alignment: .leading, spacing: 8) {
@@ -160,12 +165,24 @@ private struct TodayView: View {
                         }
 
                         quietDayLines
+
+                        // Stable scroll target only — visibility is tracked by
+                        // geometry, so this row's laziness doesn't matter.
+                        Color.clear
+                            .frame(height: 1)
+                            .id("dayEnd")
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
                     .scrollIndicators(.hidden)
                     .scrollDismissesKeyboard(.interactively)
-                    .scrollPosition($scrollPosition)
+                    .onChange(of: scrollToEndRequest) {
+                        withAnimation(.snappy) {
+                            proxy.scrollTo("dayEnd", anchor: .bottom)
+                        }
+                    }
                     // Geometry, not a sentinel row: List is lazy, so an end-of-list
                     // marker is never realized on long days and its visibility
                     // callback never fires.
@@ -178,7 +195,7 @@ private struct TodayView: View {
                     .overlay(alignment: .bottomTrailing) {
                         if showJumpToLatest {
                             Button("Jump to latest", systemImage: "chevron.down") {
-                                withAnimation { scrollPosition.scrollTo(edge: .bottom) }
+                                withAnimation { proxy.scrollTo("dayEnd", anchor: .bottom) }
                             }
                             .labelStyle(.iconOnly)
                             .font(.body)
@@ -189,6 +206,7 @@ private struct TodayView: View {
                             .padding(.bottom, 6)
                             .transition(.opacity.combined(with: .scale(scale: 0.8)))
                         }
+                    }
                     }
                 }
             }
@@ -298,6 +316,10 @@ private struct TodayView: View {
                     try? await Task.sleep(for: .seconds(1))
                     showingCamera = true
                 }
+                if arguments.contains("-soma-autotext") {
+                    try? await Task.sleep(for: .seconds(2))
+                    _ = saveComposed(text: "A saved note must be seen landing.")
+                }
                 if
                     let argument = arguments
                         .first(where: { $0.hasPrefix("-soma-autorecord-seconds=") }),
@@ -360,6 +382,7 @@ private struct TodayView: View {
             } message: {
                 Text(errorMessage ?? "")
             }
+            .sensoryFeedback(.impact(weight: .light), trigger: savedTick)
         }
     }
 
@@ -490,10 +513,11 @@ private struct TodayView: View {
     // caption. A staged photo plus a recording becomes a single spoken-comment note.
     private func saveComposed(text: String) -> Bool {
         guard let staged = stagedPhoto else {
-            guard let entry = store.addText(text) else {
+            guard let entry = withAnimation(.snappy, { store.addText(text) }) else {
                 errorMessage = saveFailureMessage
                 return false
             }
+            noteSaved()
             Task { await intelligence.processNewEntry(entry) }
             return true
         }
@@ -502,18 +526,32 @@ private struct TodayView: View {
             errorMessage = saveFailureMessage
             return false
         }
-        guard let entry = store.addPhoto(fileName: fileName, text: text) else {
+        guard
+            let entry = withAnimation(.snappy, { store.addPhoto(fileName: fileName, text: text) })
+        else {
             removePhotoFile(fileName)
             errorMessage = saveFailureMessage
             return false
         }
         stagedPhoto = nil
+        noteSaved()
         if entry.text.isEmpty {
             Task { await intelligence.extractPhotoText(for: entry) }
         } else {
             Task { await intelligence.processNewEntry(entry) }
         }
         return true
+    }
+
+    // A saved note must be seen landing: slide the day to its end and confirm
+    // with a light tap. The scroll waits a beat so the List has laid out the
+    // freshly inserted row before being asked to reveal it.
+    private func noteSaved() {
+        savedTick += 1
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(80))
+            scrollToEndRequest += 1
+        }
     }
 
     private func toggleRecording() {
@@ -530,11 +568,13 @@ private struct TodayView: View {
                 ) { fileName, duration in
                     let photoFileName = stagedPhoto.flatMap { writePhotoFile($0.photo) }
                     guard
-                        let entry = store.addVoice(
-                            fileName: fileName,
-                            duration: duration,
-                            imageFileName: photoFileName
-                        )
+                        let entry = withAnimation(.snappy, {
+                            store.addVoice(
+                                fileName: fileName,
+                                duration: duration,
+                                imageFileName: photoFileName
+                            )
+                        })
                     else {
                         try? FileManager.default.removeItem(
                             at: directory.appending(path: fileName)
@@ -548,6 +588,7 @@ private struct TodayView: View {
                     if photoFileName != nil {
                         stagedPhoto = nil
                     }
+                    noteSaved()
                     Task { await intelligence.transcribe(entry) }
                 }
             } catch {
