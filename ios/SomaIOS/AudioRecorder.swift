@@ -41,7 +41,11 @@ final class AudioRecorder {
         }
     }
 
-    func start(in directory: URL, completion: @escaping (String, TimeInterval) -> Void) async throws {
+    func start(
+        in directory: URL,
+        contextualStrings: [String] = [],
+        completion: @escaping (String, TimeInterval) -> Void
+    ) async throws {
         guard !isRecording, tapBox == nil else { throw RecordingError.couldNotStart }
         let granted = await AVAudioApplication.requestRecordPermission()
         guard granted else { throw RecordingError.permissionDenied }
@@ -77,7 +81,7 @@ final class AudioRecorder {
         )
 
         let box = RecorderTapBox(file: file)
-        attachLivePreview(to: box)
+        attachLivePreview(to: box, contextualStrings: contextualStrings)
 
         // @Sendable keeps the closure nonisolated: formed inside a MainActor
         // method it would otherwise inherit main-actor isolation, and Core Audio
@@ -139,7 +143,7 @@ final class AudioRecorder {
     // The preview only attaches when speech recognition was already authorized by
     // the transcription pipeline — recording never adds a permission dialog — and
     // it requires the on-device recognizer, so no audio leaves the phone.
-    private func attachLivePreview(to box: RecorderTapBox) {
+    private func attachLivePreview(to box: RecorderTapBox, contextualStrings: [String]) {
         guard
             SFSpeechRecognizer.authorizationStatus() == .authorized,
             let recognizer = SFSpeechRecognizer(locale: .current),
@@ -151,6 +155,7 @@ final class AudioRecorder {
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.requiresOnDeviceRecognition = true
         request.shouldReportPartialResults = true
+        request.contextualStrings = contextualStrings
         box.liveRequest = request
         liveRecognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, _ in
             guard let text = result?.bestTranscription.formattedString else { return }

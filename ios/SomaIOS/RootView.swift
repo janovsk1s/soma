@@ -1,5 +1,6 @@
 import AVKit
 import ImageIO
+import PhotosUI
 import SwiftUI
 
 struct RootView: View {
@@ -55,6 +56,8 @@ private struct TodayView: View {
     @State private var showingReflection = false
     @State private var recentlyDeleted: SomaEntry?
     @State private var undoDismissTask: Task<Void, Never>?
+    @State private var showingLibrary = false
+    @State private var pickedItem: PhotosPickerItem?
 
     struct StagedPhoto {
         let photo: CapturedPhoto
@@ -107,6 +110,11 @@ private struct TodayView: View {
                                     .contentShape(.rect)
                                     .onTapGesture { editingEntry = entry }
                                     .contextMenu {
+                                        if !entry.text.isEmpty {
+                                            Button("Copy", systemImage: "doc.on.doc") {
+                                                UIPasteboard.general.string = entry.text
+                                            }
+                                        }
                                         Button("Make Important", systemImage: "checkmark.circle") {
                                             if !store.makeImportant(from: entry) {
                                                 errorMessage = saveFailureMessage
@@ -156,6 +164,7 @@ private struct TodayView: View {
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
                     .scrollIndicators(.hidden)
+                    .scrollDismissesKeyboard(.interactively)
                     .scrollPosition($scrollPosition)
                     // Geometry, not a sentinel row: List is lazy, so an end-of-list
                     // marker is never realized on long days and its visibility
@@ -231,6 +240,7 @@ private struct TodayView: View {
                         onSave: { text in saveComposed(text: text) },
                         onDiscardPhoto: { withAnimation { stagedPhoto = nil } },
                         onCamera: { showingCamera = true },
+                        onLibrary: { showingLibrary = true },
                         onRecord: toggleRecording
                     )
                 }
@@ -284,6 +294,10 @@ private struct TodayView: View {
                     try? await Task.sleep(for: .seconds(1.5))
                     showingReflection = true
                 }
+                if arguments.contains("-soma-show-camera") {
+                    try? await Task.sleep(for: .seconds(1))
+                    showingCamera = true
+                }
                 if
                     let argument = arguments
                         .first(where: { $0.hasPrefix("-soma-autorecord-seconds=") }),
@@ -306,13 +320,35 @@ private struct TodayView: View {
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
             }
-            // A card, not a takeover: the photo lands in the composer as a staged
-            // thumbnail, where a caption or a spoken comment can join it.
+            // A bottom card like the ChatGPT camera — the day stays visible above,
+            // and the photo lands in the composer as a staged thumbnail, where a
+            // caption or a spoken comment can join it.
             .sheet(isPresented: $showingCamera) {
                 OneShotCameraView { photo in
                     withAnimation { stagedPhoto = StagedPhoto(photo: photo) }
                 }
-                .presentationDragIndicator(.visible)
+                .presentationDetents([.fraction(0.62), .large])
+                .presentationCornerRadius(32)
+                .presentationDragIndicator(.hidden)
+                .presentationBackground(.black)
+            }
+            .photosPicker(isPresented: $showingLibrary, selection: $pickedItem, matching: .images)
+            .onChange(of: pickedItem) { _, item in
+                guard let item else { return }
+                Task {
+                    // Re-encoding through UIImage strips EXIF/GPS from imports,
+                    // the same privacy rule Paka applies to gallery photos.
+                    if
+                        let data = try? await item.loadTransferable(type: Data.self),
+                        let image = UIImage(data: data),
+                        let jpeg = image.jpegData(compressionQuality: 0.9)
+                    {
+                        withAnimation {
+                            stagedPhoto = StagedPhoto(photo: CapturedPhoto(jpegData: jpeg))
+                        }
+                    }
+                    pickedItem = nil
+                }
             }
             .sheet(isPresented: $showingReflection) {
                 ReflectionSheet(day: store.selectedDay)
@@ -488,7 +524,10 @@ private struct TodayView: View {
         Task {
             do {
                 let directory = try store.audioDirectory()
-                try await recorder.start(in: directory) { fileName, duration in
+                try await recorder.start(
+                    in: directory,
+                    contextualStrings: store.transcriptionVocabulary
+                ) { fileName, duration in
                     let photoFileName = stagedPhoto.flatMap { writePhotoFile($0.photo) }
                     guard
                         let entry = store.addVoice(
@@ -563,6 +602,7 @@ private struct CaptureBar: View {
     let onSave: (String) -> Bool
     let onDiscardPhoto: () -> Void
     let onCamera: () -> Void
+    let onLibrary: () -> Void
     let onRecord: () -> Void
 
     @State private var text = ""
@@ -682,15 +722,20 @@ private struct CaptureBar: View {
                 .buttonStyle(.plain)
                 .modifier(NativeGlassCircle())
             } else {
-                Button(action: onCamera) {
-                    Image(systemName: "camera.fill")
-                        .font(.body)
-                        .frame(width: controlSize, height: controlSize)
-                }
-                .buttonStyle(.plain)
-                .modifier(NativeGlassCircle())
-                .disabled(recorder.isRecording)
-                .accessibilityLabel("Take a photo")
+                // Tap for the camera card; hold to pick from the library instead
+                // (the LightOS long-press-for-photos family gesture).
+                Image(systemName: "camera.fill")
+                    .font(.body)
+                    .frame(width: controlSize, height: controlSize)
+                    .contentShape(.rect)
+                    .onTapGesture(perform: onCamera)
+                    .onLongPressGesture(perform: onLibrary)
+                    .modifier(NativeGlassCircle())
+                    .opacity(recorder.isRecording ? 0.4 : 1)
+                    .allowsHitTesting(!recorder.isRecording)
+                    .accessibilityLabel("Take a photo")
+                    .accessibilityHint("Hold to choose from your photo library.")
+                    .accessibilityAddTraits(.isButton)
 
                 Button(action: onRecord) {
                     Image(systemName: recorder.isRecording ? "stop.fill" : "mic.fill")

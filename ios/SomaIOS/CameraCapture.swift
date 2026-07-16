@@ -253,6 +253,8 @@ struct OneShotCameraView: View {
 
     let onCaptured: (CapturedPhoto) async throws -> Void
 
+    // Laid out as a bottom card (ChatGPT-style): the viewfinder fills the card
+    // and the controls sit inside it along the bottom edge.
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
@@ -262,25 +264,33 @@ struct OneShotCameraView: View {
                 .opacity(camera.status == .denied || camera.status == .unavailable ? 0 : 1)
 
             VStack(spacing: 0) {
-                HStack {
-                    Button("Close", systemImage: "xmark") { dismiss() }
-                        .labelStyle(.iconOnly)
-                        .frame(width: 46, height: 46)
-                        .background(.ultraThinMaterial, in: .circle)
-                        .disabled(camera.isCapturing)
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-
                 Spacer()
 
                 cameraStatus
                     .padding(.horizontal, 24)
 
-                shutter
-                    .padding(.top, 18)
-                    .padding(.bottom, 28)
+                Spacer()
+
+                HStack {
+                    Button("Close", systemImage: "chevron.left") { dismiss() }
+                        .labelStyle(.iconOnly)
+                        .font(.body)
+                        .frame(width: 52, height: 52)
+                        .background(.ultraThinMaterial, in: .circle)
+                        .disabled(camera.isCapturing)
+
+                    Spacer()
+
+                    shutter
+
+                    Spacer()
+
+                    // Balances the close button so the shutter stays centered.
+                    Color.clear
+                        .frame(width: 52, height: 52)
+                }
+                .padding(.horizontal, 22)
+                .padding(.bottom, 16)
             }
         }
         .task { await camera.start() }

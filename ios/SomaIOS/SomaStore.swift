@@ -684,6 +684,30 @@ final class SomaStore {
         }
     }
 
+    // Names the user actually writes, fed to the live-preview recognizer as
+    // contextual strings — the Android app's transcription vocabulary, derived
+    // instead of hand-kept. Mid-sentence capitalized words approximate names.
+    var transcriptionVocabulary: [String] {
+        var counts: [String: Int] = [:]
+        for entry in entries where !entry.isDeleted && !entry.text.isEmpty {
+            let words = entry.text.split { !$0.isLetter }
+            for (index, word) in words.enumerated() where index > 0 {
+                guard
+                    word.count >= 3,
+                    word.first?.isUppercase == true,
+                    word.dropFirst().allSatisfy(\.isLowercase)
+                else {
+                    continue
+                }
+                counts[String(word), default: 0] += 1
+            }
+        }
+        return counts
+            .sorted { $0.value > $1.value }
+            .prefix(50)
+            .map(\.key)
+    }
+
     private static func suggestionKey(_ text: String) -> String {
         text
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
