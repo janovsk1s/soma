@@ -230,6 +230,26 @@ private struct TodayView: View {
                     lastSeenTodayKey = todayKey
                 }
             }
+            #if DEBUG
+            // Headless recording harness: the simulator has a (host) microphone
+            // but no way to script taps, so a launch argument drives one
+            // record-stop cycle for end-to-end verification.
+            .task {
+                guard
+                    let argument = ProcessInfo.processInfo.arguments
+                        .first(where: { $0.hasPrefix("-soma-autorecord-seconds=") }),
+                    let seconds = Double(argument.split(separator: "=").last ?? "")
+                else {
+                    return
+                }
+                try? await Task.sleep(for: .seconds(1))
+                toggleRecording()
+                try? await Task.sleep(for: .seconds(seconds))
+                if recorder.isRecording {
+                    toggleRecording()
+                }
+            }
+            #endif
             .sheet(item: $editingEntry) { entry in
                 EntryEditor(entry: entry)
             }
@@ -419,20 +439,32 @@ private struct CaptureBar: View {
         HStack(alignment: .bottom, spacing: 8) {
             HStack(alignment: .bottom, spacing: 6) {
                 if recorder.isRecording {
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(.red)
-                            .frame(width: 8, height: 8)
-                        Text(recorder.elapsed.formattedDuration)
-                            .monospacedDigit()
-                        if holdState == .holding {
-                            Text("slide right to keep")
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(.red)
+                                .frame(width: 8, height: 8)
+                            Text(recorder.elapsed.formattedDuration)
+                                .monospacedDigit()
+                            if holdState == .holding {
+                                Text("slide right to keep")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            } else if holdState == .locked {
+                                Image(systemName: "lock.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        // Words appear as they are spoken (on-device); the head
+                        // truncates so the newest words stay visible.
+                        if !recorder.liveTranscript.isEmpty {
+                            Text(recorder.liveTranscript)
                                 .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        } else if holdState == .locked {
-                            Image(systemName: "lock.fill")
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                                .truncationMode(.head)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
