@@ -153,6 +153,15 @@ struct SomaLog: Identifiable, Codable, Hashable, Sendable {
     var amountCents: Int? = nil
 }
 
+// Additive, never load-bearing: tags sit beside an entry and must never mutate
+// its text or timestamps — the Android metadata layer's contract.
+struct EntryMetadata: Identifiable, Codable, Hashable, Sendable {
+    var id: UUID
+    var entryID: UUID
+    var tags: [String]
+    var createdAt: Date
+}
+
 struct PhotoTextSuggestion: Identifiable, Codable, Hashable, Sendable {
     var id: UUID
     var entryID: UUID

@@ -1610,6 +1610,16 @@
           }
         }
       }
+    },
+    "Automatic tags": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automātiskas birkas"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

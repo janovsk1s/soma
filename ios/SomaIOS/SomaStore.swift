@@ -14,6 +14,7 @@ final class SomaStore {
     private(set) var logs: [SomaLog] = []
     private(set) var trackingSuggestions: [TrackingSuggestion] = []
     private(set) var photoTextSuggestions: [PhotoTextSuggestion] = []
+    private(set) var entryMetadata: [EntryMetadata] = []
     private(set) var deviceID: UUID
     private(set) var storageIssue: StoreError?
     var selectedDay = Date()
@@ -48,6 +49,7 @@ final class SomaStore {
             logs = snapshot.logs ?? []
             trackingSuggestions = snapshot.trackingSuggestions ?? []
             photoTextSuggestions = snapshot.photoTextSuggestions ?? []
+            entryMetadata = snapshot.entryMetadata ?? []
             if wasPlaintext {
                 _ = writeSnapshot()
             }
@@ -659,6 +661,32 @@ final class SomaStore {
         } == true
     }
 
+    // MARK: - Entry metadata (tags)
+
+    func tags(for entryID: UUID) -> [String] {
+        entryMetadata.first { $0.entryID == entryID }?.tags ?? []
+    }
+
+    func setTags(for entryID: UUID, tags: [String]) {
+        let cleaned = tags
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+            .filter { !$0.isEmpty && $0.count <= 40 }
+        _ = commit {
+            entryMetadata.removeAll { $0.entryID == entryID }
+            if !cleaned.isEmpty {
+                entryMetadata.append(
+                    EntryMetadata(
+                        id: UUID(),
+                        entryID: entryID,
+                        tags: Array(cleaned.prefix(3)),
+                        createdAt: Date()
+                    )
+                )
+            }
+            return true
+        }
+    }
+
     // MARK: - Photo text
 
     // Records persist even when dismissed so a photo is only ever OCR'd once.
@@ -923,6 +951,7 @@ final class SomaStore {
         let previousLogs = logs
         let previousTracking = trackingSuggestions
         let previousPhotoText = photoTextSuggestions
+        let previousMetadata = entryMetadata
         let value = mutation()
         guard writeSnapshot() else {
             entries = previousEntries
@@ -932,6 +961,7 @@ final class SomaStore {
             logs = previousLogs
             trackingSuggestions = previousTracking
             photoTextSuggestions = previousPhotoText
+            entryMetadata = previousMetadata
             return nil
         }
         return value
@@ -946,7 +976,8 @@ final class SomaStore {
             revisions: revisions,
             logs: logs,
             trackingSuggestions: trackingSuggestions,
-            photoTextSuggestions: photoTextSuggestions
+            photoTextSuggestions: photoTextSuggestions,
+            entryMetadata: entryMetadata
         )
         do {
             let data = try Self.encoder.encode(snapshot)
@@ -1132,6 +1163,7 @@ final class SomaStore {
         var logs: [SomaLog]?
         var trackingSuggestions: [TrackingSuggestion]?
         var photoTextSuggestions: [PhotoTextSuggestion]?
+        var entryMetadata: [EntryMetadata]?
     }
 
     private static let encoder: JSONEncoder = {

@@ -17,6 +17,7 @@ struct NoteInsights: Sendable {
     var actions: [String]
     var meals: [String]
     var workouts: [String]
+    var tags: [String] = []
 
     var trackingProposals: [(SomaLogKind, String)] {
         meals.map { (SomaLogKind.meal, $0) } + workouts.map { (SomaLogKind.workout, $0) }
@@ -155,8 +156,13 @@ actor CloudAIClient {
                     "maxItems": 2,
                     "items": ["type": "string"],
                 ],
+                "tags": [
+                    "type": "array",
+                    "maxItems": 3,
+                    "items": ["type": "string"],
+                ],
             ],
-            "required": ["todos", "meals", "workouts"],
+            "required": ["todos", "meals", "workouts", "tags"],
             "additionalProperties": false,
         ]
         let body: [String: Any] = [
@@ -207,7 +213,8 @@ actor CloudAIClient {
         return NoteInsights(
             actions: strings("todos"),
             meals: strings("meals"),
-            workouts: strings("workouts")
+            workouts: strings("workouts"),
+            tags: strings("tags")
         )
     }
 
@@ -336,6 +343,11 @@ private struct GeneratedNoteInsights {
         .maximumCount(2)
     )
     var workouts: [String]
+    @Guide(
+        description: "One to three short lowercase topic tags in the note's original language, single words where possible.",
+        .maximumCount(3)
+    )
+    var tags: [String]
 }
 #endif
 
@@ -371,7 +383,8 @@ struct AppleFoundationIntelligence: Sendable {
             return NoteInsights(
                 actions: boundedUniqueActions(response.content.actions),
                 meals: boundedUniqueActions(response.content.meals),
-                workouts: boundedUniqueActions(response.content.workouts)
+                workouts: boundedUniqueActions(response.content.workouts),
+                tags: boundedUniqueActions(response.content.tags)
             )
         }
         #endif

@@ -325,6 +325,10 @@ private struct TodayView: View {
                     try? await Task.sleep(for: .seconds(2))
                     _ = saveComposed(text: "A saved note must be seen landing.")
                 }
+                if arguments.contains("-soma-edit-first") {
+                    try? await Task.sleep(for: .seconds(1))
+                    editingEntry = store.selectedEntries.first
+                }
                 if
                     let argument = arguments
                         .first(where: { $0.hasPrefix("-soma-autorecord-seconds=") }),
@@ -1303,6 +1307,22 @@ private struct EntryEditor: View {
                     .scrollContentBackground(.hidden)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
+                let tags = store.tags(for: entry.id)
+                if !tags.isEmpty {
+                    HStack(spacing: 8) {
+                        ForEach(tags, id: \.self) { tag in
+                            Text("#\(tag)")
+                                .font(.caption)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(.ultraThinMaterial, in: .capsule)
+                        }
+                        Spacer()
+                    }
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+                }
             }
                 .background { SomaScreenBackground() }
                 .navigationTitle("Entry")
@@ -1703,6 +1723,7 @@ private struct IntelligenceSettingsView: View {
                 Toggle("Transcribe voice notes", isOn: $settings.voiceTranscriptionEnabled)
                 Toggle("Suggest Important items", isOn: $settings.onDeviceSuggestionsEnabled)
                 Toggle("Meal & workout suggestions", isOn: $settings.trackingSuggestionsEnabled)
+                Toggle("Automatic tags", isOn: $settings.autoTagsEnabled)
                 LabeledContent("Apple Speech", value: intelligence.speechModelStatus)
                 LabeledContent("Foundation Models", value: intelligence.foundationModelStatus)
             } header: {
@@ -2074,7 +2095,11 @@ private struct SearchView: View {
         guard !trimmedQuery.isEmpty else { return [] }
         return Array(
             store.entries
-                .filter { !$0.isDeleted && matches($0.text) }
+                .filter { entry in
+                    guard !entry.isDeleted else { return false }
+                    return matches(entry.text)
+                        || store.tags(for: entry.id).contains(where: matches)
+                }
                 .sorted { $0.createdAt > $1.createdAt }
                 .prefix(60)
         )

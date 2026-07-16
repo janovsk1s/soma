@@ -129,6 +129,11 @@ final class SomaIntelligence {
                 engine: engine
             )
         }
+        // Tags are ambient but opt-in, and additive only — they never touch the
+        // entry's text or timestamps.
+        if settings.autoTagsEnabled {
+            store.setTags(for: entry.id, tags: insights.tags)
+        }
     }
 
     // Photo notes get one on-device Vision pass at capture; recognized text is
