@@ -40,6 +40,19 @@ final class SomaIntelligence {
         guard activeSuggestions.insert(entry.id).inserted else { return }
         defer { activeSuggestions.remove(entry.id) }
 
+        // Deterministic rules run first so suggestions never depend on a model,
+        // a key, or a network. AI only sees the note when the rules find nothing.
+        let ruleCandidates = SomaRules.importantCandidates(in: entry.text)
+        if !ruleCandidates.isEmpty {
+            store.replaceSuggestions(
+                for: entry.id,
+                sourceUpdatedAt: entry.updatedAt,
+                texts: ruleCandidates,
+                engine: .localRules
+            )
+            return
+        }
+
         if settings.onDeviceSuggestionsEnabled {
             do {
                 let actions = try await appleActions.extractImportant(from: entry.text)

@@ -14,6 +14,7 @@ final class AudioRecorder: NSObject, @preconcurrency AVAudioRecorderDelegate {
     private var completion: ((String, TimeInterval) -> Void)?
 
     func start(in directory: URL, completion: @escaping (String, TimeInterval) -> Void) async throws {
+        guard !isRecording, recorder == nil else { throw RecordingError.couldNotStart }
         let granted = await AVAudioApplication.requestRecordPermission()
         guard granted else { throw RecordingError.permissionDenied }
 
@@ -35,7 +36,7 @@ final class AudioRecorder: NSObject, @preconcurrency AVAudioRecorderDelegate {
         do {
             try FileManager.default.setAttributes(
                 [.protectionKey: FileProtectionType.complete],
-                ofItemAtPath: url.path()
+                ofItemAtPath: url.path(percentEncoded: false)
             )
         } catch {
             try? FileManager.default.removeItem(at: url)
@@ -83,7 +84,7 @@ final class AudioRecorder: NSObject, @preconcurrency AVAudioRecorderDelegate {
         if successfully, duration > 0.2 {
             try? FileManager.default.setAttributes(
                 [.protectionKey: FileProtectionType.complete],
-                ofItemAtPath: url.path()
+                ofItemAtPath: url.path(percentEncoded: false)
             )
             callback?(url.lastPathComponent, duration)
         } else {

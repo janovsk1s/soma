@@ -99,15 +99,24 @@ struct ImportantItem: Identifiable, Codable, Hashable, Sendable {
 }
 
 enum SuggestionEngine: String, Codable, Sendable {
+    case localRules
     case appleFoundationModel
     case groqGPTOSS20B
 
     var displayName: String {
         switch self {
+        case .localRules: "On-device rules"
         case .appleFoundationModel: "On-device Apple Intelligence"
         case .groqGPTOSS20B: "Groq GPT-OSS 20B"
         }
     }
+}
+
+struct EntryRevision: Identifiable, Codable, Hashable, Sendable {
+    var id: UUID
+    var entryID: UUID
+    var text: String
+    var recordedAt: Date
 }
 
 struct ImportantSuggestion: Identifiable, Codable, Hashable, Sendable {
@@ -133,10 +142,13 @@ struct SomaContextBundle: Codable, Sendable {
 }
 
 enum SomaDay {
+    /// Day keys are persisted identifiers shared across devices, so the format must
+    /// not follow the user's locale: non-Gregorian calendars and non-Latin numerals
+    /// would fork the data. Only the time zone stays local — a "day" is a local day.
     static let formatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.calendar = .autoupdatingCurrent
-        formatter.locale = .autoupdatingCurrent
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = .autoupdatingCurrent
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter
@@ -144,5 +156,9 @@ enum SomaDay {
 
     static func key(_ date: Date) -> String {
         formatter.string(from: date)
+    }
+
+    static func date(fromKey key: String) -> Date? {
+        formatter.date(from: key)
     }
 }

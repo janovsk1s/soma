@@ -2,19 +2,31 @@ import AVKit
 import SwiftUI
 
 struct RootView: View {
+    private enum SomaTab: Hashable {
+        case today
+        case important
+        case settings
+        case search
+    }
+
+    @State private var selection: SomaTab = .today
+
     var body: some View {
         ZStack {
             SomaForestBackground()
 
-            TabView {
-                Tab("Today", systemImage: "circle.fill") {
+            TabView(selection: $selection) {
+                Tab("Today", systemImage: "circle.fill", value: SomaTab.today) {
                     TodayView()
                 }
-                Tab("Important", systemImage: "checkmark.circle") {
+                Tab("Important", systemImage: "checkmark.circle", value: SomaTab.important) {
                     ImportantView()
                 }
-                Tab("Settings", systemImage: "gearshape") {
+                Tab("Settings", systemImage: "gearshape", value: SomaTab.settings) {
                     SettingsView()
+                }
+                Tab("Search", systemImage: "magnifyingglass", value: SomaTab.search, role: .search) {
+                    SearchView(onOpenDay: { selection = .today })
                 }
             }
             .tint(.primary)
@@ -28,6 +40,7 @@ private struct TodayView: View {
     @Environment(SomaIntelligence.self) private var intelligence
     @State private var showingCapture = false
     @State private var showingCamera = false
+    @State private var showingCalendar = false
     @State private var editingEntry: SomaEntry?
     @State private var recorder = AudioRecorder()
     @State private var errorMessage: String?
@@ -91,20 +104,21 @@ private struct TodayView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Previous day", systemImage: "chevron.left") {
-                        withAnimation {
-                            store.selectedDay = Calendar.autoupdatingCurrent.date(
-                                byAdding: .day,
-                                value: -1,
-                                to: store.selectedDay
-                            ) ?? store.selectedDay
-                        }
+                        withAnimation { shiftDay(by: -1) }
                     }
                     .labelStyle(.iconOnly)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Today", systemImage: "calendar") {
-                        withAnimation { store.selectedDay = Date() }
+                    Button("Next day", systemImage: "chevron.right") {
+                        withAnimation { shiftDay(by: 1) }
                     }
+                    .labelStyle(.iconOnly)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Calendar", systemImage: "calendar") {
+                        showingCalendar = true
+                    }
+                    .labelStyle(.iconOnly)
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -128,6 +142,11 @@ private struct TodayView: View {
             .sheet(item: $editingEntry) { entry in
                 EntryEditor(entry: entry)
             }
+            .sheet(isPresented: $showingCalendar) {
+                DayPickerSheet()
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
+            }
             .fullScreenCover(isPresented: $showingCamera) {
                 OneShotCameraView(onCaptured: savePhoto)
             }
@@ -141,6 +160,14 @@ private struct TodayView: View {
 
     private var saveFailureMessage: String {
         "Couldn’t save this text. It may be too long, or protected storage may be unavailable."
+    }
+
+    private func shiftDay(by days: Int) {
+        store.selectedDay = Calendar.autoupdatingCurrent.date(
+            byAdding: .day,
+            value: days,
+            to: store.selectedDay
+        ) ?? store.selectedDay
     }
 
     private func toggleRecording() {
@@ -238,6 +265,7 @@ private struct EntryRow: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let entry: SomaEntry
     @State private var player: AVPlayer?
+    @State private var isPlaying = false
 
     var body: some View {
         let layout = dynamicTypeSize.isAccessibilitySize
@@ -262,18 +290,35 @@ private struct EntryRow: View {
                     }
                 } else if entry.kind == .voice, let fileName = entry.audioFileName {
                     Button {
-                        guard let url = store.availableAudioURL(fileName: fileName) else { return }
-                        let player = AVPlayer(url: url)
-                        self.player = player
-                        player.play()
+                        togglePlayback(fileName: fileName)
                     } label: {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Image(systemName: "waveform")
+                            Image(systemName: isPlaying ? "stop.fill" : "waveform")
+                                .contentTransition(.symbolEffect(.replace))
                             voiceLabel
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
                     .buttonStyle(.plain)
+                    .onReceive(
+                        NotificationCenter.default
+                            .publisher(for: AVPlayerItem.didPlayToEndTimeNotification)
+                            .receive(on: DispatchQueue.main)
+                    ) { notification in
+                        guard
+                            let item = notification.object as? AVPlayerItem,
+                            item === player?.currentItem
+                        else {
+                            return
+                        }
+                        player = nil
+                        isPlaying = false
+                    }
+                    .onDisappear {
+                        player?.pause()
+                        player = nil
+                        isPlaying = false
+                    }
                 } else {
                     Text(entry.text)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -286,6 +331,20 @@ private struct EntryRow: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    private func togglePlayback(fileName: String) {
+        if isPlaying {
+            player?.pause()
+            player = nil
+            isPlaying = false
+            return
+        }
+        guard let url = store.availableAudioURL(fileName: fileName) else { return }
+        let player = AVPlayer(url: url)
+        self.player = player
+        isPlaying = true
+        player.play()
     }
 
     @ViewBuilder
@@ -373,6 +432,8 @@ private struct SuggestionRow: View {
                         .foregroundStyle(.secondary)
                     Text(suggestion.text)
                         .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(4)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
@@ -401,6 +462,7 @@ private struct EntryEditor: View {
     let entry: SomaEntry
     @State private var text: String
     @State private var errorMessage: String?
+    @State private var showingHistory = false
 
     init(entry: SomaEntry) {
         self.entry = entry
@@ -426,6 +488,14 @@ private struct EntryEditor: View {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") { dismiss() }
                     }
+                    if !store.revisions(for: entry.id).isEmpty {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("History", systemImage: "clock.arrow.circlepath") {
+                                showingHistory = true
+                            }
+                            .labelStyle(.iconOnly)
+                        }
+                    }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Done") {
                             guard let updated = store.update(entry: entry, text: text) else {
@@ -437,11 +507,44 @@ private struct EntryEditor: View {
                         }
                     }
                 }
+                .sheet(isPresented: $showingHistory) {
+                    EntryHistorySheet(entryID: entry.id)
+                }
         }
         .alert("Couldn’t save", isPresented: .constant(errorMessage != nil)) {
             Button("OK") { errorMessage = nil }
         } message: {
             Text(errorMessage ?? "")
+        }
+    }
+}
+
+private struct EntryHistorySheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(SomaStore.self) private var store
+    let entryID: UUID
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(store.revisions(for: entryID)) { revision in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(revision.recordedAt.formatted(date: .abbreviated, time: .shortened))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(revision.text)
+                            .textSelection(.enabled)
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+            .navigationTitle("Earlier wording")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
         }
     }
 }
@@ -535,27 +638,79 @@ private struct ImportantView: View {
     }
 }
 
+// The circle completes; tapping the text opens the full item. A whole-row toggle
+// makes long items impossible to read and completes them by accident.
 private struct ImportantRow: View {
+    @Environment(SomaStore.self) private var store
+    let item: ImportantItem
+    @State private var showingDetail = false
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Button {
+                withAnimation { _ = store.toggle(item) }
+            } label: {
+                Image(systemName: item.state == .open ? "circle" : "checkmark.circle.fill")
+                    .contentTransition(.symbolEffect(.replace))
+                    .frame(minWidth: 32, minHeight: 32)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(item.state == .open ? "Mark done" : "Mark open")
+
+            Button {
+                showingDetail = true
+            } label: {
+                Text(item.text)
+                    .lineLimit(3)
+                    .strikethrough(item.state == .done)
+                    .foregroundStyle(item.state == .done ? .secondary : .primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+        }
+        .swipeActions {
+            Button("Delete", systemImage: "trash", role: .destructive) {
+                _ = store.remove(item)
+            }
+        }
+        .sheet(isPresented: $showingDetail) {
+            ImportantDetailSheet(item: item)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+    }
+}
+
+private struct ImportantDetailSheet: View {
+    @Environment(\.dismiss) private var dismiss
     @Environment(SomaStore.self) private var store
     let item: ImportantItem
 
     var body: some View {
-        Button {
-            withAnimation { _ = store.toggle(item) }
-        } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Image(systemName: item.state == .open ? "circle" : "checkmark.circle.fill")
-                    .contentTransition(.symbolEffect(.replace))
-                Text(item.text)
-                    .strikethrough(item.state == .done)
-                    .foregroundStyle(item.state == .done ? .secondary : .primary)
-                Spacer()
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text(item.text)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text("Added \(item.createdAt.formatted(date: .abbreviated, time: .shortened))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(20)
             }
-        }
-        .buttonStyle(.plain)
-        .swipeActions {
-            Button("Delete", systemImage: "trash", role: .destructive) {
-                _ = store.remove(item)
+            .navigationTitle("Important")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(item.state == .open ? "Complete" : "Reopen") {
+                        withAnimation { _ = store.toggle(item) }
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
             }
         }
     }
@@ -567,6 +722,7 @@ private struct SettingsView: View {
     @State private var confirmingReadableExport = false
     @State private var importing = false
     @State private var errorMessage: String?
+    @State private var reminder = DailyReminder()
 
     var body: some View {
         NavigationStack {
@@ -580,19 +736,38 @@ private struct SettingsView: View {
                         importing = true
                     }
                     .disabled(store.storageIssue != nil)
+                    NavigationLink {
+                        TrashView()
+                    } label: {
+                        Label("Trash", systemImage: "trash")
+                    }
                 } header: {
                     Text("Context")
                 } footer: {
                     Text("The exported JSON contains readable note text. Keep it somewhere private. API keys, AI suggestions, settings, audio, and photos are never included.")
                 }
                 .listRowBackground(FrostedRowBackground())
-                Section("System") {
+                Section {
                     NavigationLink {
                         IntelligenceSettingsView()
                     } label: {
                         Label("Intelligence", systemImage: "apple.intelligence")
                     }
                     LabeledContent("Siri & Shortcuts", value: "2 actions")
+                    Toggle("Daily reminder", isOn: $reminder.isEnabled)
+                    if reminder.isEnabled {
+                        DatePicker(
+                            "Reminder time",
+                            selection: $reminder.time,
+                            displayedComponents: .hourAndMinute
+                        )
+                    }
+                } header: {
+                    Text("System")
+                } footer: {
+                    if let note = reminder.authorizationNote {
+                        Text(note)
+                    }
                 }
                 .listRowBackground(FrostedRowBackground())
                 Section {
@@ -787,6 +962,281 @@ private struct IntelligenceSettingsView: View {
             )
         }
         .foregroundStyle(.primary)
+    }
+}
+
+private struct DayPickerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(SomaStore.self) private var store
+
+    var body: some View {
+        @Bindable var store = store
+        NavigationStack {
+            VStack(spacing: 0) {
+                DatePicker(
+                    "Day",
+                    selection: $store.selectedDay,
+                    displayedComponents: .date
+                )
+                .datePickerStyle(.graphical)
+                .padding(.horizontal, 12)
+                Spacer(minLength: 0)
+            }
+            .navigationTitle("Go to day")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Today") {
+                        store.selectedDay = Date()
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .onChange(of: SomaDay.key(store.selectedDay)) {
+                dismiss()
+            }
+        }
+    }
+}
+
+private struct SearchView: View {
+    @Environment(SomaStore.self) private var store
+    @State private var query = ""
+    let onOpenDay: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if !matchingEntries.isEmpty {
+                    Section("Notes") {
+                        ForEach(matchingEntries) { entry in
+                            Button {
+                                openDay(for: entry)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(highlighted(entry.text))
+                                        .lineLimit(3)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    Text(dayLabel(entry.day))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .listRowBackground(Color.clear)
+                        }
+                    }
+                }
+                if !matchingImportant.isEmpty {
+                    Section("Important") {
+                        ForEach(matchingImportant) { item in
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(highlighted(item.text))
+                                    .lineLimit(3)
+                                    .strikethrough(item.state == .done)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                Text(item.state == .done ? "Done" : "Open")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .listRowBackground(Color.clear)
+                        }
+                    }
+                }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background { SomaScreenBackground() }
+            .overlay {
+                if trimmedQuery.isEmpty {
+                    ContentUnavailableView(
+                        "Search your bag",
+                        systemImage: "magnifyingglass",
+                        description: Text("Notes and Important items — with or without diacritics.")
+                    )
+                } else if matchingEntries.isEmpty && matchingImportant.isEmpty {
+                    ContentUnavailableView.search(text: trimmedQuery)
+                }
+            }
+            .navigationTitle("Search")
+            .searchable(text: $query, prompt: "Search notes and Important")
+        }
+    }
+
+    private var trimmedQuery: String {
+        query.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var matchingEntries: [SomaEntry] {
+        guard !trimmedQuery.isEmpty else { return [] }
+        return Array(
+            store.entries
+                .filter { !$0.isDeleted && matches($0.text) }
+                .sorted { $0.createdAt > $1.createdAt }
+                .prefix(60)
+        )
+    }
+
+    private var matchingImportant: [ImportantItem] {
+        guard !trimmedQuery.isEmpty else { return [] }
+        return Array(
+            store.important
+                .filter { !$0.isDeleted && matches($0.text) }
+                .sorted { $0.updatedAt > $1.updatedAt }
+                .prefix(60)
+        )
+    }
+
+    private func matches(_ text: String) -> Bool {
+        text.range(
+            of: trimmedQuery,
+            options: [.caseInsensitive, .diacriticInsensitive]
+        ) != nil
+    }
+
+    private func highlighted(_ text: String) -> AttributedString {
+        var attributed = AttributedString(text)
+        if
+            let range = text.range(
+                of: trimmedQuery,
+                options: [.caseInsensitive, .diacriticInsensitive]
+            ),
+            let highlightRange = Range(range, in: attributed)
+        {
+            attributed[highlightRange].inlinePresentationIntent = .stronglyEmphasized
+        }
+        return attributed
+    }
+
+    private func dayLabel(_ key: String) -> String {
+        guard let date = SomaDay.date(fromKey: key) else { return key }
+        return date.formatted(date: .abbreviated, time: .omitted)
+    }
+
+    private func openDay(for entry: SomaEntry) {
+        guard let date = SomaDay.date(fromKey: entry.day) else { return }
+        store.selectedDay = date
+        onOpenDay()
+    }
+}
+
+// Trash rows never restore on a plain tap — a tap opens choices, mirroring the
+// footgun fix the Android app already learned the hard way.
+private struct TrashView: View {
+    @Environment(SomaStore.self) private var store
+    @State private var selectedEntry: SomaEntry?
+    @State private var selectedItem: ImportantItem?
+    @State private var confirmingEmpty = false
+
+    var body: some View {
+        List {
+            if !store.trashedEntries.isEmpty {
+                Section("Notes") {
+                    ForEach(store.trashedEntries) { entry in
+                        Button {
+                            selectedEntry = entry
+                        } label: {
+                            trashRow(title: trashLabel(entry), deletedAt: entry.deletedAt)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .listRowBackground(FrostedRowBackground())
+            }
+            if !store.trashedImportant.isEmpty {
+                Section("Important") {
+                    ForEach(store.trashedImportant) { item in
+                        Button {
+                            selectedItem = item
+                        } label: {
+                            trashRow(title: item.text, deletedAt: item.deletedAt)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .listRowBackground(FrostedRowBackground())
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background { SomaScreenBackground() }
+        .overlay {
+            if store.trashedEntries.isEmpty && store.trashedImportant.isEmpty {
+                ContentUnavailableView(
+                    "Trash is empty",
+                    systemImage: "trash",
+                    description: Text("Deleted notes and Important items wait here until you decide.")
+                )
+            }
+        }
+        .navigationTitle("Trash")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if !(store.trashedEntries.isEmpty && store.trashedImportant.isEmpty) {
+                Button("Empty Trash") { confirmingEmpty = true }
+            }
+        }
+        .confirmationDialog(
+            "Delete everything in the trash forever?",
+            isPresented: $confirmingEmpty,
+            titleVisibility: .visible
+        ) {
+            Button("Delete forever", role: .destructive) { store.purgeAllTrash() }
+            Button("Cancel", role: .cancel) {}
+        }
+        .confirmationDialog(
+            "Deleted note",
+            isPresented: dialogBinding(for: $selectedEntry),
+            titleVisibility: .visible,
+            presenting: selectedEntry
+        ) { entry in
+            Button("Restore") { _ = store.restore(entry: entry) }
+            Button("Delete forever", role: .destructive) { _ = store.purge(entry: entry) }
+            Button("Cancel", role: .cancel) {}
+        } message: { entry in
+            Text(trashLabel(entry))
+        }
+        .confirmationDialog(
+            "Deleted Important item",
+            isPresented: dialogBinding(for: $selectedItem),
+            titleVisibility: .visible,
+            presenting: selectedItem
+        ) { item in
+            Button("Restore") { _ = store.restore(item: item) }
+            Button("Delete forever", role: .destructive) { _ = store.purge(item: item) }
+            Button("Cancel", role: .cancel) {}
+        } message: { item in
+            Text(item.text)
+        }
+    }
+
+    private func dialogBinding<T>(for selection: Binding<T?>) -> Binding<Bool> {
+        Binding(
+            get: { selection.wrappedValue != nil },
+            set: { if !$0 { selection.wrappedValue = nil } }
+        )
+    }
+
+    private func trashLabel(_ entry: SomaEntry) -> String {
+        if !entry.text.isEmpty { return entry.text }
+        if entry.imageFileName != nil { return "Photo note" }
+        if entry.audioFileName != nil { return "Voice note" }
+        return "Empty note"
+    }
+
+    private func trashRow(title: String, deletedAt: Date?) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .lineLimit(2)
+            if let deletedAt {
+                Text("Deleted \(deletedAt.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

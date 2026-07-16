@@ -18,6 +18,9 @@
 		10000000000000000000010A /* SomaAppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000A /* SomaAppIntents.swift */; };
 		10000000000000000000010B /* SomaBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000B /* SomaBackground.swift */; };
 		10000000000000000000010C /* CameraCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000C /* CameraCapture.swift */; };
+		100000000000000000000115 /* SomaRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000D /* SomaRules.swift */; };
+		100000000000000000000116 /* SomaCrypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000E /* SomaCrypto.swift */; };
+		100000000000000000000117 /* SomaReminder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000F /* SomaReminder.swift */; };
 		10000000000000000000010D /* en.webp in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000020 /* en.webp */; };
 		10000000000000000000010E /* lv.webp in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000021 /* lv.webp */; };
 		10000000000000000000010F /* et.webp in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000022 /* et.webp */; };
@@ -41,6 +44,9 @@
 		10000000000000000000000A /* SomaAppIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomaAppIntents.swift; sourceTree = "<group>"; };
 		10000000000000000000000B /* SomaBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomaBackground.swift; sourceTree = "<group>"; };
 		10000000000000000000000C /* CameraCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCapture.swift; sourceTree = "<group>"; };
+		10000000000000000000000D /* SomaRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomaRules.swift; sourceTree = "<group>"; };
+		10000000000000000000000E /* SomaCrypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomaCrypto.swift; sourceTree = "<group>"; };
+		10000000000000000000000F /* SomaReminder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomaReminder.swift; sourceTree = "<group>"; };
 		100000000000000000000020 /* en.webp */ = {isa = PBXFileReference; lastKnownFileType = image.webp; name = en.webp; path = ../../lanserver/src/main/resources/com/soma/lanserver/forest/en.webp; sourceTree = "<group>"; };
 		100000000000000000000021 /* lv.webp */ = {isa = PBXFileReference; lastKnownFileType = image.webp; name = lv.webp; path = ../../lanserver/src/main/resources/com/soma/lanserver/forest/lv.webp; sourceTree = "<group>"; };
 		100000000000000000000022 /* et.webp */ = {isa = PBXFileReference; lastKnownFileType = image.webp; name = et.webp; path = ../../lanserver/src/main/resources/com/soma/lanserver/forest/et.webp; sourceTree = "<group>"; };
@@ -80,6 +86,9 @@
 				10000000000000000000000A /* SomaAppIntents.swift */,
 				10000000000000000000000B /* SomaBackground.swift */,
 				10000000000000000000000C /* CameraCapture.swift */,
+				10000000000000000000000D /* SomaRules.swift */,
+				10000000000000000000000E /* SomaCrypto.swift */,
+				10000000000000000000000F /* SomaReminder.swift */,
 				100000000000000000000020 /* en.webp */,
 				100000000000000000000021 /* lv.webp */,
 				100000000000000000000022 /* et.webp */,
@@ -175,6 +184,9 @@
 				10000000000000000000010A /* SomaAppIntents.swift in Sources */,
 				10000000000000000000010B /* SomaBackground.swift in Sources */,
 				10000000000000000000010C /* CameraCapture.swift in Sources */,
+				100000000000000000000115 /* SomaRules.swift in Sources */,
+				100000000000000000000116 /* SomaCrypto.swift in Sources */,
+				100000000000000000000117 /* SomaReminder.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

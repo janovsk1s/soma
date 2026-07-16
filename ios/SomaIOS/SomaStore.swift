@@ -10,12 +10,14 @@ final class SomaStore {
     private(set) var entries: [SomaEntry] = []
     private(set) var important: [ImportantItem] = []
     private(set) var suggestions: [ImportantSuggestion] = []
+    private(set) var revisions: [EntryRevision] = []
     private(set) var deviceID: UUID
     private(set) var storageIssue: StoreError?
     var selectedDay = Date()
 
     private let fileManager: FileManager
     private let storeURL: URL
+    private let cipher = SnapshotCipher()
     private var storageIsReadable = true
 
     init(fileManager: FileManager = .default) {
@@ -25,18 +27,24 @@ final class SomaStore {
         try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         storeURL = directory.appending(path: "context.json")
 
-        guard fileManager.fileExists(atPath: storeURL.path()) else {
+        guard fileManager.fileExists(atPath: storeURL.path(percentEncoded: false)) else {
             deviceID = UUID()
             return
         }
 
         do {
-            let data = try Data(contentsOf: storeURL)
+            let raw = try Data(contentsOf: storeURL)
+            let wasPlaintext = !cipher.isEncrypted(raw)
+            let data = wasPlaintext ? raw : try cipher.open(raw)
             let snapshot = try Self.decoder.decode(LocalSnapshot.self, from: data)
             deviceID = snapshot.deviceID
             entries = snapshot.entries.map(Self.sanitizedLocalEntry)
             important = snapshot.important
             suggestions = snapshot.suggestions ?? []
+            revisions = snapshot.revisions ?? []
+            if wasPlaintext {
+                _ = writeSnapshot()
+            }
         } catch {
             deviceID = UUID()
             storageIsReadable = false
@@ -136,10 +144,26 @@ final class SomaStore {
 
     @discardableResult
     func update(entry: SomaEntry, text: String) -> SomaEntry? {
-        guard let index = entries.firstIndex(where: { $0.id == entry.id }) else { return nil }
+        guard
+            let index = entries.firstIndex(where: { $0.id == entry.id }),
+            !entries[index].isDeleted
+        else {
+            return nil
+        }
         guard let cleaned = Self.boundedText(text, allowingEmpty: true) else { return nil }
         let now = Date()
         return commit {
+            let previous = entries[index]
+            if previous.text != cleaned, !previous.text.isEmpty {
+                revisions.append(
+                    EntryRevision(
+                        id: UUID(),
+                        entryID: previous.id,
+                        text: previous.text,
+                        recordedAt: previous.lastUserEditedAt ?? previous.updatedAt
+                    )
+                )
+            }
             entries[index].text = cleaned
             entries[index].updatedAt = now
             entries[index].lastUserEditedAt = now
@@ -148,33 +172,124 @@ final class SomaStore {
         }
     }
 
+    func revisions(for entryID: UUID) -> [EntryRevision] {
+        revisions
+            .filter { $0.entryID == entryID }
+            .sorted { $0.recordedAt > $1.recordedAt }
+    }
+
+    // Deletion is soft: the entry moves to the trash with its media intact so it
+    // can be restored. Media files are only removed at purge time.
     @discardableResult
     func remove(entry: SomaEntry) -> Bool {
         guard let index = entries.firstIndex(where: { $0.id == entry.id }) else { return false }
-        let audioURL = entries[index].audioFileName.flatMap {
-            availableAudioURL(fileName: $0)
-        }
-        let imageURL = entries[index].imageFileName.flatMap {
-            availableImageURL(fileName: $0)
-        }
-        let saved = commit {
+        return commit {
             let now = Date()
             entries[index].deletedAt = now
             entries[index].updatedAt = now
-            entries[index].audioFileName = nil
-            entries[index].audioDuration = nil
-            entries[index].imageFileName = nil
             entries[index].transcriptionRunID = nil
             suggestions.removeAll { $0.entryID == entry.id }
             return true
         } == true
-        if saved, let audioURL {
+    }
+
+    var trashedEntries: [SomaEntry] {
+        entries
+            .filter {
+                $0.isDeleted &&
+                (!$0.text.isEmpty || $0.audioFileName != nil || $0.imageFileName != nil)
+            }
+            .sorted { ($0.deletedAt ?? .distantPast) > ($1.deletedAt ?? .distantPast) }
+    }
+
+    var trashedImportant: [ImportantItem] {
+        important
+            .filter { $0.isDeleted && !$0.text.isEmpty }
+            .sorted { ($0.deletedAt ?? .distantPast) > ($1.deletedAt ?? .distantPast) }
+    }
+
+    @discardableResult
+    func restore(entry: SomaEntry) -> Bool {
+        guard
+            let index = entries.firstIndex(where: { $0.id == entry.id }),
+            entries[index].isDeleted
+        else {
+            return false
+        }
+        return commit {
+            entries[index].deletedAt = nil
+            entries[index].updatedAt = Date()
+            return true
+        } == true
+    }
+
+    @discardableResult
+    func restore(item: ImportantItem) -> Bool {
+        guard
+            let index = important.firstIndex(where: { $0.id == item.id }),
+            important[index].isDeleted
+        else {
+            return false
+        }
+        return commit {
+            important[index].deletedAt = nil
+            important[index].updatedAt = Date()
+            return true
+        } == true
+    }
+
+    // Purging keeps the tombstone (so a deletion still wins in a later merge) but
+    // empties the content and frees the media files.
+    @discardableResult
+    func purge(entry: SomaEntry) -> Bool {
+        guard
+            let index = entries.firstIndex(where: { $0.id == entry.id }),
+            entries[index].isDeleted
+        else {
+            return false
+        }
+        let audioURL = entries[index].audioFileName.flatMap { availableAudioURL(fileName: $0) }
+        let imageURL = entries[index].imageFileName.flatMap { availableImageURL(fileName: $0) }
+        let purged = commit {
+            entries[index].text = ""
+            entries[index].audioFileName = nil
+            entries[index].audioDuration = nil
+            entries[index].imageFileName = nil
+            entries[index].transcriptionState = nil
+            entries[index].transcriptionProvenance = nil
+            revisions.removeAll { $0.entryID == entry.id }
+            return true
+        } == true
+        if purged, let audioURL {
             try? fileManager.removeItem(at: audioURL)
         }
-        if saved, let imageURL {
+        if purged, let imageURL {
             try? fileManager.removeItem(at: imageURL)
         }
-        return saved
+        return purged
+    }
+
+    @discardableResult
+    func purge(item: ImportantItem) -> Bool {
+        guard
+            let index = important.firstIndex(where: { $0.id == item.id }),
+            important[index].isDeleted
+        else {
+            return false
+        }
+        return commit {
+            important[index].text = ""
+            return true
+        } == true
+    }
+
+    func purgeAllTrash() {
+        for entry in trashedEntries {
+            _ = purge(entry: entry)
+        }
+        for item in trashedImportant {
+            _ = purge(item: item)
+        }
     }
 
     @discardableResult
@@ -472,7 +587,7 @@ final class SomaStore {
         try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
         try? fileManager.setAttributes(
             [.protectionKey: FileProtectionType.complete],
-            ofItemAtPath: url.path()
+            ofItemAtPath: url.path(percentEncoded: false)
         )
         return url
     }
@@ -483,7 +598,7 @@ final class SomaStore {
         try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
         try? fileManager.setAttributes(
             [.protectionKey: FileProtectionType.complete],
-            ofItemAtPath: url.path()
+            ofItemAtPath: url.path(percentEncoded: false)
         )
         var values = URLResourceValues()
         values.isExcludedFromBackup = true
@@ -499,11 +614,13 @@ final class SomaStore {
         let previousEntries = entries
         let previousImportant = important
         let previousSuggestions = suggestions
+        let previousRevisions = revisions
         let value = mutation()
         guard writeSnapshot() else {
             entries = previousEntries
             important = previousImportant
             suggestions = previousSuggestions
+            revisions = previousRevisions
             return nil
         }
         return value
@@ -514,11 +631,13 @@ final class SomaStore {
             deviceID: deviceID,
             entries: entries,
             important: important,
-            suggestions: suggestions
+            suggestions: suggestions,
+            revisions: revisions
         )
         do {
             let data = try Self.encoder.encode(snapshot)
-            try data.write(to: storeURL, options: [.atomic, .completeFileProtection])
+            let sealed = try cipher.seal(data)
+            try sealed.write(to: storeURL, options: [.atomic, .completeFileProtection])
             storageIssue = nil
             return true
         } catch {
@@ -695,6 +814,7 @@ final class SomaStore {
         var entries: [SomaEntry]
         var important: [ImportantItem]
         var suggestions: [ImportantSuggestion]?
+        var revisions: [EntryRevision]?
     }
 
     private static let encoder: JSONEncoder = {
