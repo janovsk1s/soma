@@ -619,6 +619,19 @@ final class SomaStore {
         }
     }
 
+    func receipts(inMonthOf date: Date) -> [SomaLog] {
+        let calendar = Calendar.autoupdatingCurrent
+        guard let month = calendar.dateInterval(of: .month, for: date) else { return [] }
+        return logs
+            .filter { log in
+                guard log.kind == .receipt, let day = SomaDay.date(fromKey: log.day) else {
+                    return false
+                }
+                return month.contains(day)
+            }
+            .sorted { $0.day > $1.day }
+    }
+
     func spentCents(inMonthOf date: Date) -> Int {
         let calendar = Calendar.autoupdatingCurrent
         guard let month = calendar.dateInterval(of: .month, for: date) else { return 0 }

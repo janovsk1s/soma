@@ -481,6 +481,24 @@ private struct TodayView: View {
                     }
                 }
             }
+            // A day with several receipts sums itself; one receipt already shows
+            // its amount, so the line stays silent then.
+            let dayReceiptCents = store.logs(for: store.selectedDay)
+                .filter { $0.kind == .receipt }
+                .compactMap(\.amountCents)
+            if dayReceiptCents.count >= 2 {
+                HStack(spacing: 10) {
+                    Image(systemName: "receipt")
+                        .font(.caption2)
+                    Text("spent · \(ReceiptParse.decimalString(dayReceiptCents.reduce(0, +)))")
+                        .font(.callout.monospacedDigit())
+                    Spacer()
+                }
+                .padding(.leading, Self.quietLineInset)
+                .foregroundStyle(.tertiary)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
             // On request only, generated on-device, kept nowhere.
             if intelligence.canReflect,
                store.selectedEntries.contains(where: { !$0.text.isEmpty }) {
@@ -1799,6 +1817,7 @@ private struct IntelligenceSettingsView: View {
 private struct DayPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(SomaStore.self) private var store
+    @State private var showingMonthReceipts = false
 
     var body: some View {
         @Bindable var store = store
@@ -1814,19 +1833,28 @@ private struct DayPickerSheet: View {
                 .padding(.horizontal, 12)
 
                 // The month's receipts, summed — the quiet answer to "how much
-                // did I spend". Silence when nothing was logged.
+                // did I spend". Silence when nothing was logged; tap for the list.
                 let spent = store.spentCents(inMonthOf: store.selectedDay)
                 if spent != 0 {
-                    HStack(spacing: 8) {
-                        Image(systemName: "receipt")
-                            .font(.caption)
-                        Text("This month · \(ReceiptParse.decimalString(spent))")
-                            .font(.callout.monospacedDigit())
-                        Spacer()
+                    Button {
+                        showingMonthReceipts = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "receipt")
+                                .font(.caption)
+                            Text("This month · \(ReceiptParse.decimalString(spent))")
+                                .font(.callout.monospacedDigit())
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 2)
+                        .contentShape(.rect)
                     }
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 24)
-                    .padding(.top, 2)
+                    .buttonStyle(.plain)
                 }
                 Spacer(minLength: 0)
             }
@@ -1846,6 +1874,83 @@ private struct DayPickerSheet: View {
             .onChange(of: SomaDay.key(store.selectedDay)) {
                 dismiss()
             }
+            .sheet(isPresented: $showingMonthReceipts) {
+                MonthReceiptsSheet(month: store.selectedDay)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
+            #if DEBUG
+            .task {
+                if ProcessInfo.processInfo.arguments.contains("-soma-show-month-receipts") {
+                    // Presenting while the parent sheet is still animating collapses
+                    // both; wait the animation out.
+                    try? await Task.sleep(for: .seconds(2))
+                    showingMonthReceipts = true
+                }
+            }
+            #endif
+        }
+    }
+}
+
+private struct MonthReceiptsSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(SomaStore.self) private var store
+    let month: Date
+    @State private var detailLog: SomaLog?
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(store.receipts(inMonthOf: month)) { log in
+                    Button {
+                        detailLog = log
+                    } label: {
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(log.title)
+                                if let day = SomaDay.date(fromKey: log.day) {
+                                    Text(day.formatted(date: .abbreviated, time: .omitted))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            Spacer()
+                            if let cents = log.amountCents {
+                                Text(ReceiptParse.decimalString(cents))
+                                    .font(.callout.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(Color.clear)
+                }
+                HStack {
+                    Spacer()
+                    Text("This month · \(ReceiptParse.decimalString(store.spentCents(inMonthOf: month)))")
+                        .font(.callout.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .scrollIndicators(.hidden)
+            .background { SomaScreenBackground() }
+            .navigationTitle(month.formatted(.dateTime.month(.wide).year()))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .sheet(item: $detailLog) { log in
+                ReceiptSheet(log: log)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
         }
     }
 }
@@ -1854,6 +1959,7 @@ private struct SearchView: View {
     @Environment(SomaStore.self) private var store
     @State private var query = ""
     @State private var detailItem: ImportantItem?
+    @State private var detailLog: SomaLog?
     let onOpenDay: () -> Void
 
     var body: some View {
@@ -1872,6 +1978,35 @@ private struct SearchView: View {
                                     Text(dayLabel(entry.day))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .listRowBackground(Color.clear)
+                        }
+                    }
+                }
+                if !matchingLogs.isEmpty {
+                    Section("Logs") {
+                        ForEach(matchingLogs) { log in
+                            Button {
+                                if log.detail != nil {
+                                    detailLog = log
+                                } else if let day = SomaDay.date(fromKey: log.day) {
+                                    store.selectedDay = day
+                                    onOpenDay()
+                                }
+                            } label: {
+                                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                    Image(systemName: log.kind.systemImage)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(highlighted(log.title))
+                                        Text(dayLabel(log.day))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
                                 }
                             }
                             .buttonStyle(.plain)
@@ -1906,6 +2041,11 @@ private struct SearchView: View {
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
             }
+            .sheet(item: $detailLog) { log in
+                ReceiptSheet(log: log)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .scrollIndicators(.hidden)
@@ -1917,7 +2057,7 @@ private struct SearchView: View {
                         systemImage: "magnifyingglass",
                         description: Text("Notes and Important items — with or without diacritics.")
                     )
-                } else if matchingEntries.isEmpty && matchingImportant.isEmpty {
+                } else if matchingEntries.isEmpty, matchingImportant.isEmpty, matchingLogs.isEmpty {
                     ContentUnavailableView.search(text: trimmedQuery)
                 }
             }
@@ -1946,6 +2086,16 @@ private struct SearchView: View {
             store.important
                 .filter { !$0.isDeleted && matches($0.text) }
                 .sorted { $0.updatedAt > $1.updatedAt }
+                .prefix(60)
+        )
+    }
+
+    private var matchingLogs: [SomaLog] {
+        guard !trimmedQuery.isEmpty else { return [] }
+        return Array(
+            store.logs
+                .filter { matches($0.title) }
+                .sorted { $0.day > $1.day }
                 .prefix(60)
         )
     }

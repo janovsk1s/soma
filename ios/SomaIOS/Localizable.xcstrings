@@ -1600,6 +1600,16 @@
           }
         }
       }
+    },
+    "spent · %@": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iztērēts · %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
