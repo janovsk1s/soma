@@ -1,0 +1,283 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		100000000000000000000101 /* SomaIOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000001 /* SomaIOSApp.swift */; };
+		100000000000000000000102 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000002 /* Models.swift */; };
+		100000000000000000000103 /* SomaStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000003 /* SomaStore.swift */; };
+		100000000000000000000104 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000004 /* AudioRecorder.swift */; };
+		100000000000000000000105 /* ContextDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000005 /* ContextDocument.swift */; };
+		100000000000000000000106 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000006 /* RootView.swift */; };
+		100000000000000000000107 /* AISettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000007 /* AISettings.swift */; };
+		100000000000000000000108 /* AIClients.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000008 /* AIClients.swift */; };
+		100000000000000000000109 /* SomaIntelligence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000009 /* SomaIntelligence.swift */; };
+		10000000000000000000010A /* SomaAppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000A /* SomaAppIntents.swift */; };
+		10000000000000000000010B /* SomaBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000B /* SomaBackground.swift */; };
+		10000000000000000000010C /* CameraCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000C /* CameraCapture.swift */; };
+		10000000000000000000010D /* en.webp in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000020 /* en.webp */; };
+		10000000000000000000010E /* lv.webp in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000021 /* lv.webp */; };
+		10000000000000000000010F /* et.webp in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000022 /* et.webp */; };
+		100000000000000000000110 /* lt.webp in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000023 /* lt.webp */; };
+		100000000000000000000111 /* fi.webp in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000024 /* fi.webp */; };
+		100000000000000000000112 /* sv.webp in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000025 /* sv.webp */; };
+		100000000000000000000113 /* de.webp in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000026 /* de.webp */; };
+		100000000000000000000114 /* sk.webp in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000027 /* sk.webp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		100000000000000000000001 /* SomaIOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomaIOSApp.swift; sourceTree = "<group>"; };
+		100000000000000000000002 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		100000000000000000000003 /* SomaStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomaStore.swift; sourceTree = "<group>"; };
+		100000000000000000000004 /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
+		100000000000000000000005 /* ContextDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextDocument.swift; sourceTree = "<group>"; };
+		100000000000000000000006 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		100000000000000000000007 /* AISettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISettings.swift; sourceTree = "<group>"; };
+		100000000000000000000008 /* AIClients.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIClients.swift; sourceTree = "<group>"; };
+		100000000000000000000009 /* SomaIntelligence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomaIntelligence.swift; sourceTree = "<group>"; };
+		10000000000000000000000A /* SomaAppIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomaAppIntents.swift; sourceTree = "<group>"; };
+		10000000000000000000000B /* SomaBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SomaBackground.swift; sourceTree = "<group>"; };
+		10000000000000000000000C /* CameraCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCapture.swift; sourceTree = "<group>"; };
+		100000000000000000000020 /* en.webp */ = {isa = PBXFileReference; lastKnownFileType = image.webp; name = en.webp; path = ../../lanserver/src/main/resources/com/soma/lanserver/forest/en.webp; sourceTree = "<group>"; };
+		100000000000000000000021 /* lv.webp */ = {isa = PBXFileReference; lastKnownFileType = image.webp; name = lv.webp; path = ../../lanserver/src/main/resources/com/soma/lanserver/forest/lv.webp; sourceTree = "<group>"; };
+		100000000000000000000022 /* et.webp */ = {isa = PBXFileReference; lastKnownFileType = image.webp; name = et.webp; path = ../../lanserver/src/main/resources/com/soma/lanserver/forest/et.webp; sourceTree = "<group>"; };
+		100000000000000000000023 /* lt.webp */ = {isa = PBXFileReference; lastKnownFileType = image.webp; name = lt.webp; path = ../../lanserver/src/main/resources/com/soma/lanserver/forest/lt.webp; sourceTree = "<group>"; };
+		100000000000000000000024 /* fi.webp */ = {isa = PBXFileReference; lastKnownFileType = image.webp; name = fi.webp; path = ../../lanserver/src/main/resources/com/soma/lanserver/forest/fi.webp; sourceTree = "<group>"; };
+		100000000000000000000025 /* sv.webp */ = {isa = PBXFileReference; lastKnownFileType = image.webp; name = sv.webp; path = ../../lanserver/src/main/resources/com/soma/lanserver/forest/sv.webp; sourceTree = "<group>"; };
+		100000000000000000000026 /* de.webp */ = {isa = PBXFileReference; lastKnownFileType = image.webp; name = de.webp; path = ../../lanserver/src/main/resources/com/soma/lanserver/forest/de.webp; sourceTree = "<group>"; };
+		100000000000000000000027 /* sk.webp */ = {isa = PBXFileReference; lastKnownFileType = image.webp; name = sk.webp; path = ../../lanserver/src/main/resources/com/soma/lanserver/forest/sk.webp; sourceTree = "<group>"; };
+		100000000000000000000010 /* SomaIOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SomaIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		100000000000000000000201 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		100000000000000000000300 = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000301 /* SomaIOS */,
+				100000000000000000000302 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		100000000000000000000301 /* SomaIOS */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000001 /* SomaIOSApp.swift */,
+				100000000000000000000002 /* Models.swift */,
+				100000000000000000000003 /* SomaStore.swift */,
+				100000000000000000000004 /* AudioRecorder.swift */,
+				100000000000000000000005 /* ContextDocument.swift */,
+				100000000000000000000006 /* RootView.swift */,
+				100000000000000000000007 /* AISettings.swift */,
+				100000000000000000000008 /* AIClients.swift */,
+				100000000000000000000009 /* SomaIntelligence.swift */,
+				10000000000000000000000A /* SomaAppIntents.swift */,
+				10000000000000000000000B /* SomaBackground.swift */,
+				10000000000000000000000C /* CameraCapture.swift */,
+				100000000000000000000020 /* en.webp */,
+				100000000000000000000021 /* lv.webp */,
+				100000000000000000000022 /* et.webp */,
+				100000000000000000000023 /* lt.webp */,
+				100000000000000000000024 /* fi.webp */,
+				100000000000000000000025 /* sv.webp */,
+				100000000000000000000026 /* de.webp */,
+				100000000000000000000027 /* sk.webp */,
+			);
+			path = SomaIOS;
+			sourceTree = "<group>";
+		};
+		100000000000000000000302 /* Products */ = {
+			isa = PBXGroup;
+			children = (100000000000000000000010 /* SomaIOS.app */);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		100000000000000000000400 /* SomaIOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 100000000000000000000501 /* Build configuration list for PBXNativeTarget "SomaIOS" */;
+			buildPhases = (
+				100000000000000000000202 /* Sources */,
+				100000000000000000000201 /* Frameworks */,
+				100000000000000000000203 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = SomaIOS;
+			productName = SomaIOS;
+			productReference = 100000000000000000000010 /* SomaIOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		100000000000000000000500 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {100000000000000000000400 = {CreatedOnToolsVersion = 26.6;};};
+			};
+			buildConfigurationList = 100000000000000000000502 /* Build configuration list for PBXProject "SomaIOS" */;
+			compatibilityVersion = "Xcode 16.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base);
+			mainGroup = 100000000000000000000300;
+			productRefGroup = 100000000000000000000302 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (100000000000000000000400 /* SomaIOS */);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		100000000000000000000203 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				10000000000000000000010D /* en.webp in Resources */,
+				10000000000000000000010E /* lv.webp in Resources */,
+				10000000000000000000010F /* et.webp in Resources */,
+				100000000000000000000110 /* lt.webp in Resources */,
+				100000000000000000000111 /* fi.webp in Resources */,
+				100000000000000000000112 /* sv.webp in Resources */,
+				100000000000000000000113 /* de.webp in Resources */,
+				100000000000000000000114 /* sk.webp in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		100000000000000000000202 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000101 /* SomaIOSApp.swift in Sources */,
+				100000000000000000000102 /* Models.swift in Sources */,
+				100000000000000000000103 /* SomaStore.swift in Sources */,
+				100000000000000000000104 /* AudioRecorder.swift in Sources */,
+				100000000000000000000105 /* ContextDocument.swift in Sources */,
+				100000000000000000000106 /* RootView.swift in Sources */,
+				100000000000000000000107 /* AISettings.swift in Sources */,
+				100000000000000000000108 /* AIClients.swift in Sources */,
+				100000000000000000000109 /* SomaIntelligence.swift in Sources */,
+				10000000000000000000010A /* SomaAppIntents.swift in Sources */,
+				10000000000000000000010B /* SomaBackground.swift in Sources */,
+				10000000000000000000010C /* CameraCapture.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		100000000000000000000601 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Soma;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Soma uses the camera only when you choose to capture a private photo note.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Soma uses the microphone only when you record a voice note.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Soma uses on-device speech recognition to turn your voice notes into editable text.";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soma.native;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		100000000000000000000602 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Soma;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Soma uses the camera only when you choose to capture a private photo note.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Soma uses the microphone only when you record a voice note.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Soma uses on-device speech recognition to turn your voice notes into editable text.";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.soma.native;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		100000000000000000000603 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+			};
+			name = Debug;
+		};
+		100000000000000000000604 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		100000000000000000000501 /* Build configuration list for PBXNativeTarget "SomaIOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (100000000000000000000601 /* Debug */, 100000000000000000000602 /* Release */);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		100000000000000000000502 /* Build configuration list for PBXProject "SomaIOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (100000000000000000000603 /* Debug */, 100000000000000000000604 /* Release */);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 100000000000000000000500 /* Project object */;
+}

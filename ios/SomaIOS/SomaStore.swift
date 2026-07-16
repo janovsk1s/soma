@@ -1,0 +1,750 @@
+import Foundation
+import Observation
+
+@MainActor
+@Observable
+final class SomaStore {
+    static let shared = SomaStore()
+    static let maximumTextBytes = 256 * 1_024
+
+    private(set) var entries: [SomaEntry] = []
+    private(set) var important: [ImportantItem] = []
+    private(set) var suggestions: [ImportantSuggestion] = []
+    private(set) var deviceID: UUID
+    private(set) var storageIssue: StoreError?
+    var selectedDay = Date()
+
+    private let fileManager: FileManager
+    private let storeURL: URL
+    private var storageIsReadable = true
+
+    init(fileManager: FileManager = .default) {
+        self.fileManager = fileManager
+        let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let directory = support.appending(path: "Soma", directoryHint: .isDirectory)
+        try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        storeURL = directory.appending(path: "context.json")
+
+        guard fileManager.fileExists(atPath: storeURL.path()) else {
+            deviceID = UUID()
+            return
+        }
+
+        do {
+            let data = try Data(contentsOf: storeURL)
+            let snapshot = try Self.decoder.decode(LocalSnapshot.self, from: data)
+            deviceID = snapshot.deviceID
+            entries = snapshot.entries.map(Self.sanitizedLocalEntry)
+            important = snapshot.important
+            suggestions = snapshot.suggestions ?? []
+        } catch {
+            deviceID = UUID()
+            storageIsReadable = false
+            storageIssue = .unavailable
+        }
+    }
+
+    var storageStatus: String {
+        storageIssue?.errorDescription ?? "Ready"
+    }
+
+    var selectedEntries: [SomaEntry] {
+        let day = SomaDay.key(selectedDay)
+        return entries
+            .filter { $0.day == day && !$0.isDeleted }
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    var openImportant: [ImportantItem] {
+        important
+            .filter { !$0.isDeleted && $0.state == .open }
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    var completedImportant: [ImportantItem] {
+        important
+            .filter { !$0.isDeleted && $0.state == .done }
+            .sorted { $0.updatedAt > $1.updatedAt }
+    }
+
+    func entry(id: UUID) -> SomaEntry? {
+        entries.first { $0.id == id && !$0.isDeleted }
+    }
+
+    @discardableResult
+    func addText(_ text: String) -> SomaEntry? {
+        guard let cleaned = Self.boundedText(text) else { return nil }
+        let now = Date()
+        let entry = SomaEntry(
+            id: UUID(),
+            day: SomaDay.key(selectedDay),
+            kind: .text,
+            text: cleaned,
+            createdAt: now,
+            updatedAt: now
+        )
+        return commit {
+            entries.append(entry)
+            return entry
+        }
+    }
+
+    @discardableResult
+    func addVoice(fileName: String, duration: TimeInterval) -> SomaEntry? {
+        guard Self.isValidAudioFileName(fileName) else { return nil }
+        let now = Date()
+        let entry = SomaEntry(
+            id: UUID(),
+            day: SomaDay.key(selectedDay),
+            kind: .voice,
+            text: "",
+            createdAt: now,
+            updatedAt: now,
+            audioFileName: fileName,
+            audioDuration: duration,
+            transcriptionState: .queued
+        )
+        return commit {
+            entries.append(entry)
+            return entry
+        }
+    }
+
+    @discardableResult
+    func addPhoto(fileName: String) -> SomaEntry? {
+        guard
+            Self.isValidImageFileName(fileName),
+            availableImageURL(fileName: fileName) != nil
+        else {
+            return nil
+        }
+        let now = Date()
+        let entry = SomaEntry(
+            id: UUID(),
+            day: SomaDay.key(selectedDay),
+            kind: .text,
+            text: "",
+            createdAt: now,
+            updatedAt: now,
+            imageFileName: fileName
+        )
+        return commit {
+            entries.append(entry)
+            return entry
+        }
+    }
+
+    @discardableResult
+    func update(entry: SomaEntry, text: String) -> SomaEntry? {
+        guard let index = entries.firstIndex(where: { $0.id == entry.id }) else { return nil }
+        guard let cleaned = Self.boundedText(text, allowingEmpty: true) else { return nil }
+        let now = Date()
+        return commit {
+            entries[index].text = cleaned
+            entries[index].updatedAt = now
+            entries[index].lastUserEditedAt = now
+            suggestions.removeAll { $0.entryID == entry.id }
+            return entries[index]
+        }
+    }
+
+    @discardableResult
+    func remove(entry: SomaEntry) -> Bool {
+        guard let index = entries.firstIndex(where: { $0.id == entry.id }) else { return false }
+        let audioURL = entries[index].audioFileName.flatMap {
+            availableAudioURL(fileName: $0)
+        }
+        let imageURL = entries[index].imageFileName.flatMap {
+            availableImageURL(fileName: $0)
+        }
+        let saved = commit {
+            let now = Date()
+            entries[index].deletedAt = now
+            entries[index].updatedAt = now
+            entries[index].audioFileName = nil
+            entries[index].audioDuration = nil
+            entries[index].imageFileName = nil
+            entries[index].transcriptionRunID = nil
+            suggestions.removeAll { $0.entryID == entry.id }
+            return true
+        } == true
+        if saved, let audioURL {
+            try? fileManager.removeItem(at: audioURL)
+        }
+        if saved, let imageURL {
+            try? fileManager.removeItem(at: imageURL)
+        }
+        return saved
+    }
+
+    @discardableResult
+    func setTranscriptionState(_ state: TranscriptionState, for entryID: UUID) -> Bool {
+        guard let index = entries.firstIndex(where: { $0.id == entryID }) else { return false }
+        return commit {
+            entries[index].transcriptionState = state
+            if state != .running {
+                entries[index].transcriptionRunID = nil
+            }
+            entries[index].updatedAt = Date()
+            return true
+        } == true
+    }
+
+    func beginTranscription(entryID: UUID, fileName: String) -> UUID? {
+        guard
+            let index = entries.firstIndex(where: { $0.id == entryID }),
+            !entries[index].isDeleted,
+            entries[index].kind == .voice,
+            entries[index].audioFileName == fileName
+        else {
+            return nil
+        }
+        let runID = UUID()
+        return commit {
+            entries[index].transcriptionState = .running
+            entries[index].transcriptionRunID = runID
+            entries[index].updatedAt = Date()
+            return runID
+        }
+    }
+
+    @discardableResult
+    func requeueTranscription(entryID: UUID, runID: UUID) -> Bool {
+        guard
+            let index = entries.firstIndex(where: { $0.id == entryID }),
+            entries[index].transcriptionRunID == runID
+        else {
+            return false
+        }
+        return commit {
+            entries[index].transcriptionState = .queued
+            entries[index].transcriptionRunID = nil
+            entries[index].updatedAt = Date()
+            return true
+        } == true
+    }
+
+    func completeTranscription(
+        entryID: UUID,
+        runID: UUID,
+        fileName: String,
+        text: String,
+        provenance: TranscriptionProvenance
+    ) -> SomaEntry? {
+        guard
+            let index = entries.firstIndex(where: { $0.id == entryID }),
+            !entries[index].isDeleted,
+            entries[index].transcriptionRunID == runID,
+            entries[index].audioFileName == fileName
+        else {
+            return nil
+        }
+        guard let cleaned = Self.boundedText(text) else {
+            _ = failTranscription(entryID: entryID, runID: runID)
+            return nil
+        }
+        return commit {
+            if entries[index].lastUserEditedAt == nil {
+                entries[index].text = cleaned
+            }
+            entries[index].transcriptionState = .succeeded
+            entries[index].transcriptionProvenance = provenance
+            entries[index].transcriptionRunID = nil
+            entries[index].updatedAt = Date()
+            return entries[index]
+        }
+    }
+
+    @discardableResult
+    func failTranscription(entryID: UUID, runID: UUID? = nil) -> Bool {
+        guard
+            let index = entries.firstIndex(where: { $0.id == entryID }),
+            runID == nil || entries[index].transcriptionRunID == runID
+        else {
+            return false
+        }
+        return commit {
+            entries[index].transcriptionState = .failed
+            entries[index].transcriptionRunID = nil
+            entries[index].updatedAt = Date()
+            return true
+        } == true
+    }
+
+    @discardableResult
+    func makeImportant(from entry: SomaEntry) -> Bool {
+        guard let cleaned = Self.boundedText(entry.text) else { return false }
+        let now = Date()
+        return commit {
+            important.append(
+                ImportantItem(
+                    id: UUID(),
+                    text: cleaned,
+                    state: .open,
+                    createdAt: now,
+                    updatedAt: now,
+                    sourceEntryID: entry.id
+                )
+            )
+            return true
+        } == true
+    }
+
+    @discardableResult
+    func addImportant(_ text: String) -> Bool {
+        guard let cleaned = Self.boundedText(text) else { return false }
+        let now = Date()
+        return commit {
+            important.append(
+                ImportantItem(
+                    id: UUID(),
+                    text: cleaned,
+                    state: .open,
+                    createdAt: now,
+                    updatedAt: now
+                )
+            )
+            return true
+        } == true
+    }
+
+    @discardableResult
+    func toggle(_ item: ImportantItem) -> Bool {
+        guard let index = important.firstIndex(where: { $0.id == item.id }) else { return false }
+        return commit {
+            important[index].state = important[index].state == .open ? .done : .open
+            important[index].updatedAt = Date()
+            return true
+        } == true
+    }
+
+    @discardableResult
+    func remove(_ item: ImportantItem) -> Bool {
+        guard let index = important.firstIndex(where: { $0.id == item.id }) else { return false }
+        return commit {
+            let now = Date()
+            important[index].deletedAt = now
+            important[index].updatedAt = now
+            return true
+        } == true
+    }
+
+    func pendingSuggestions(for entryID: UUID) -> [ImportantSuggestion] {
+        suggestions
+            .filter { $0.entryID == entryID && $0.isPending }
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    func replaceSuggestions(
+        for entryID: UUID,
+        sourceUpdatedAt: Date,
+        texts: [String],
+        engine: SuggestionEngine
+    ) {
+        guard entry(id: entryID)?.updatedAt == sourceUpdatedAt else { return }
+        let boundedTexts = texts.compactMap { Self.boundedText($0) }
+        _ = commit {
+            suggestions.removeAll { $0.entryID == entryID }
+            let now = Date()
+            suggestions.append(contentsOf: boundedTexts.prefix(3).map {
+                ImportantSuggestion(
+                    id: UUID(),
+                    entryID: entryID,
+                    text: $0,
+                    engine: engine,
+                    createdAt: now
+                )
+            })
+            return true
+        }
+    }
+
+    @discardableResult
+    func accept(_ suggestion: ImportantSuggestion) -> Bool {
+        guard let index = suggestions.firstIndex(where: { $0.id == suggestion.id }) else {
+            return false
+        }
+        guard let cleaned = Self.boundedText(suggestions[index].text) else { return false }
+        return commit {
+            let now = Date()
+            important.append(
+                ImportantItem(
+                    id: UUID(),
+                    text: cleaned,
+                    state: .open,
+                    createdAt: now,
+                    updatedAt: now
+                )
+            )
+            suggestions[index].dismissedAt = now
+            return true
+        } == true
+    }
+
+    @discardableResult
+    func dismiss(_ suggestion: ImportantSuggestion) -> Bool {
+        guard let index = suggestions.firstIndex(where: { $0.id == suggestion.id }) else {
+            return false
+        }
+        return commit {
+            suggestions[index].dismissedAt = Date()
+            return true
+        } == true
+    }
+
+    func contextBundle() -> SomaContextBundle {
+        SomaContextBundle(
+            schemaVersion: SomaContextBundle.currentSchemaVersion,
+            exportedAt: Date(),
+            sourceDeviceID: deviceID,
+            entries: entries.map(Self.exportableEntry),
+            important: important.map(Self.exportableImportant)
+        )
+    }
+
+    func merge(_ bundle: SomaContextBundle) throws {
+        guard SomaContextBundle.supportedSchemaVersions.contains(bundle.schemaVersion) else {
+            throw ContextError.unsupportedSchema(bundle.schemaVersion)
+        }
+        try Self.validate(bundle)
+        let sanitizedEntries = bundle.entries.map(Self.exportableEntry)
+        let sanitizedImportant = bundle.important.map(Self.exportableImportant)
+        guard commit({
+            entries = Self.mergeEntries(local: entries, incoming: sanitizedEntries)
+            important = Self.merge(local: important, incoming: sanitizedImportant)
+            return true
+        }) == true else {
+            throw ContextError.persistenceFailed
+        }
+    }
+
+    func audioURL(fileName: String) -> URL? {
+        guard Self.isValidAudioFileName(fileName) else { return nil }
+        let directory = storeURL.deletingLastPathComponent()
+            .appending(path: "Audio", directoryHint: .isDirectory)
+            .standardizedFileURL
+        let url = directory.appending(path: fileName).standardizedFileURL
+        guard url.deletingLastPathComponent() == directory else { return nil }
+        return url
+    }
+
+    func availableAudioURL(fileName: String) -> URL? {
+        guard let url = audioURL(fileName: fileName) else { return nil }
+        guard
+            let values = try? url.resourceValues(
+                forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+            ),
+            values.isRegularFile == true,
+            values.isSymbolicLink != true
+        else {
+            return nil
+        }
+        return url
+    }
+
+    func imageURL(fileName: String) -> URL? {
+        guard Self.isValidImageFileName(fileName) else { return nil }
+        let directory = storeURL.deletingLastPathComponent()
+            .appending(path: "Photos", directoryHint: .isDirectory)
+            .standardizedFileURL
+        let url = directory.appending(path: fileName).standardizedFileURL
+        guard url.deletingLastPathComponent() == directory else { return nil }
+        return url
+    }
+
+    func availableImageURL(fileName: String) -> URL? {
+        guard let url = imageURL(fileName: fileName) else { return nil }
+        guard
+            let values = try? url.resourceValues(
+                forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+            ),
+            values.isRegularFile == true,
+            values.isSymbolicLink != true
+        else {
+            return nil
+        }
+        return url
+    }
+
+    func audioDirectory() throws -> URL {
+        let url = storeURL.deletingLastPathComponent()
+            .appending(path: "Audio", directoryHint: .isDirectory)
+        try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
+        try? fileManager.setAttributes(
+            [.protectionKey: FileProtectionType.complete],
+            ofItemAtPath: url.path()
+        )
+        return url
+    }
+
+    func imageDirectory() throws -> URL {
+        var url = storeURL.deletingLastPathComponent()
+            .appending(path: "Photos", directoryHint: .isDirectory)
+        try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
+        try? fileManager.setAttributes(
+            [.protectionKey: FileProtectionType.complete],
+            ofItemAtPath: url.path()
+        )
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try? url.setResourceValues(values)
+        return url
+    }
+
+    private func commit<T>(_ mutation: () -> T) -> T? {
+        guard storageIsReadable else {
+            storageIssue = .unavailable
+            return nil
+        }
+        let previousEntries = entries
+        let previousImportant = important
+        let previousSuggestions = suggestions
+        let value = mutation()
+        guard writeSnapshot() else {
+            entries = previousEntries
+            important = previousImportant
+            suggestions = previousSuggestions
+            return nil
+        }
+        return value
+    }
+
+    private func writeSnapshot() -> Bool {
+        let snapshot = LocalSnapshot(
+            deviceID: deviceID,
+            entries: entries,
+            important: important,
+            suggestions: suggestions
+        )
+        do {
+            let data = try Self.encoder.encode(snapshot)
+            try data.write(to: storeURL, options: [.atomic, .completeFileProtection])
+            storageIssue = nil
+            return true
+        } catch {
+            storageIssue = .writeFailed
+            return false
+        }
+    }
+
+    private static func merge<T: Identifiable>(
+        local: [T],
+        incoming: [T]
+    ) -> [T] where T.ID == UUID, T: ContextRecord {
+        var merged = Dictionary(uniqueKeysWithValues: local.map { ($0.id, $0) })
+        for record in incoming {
+            if let current = merged[record.id], current.updatedAt >= record.updatedAt {
+                continue
+            }
+            merged[record.id] = record
+        }
+        return Array(merged.values)
+    }
+
+    private static func validate(_ bundle: SomaContextBundle) throws {
+        let maximumRecords = 50_000
+        guard
+            bundle.entries.count <= maximumRecords,
+            bundle.important.count <= maximumRecords,
+            Set(bundle.entries.map(\.id)).count == bundle.entries.count,
+            Set(bundle.important.map(\.id)).count == bundle.important.count
+        else {
+            throw ContextError.invalidBundle
+        }
+        for entry in bundle.entries {
+            guard
+                entry.day.utf8.count <= 32,
+                entry.text.utf8.count <= maximumTextBytes,
+                entry.audioDuration.map({
+                    $0.isFinite && $0 >= 0 && $0 <= 24 * 60 * 60
+                }) ?? true
+            else {
+                throw ContextError.invalidBundle
+            }
+        }
+        guard bundle.important.allSatisfy({ $0.text.utf8.count <= maximumTextBytes }) else {
+            throw ContextError.invalidBundle
+        }
+    }
+
+    private static func mergeEntries(
+        local: [SomaEntry],
+        incoming: [SomaEntry]
+    ) -> [SomaEntry] {
+        var merged = Dictionary(uniqueKeysWithValues: local.map { ($0.id, $0) })
+        for record in incoming {
+            guard let current = merged[record.id] else {
+                merged[record.id] = record
+                continue
+            }
+
+            var resolved = current.updatedAt >= record.updatedAt ? current : record
+            let latestUserEdit: SomaEntry?
+            switch (current.lastUserEditedAt, record.lastUserEditedAt) {
+            case let (localDate?, incomingDate?):
+                latestUserEdit = localDate >= incomingDate ? current : record
+            case (.some, .none):
+                latestUserEdit = current
+            case (.none, .some):
+                latestUserEdit = record
+            case (.none, .none):
+                latestUserEdit = nil
+            }
+            if let latestUserEdit {
+                resolved.text = latestUserEdit.text
+                resolved.lastUserEditedAt = latestUserEdit.lastUserEditedAt
+            }
+            if
+                resolved.deletedAt == nil,
+                current.deletedAt == nil,
+                let localAudioFileName = current.audioFileName,
+                resolved.audioFileName == nil
+            {
+                resolved.kind = .voice
+                resolved.audioFileName = localAudioFileName
+                resolved.audioDuration = current.audioDuration
+            }
+            if
+                resolved.deletedAt == nil,
+                current.deletedAt == nil,
+                let localImageFileName = current.imageFileName,
+                resolved.imageFileName == nil
+            {
+                resolved.imageFileName = localImageFileName
+            }
+            merged[record.id] = resolved
+        }
+        return Array(merged.values)
+    }
+
+    private static func sanitizedLocalEntry(_ entry: SomaEntry) -> SomaEntry {
+        var sanitized = entry
+        if let fileName = sanitized.audioFileName, !isValidAudioFileName(fileName) {
+            sanitized.audioFileName = nil
+            sanitized.audioDuration = nil
+            if sanitized.kind == .voice && sanitized.text.isEmpty {
+                sanitized.transcriptionState = .failed
+            }
+        }
+        if let fileName = sanitized.imageFileName, !isValidImageFileName(fileName) {
+            sanitized.imageFileName = nil
+        }
+        return sanitized
+    }
+
+    private static func exportableEntry(_ entry: SomaEntry) -> SomaEntry {
+        var portable = entry
+        portable.audioFileName = nil
+        portable.audioDuration = nil
+        portable.imageFileName = nil
+        portable.transcriptionRunID = nil
+        if portable.isDeleted {
+            portable.text = ""
+            portable.transcriptionProvenance = nil
+        }
+        return portable
+    }
+
+    private static func exportableImportant(_ item: ImportantItem) -> ImportantItem {
+        guard item.isDeleted else { return item }
+        var portable = item
+        portable.text = ""
+        return portable
+    }
+
+    private static func boundedText(
+        _ text: String,
+        allowingEmpty: Bool = false
+    ) -> String? {
+        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard
+            (allowingEmpty || !cleaned.isEmpty),
+            cleaned.utf8.count <= maximumTextBytes
+        else {
+            return nil
+        }
+        return cleaned
+    }
+
+    private static func isValidAudioFileName(_ fileName: String) -> Bool {
+        guard
+            fileName == URL(fileURLWithPath: fileName).lastPathComponent,
+            !fileName.contains("/"),
+            !fileName.contains("\\"),
+            fileName.hasSuffix(".m4a")
+        else {
+            return false
+        }
+        return UUID(uuidString: String(fileName.dropLast(4))) != nil
+    }
+
+    private static func isValidImageFileName(_ fileName: String) -> Bool {
+        guard
+            fileName == URL(fileURLWithPath: fileName).lastPathComponent,
+            !fileName.contains("/"),
+            !fileName.contains("\\"),
+            fileName.hasSuffix(".jpg")
+        else {
+            return false
+        }
+        return UUID(uuidString: String(fileName.dropLast(4))) != nil
+    }
+
+    private struct LocalSnapshot: Codable {
+        var deviceID: UUID
+        var entries: [SomaEntry]
+        var important: [ImportantItem]
+        var suggestions: [ImportantSuggestion]?
+    }
+
+    private static let encoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return encoder
+    }()
+
+    private static let decoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }()
+}
+
+private protocol ContextRecord {
+    var updatedAt: Date { get }
+}
+
+extension SomaEntry: ContextRecord {}
+extension ImportantItem: ContextRecord {}
+
+enum ContextError: LocalizedError {
+    case unsupportedSchema(Int)
+    case invalidBundle
+    case persistenceFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .unsupportedSchema(let version):
+            "This context bundle uses unsupported schema version \(version)."
+        case .invalidBundle:
+            "This context bundle is invalid or too large."
+        case .persistenceFailed:
+            "The merged context could not be saved."
+        }
+    }
+}
+
+enum StoreError: LocalizedError {
+    case unavailable
+    case writeFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .unavailable:
+            "Protected storage is unavailable"
+        case .writeFailed:
+            "Couldn’t save changes"
+        }
+    }
+}

@@ -1,0 +1,846 @@
+import AVKit
+import SwiftUI
+
+struct RootView: View {
+    var body: some View {
+        ZStack {
+            SomaForestBackground()
+
+            TabView {
+                Tab("Today", systemImage: "circle.fill") {
+                    TodayView()
+                }
+                Tab("Important", systemImage: "checkmark.circle") {
+                    ImportantView()
+                }
+                Tab("Settings", systemImage: "gearshape") {
+                    SettingsView()
+                }
+            }
+            .tint(.primary)
+            .modifier(LatestTabBehavior())
+        }
+    }
+}
+
+private struct TodayView: View {
+    @Environment(SomaStore.self) private var store
+    @Environment(SomaIntelligence.self) private var intelligence
+    @State private var showingCapture = false
+    @State private var showingCamera = false
+    @State private var editingEntry: SomaEntry?
+    @State private var recorder = AudioRecorder()
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if store.selectedEntries.isEmpty {
+                    ContentUnavailableView(
+                        "Nothing here yet",
+                        systemImage: "circle",
+                        description: Text("Drop a thought and return to your day.")
+                    )
+                } else {
+                    List {
+                        ForEach(store.selectedEntries) { entry in
+                            VStack(alignment: .leading, spacing: 8) {
+                                EntryRow(entry: entry)
+                                    .contentShape(.rect)
+                                    .onTapGesture { editingEntry = entry }
+                                    .contextMenu {
+                                        Button("Make Important", systemImage: "checkmark.circle") {
+                                            if !store.makeImportant(from: entry) {
+                                                errorMessage = saveFailureMessage
+                                            }
+                                        }
+                                        Button("Suggest Important", systemImage: "sparkles") {
+                                            Task { await intelligence.processNewEntry(entry) }
+                                        }
+                                        if
+                                            entry.kind == .voice,
+                                            entry.transcriptionState == .failed
+                                        {
+                                            Button("Transcribe Again", systemImage: "waveform.badge.mic") {
+                                                intelligence.retryTranscription(for: entry)
+                                            }
+                                        }
+                                        Button("Delete", systemImage: "trash", role: .destructive) {
+                                            withAnimation { _ = store.remove(entry: entry) }
+                                        }
+                                    }
+                                if let suggestion = store.pendingSuggestions(for: entry.id).first {
+                                    SuggestionRow(suggestion: suggestion)
+                                        .transition(.opacity.combined(with: .move(edge: .top)))
+                                }
+                            }
+                            .animation(.snappy, value: store.pendingSuggestions(for: entry.id))
+                            .listRowSeparator(
+                                store.pendingSuggestions(for: entry.id).isEmpty ? .automatic : .hidden
+                            )
+                            .listRowBackground(Color.clear)
+                        }
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                }
+            }
+            .background { SomaScreenBackground() }
+            .navigationTitle(store.selectedDay.formatted(.dateTime.weekday(.wide).month().day()))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Previous day", systemImage: "chevron.left") {
+                        withAnimation {
+                            store.selectedDay = Calendar.autoupdatingCurrent.date(
+                                byAdding: .day,
+                                value: -1,
+                                to: store.selectedDay
+                            ) ?? store.selectedDay
+                        }
+                    }
+                    .labelStyle(.iconOnly)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Today", systemImage: "calendar") {
+                        withAnimation { store.selectedDay = Date() }
+                    }
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                CaptureBar(
+                    recorder: recorder,
+                    onText: { showingCapture = true },
+                    onCamera: { showingCamera = true },
+                    onRecord: toggleRecording
+                )
+                .padding(.horizontal, 12)
+            }
+            .sheet(isPresented: $showingCapture) {
+                CaptureSheet(title: "New thought") { text in
+                    guard let entry = store.addText(text) else { return false }
+                    Task { await intelligence.processNewEntry(entry) }
+                    return true
+                }
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
+            .sheet(item: $editingEntry) { entry in
+                EntryEditor(entry: entry)
+            }
+            .fullScreenCover(isPresented: $showingCamera) {
+                OneShotCameraView(onCaptured: savePhoto)
+            }
+            .alert("Soma", isPresented: .constant(errorMessage != nil)) {
+                Button("OK") { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "")
+            }
+        }
+    }
+
+    private var saveFailureMessage: String {
+        "Couldn’t save this text. It may be too long, or protected storage may be unavailable."
+    }
+
+    private func toggleRecording() {
+        if recorder.isRecording {
+            recorder.stop()
+            return
+        }
+        Task {
+            do {
+                let directory = try store.audioDirectory()
+                try await recorder.start(in: directory) { fileName, duration in
+                    guard let entry = store.addVoice(fileName: fileName, duration: duration) else {
+                        try? FileManager.default.removeItem(
+                            at: directory.appending(path: fileName)
+                        )
+                        errorMessage = store.storageStatus
+                        return
+                    }
+                    Task { await intelligence.transcribe(entry) }
+                }
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func savePhoto(_ photo: CapturedPhoto) async throws {
+        let directory = try store.imageDirectory()
+        let fileName = "\(UUID().uuidString).jpg"
+        let url = directory.appending(path: fileName)
+        let data = photo.jpegData
+
+        try await Task.detached(priority: .userInitiated) {
+            try data.write(to: url, options: [.atomic, .completeFileProtection])
+        }.value
+
+        guard store.addPhoto(fileName: fileName) != nil else {
+            try? FileManager.default.removeItem(at: url)
+            throw StoreError.writeFailed
+        }
+    }
+}
+
+private struct CaptureBar: View {
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    let recorder: AudioRecorder
+    let onText: () -> Void
+    let onCamera: () -> Void
+    let onRecord: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button(action: onText) {
+                HStack {
+                    Text(recorder.isRecording ? recorder.elapsed.formattedDuration : "Write something")
+                    Spacer()
+                    Image(systemName: "square.and.pencil")
+                }
+                .padding(.horizontal, 16)
+                .frame(height: controlSize)
+            }
+            .buttonStyle(.plain)
+            .modifier(NativeGlassCapsule())
+            .disabled(recorder.isRecording)
+
+            Button(action: onCamera) {
+                Image(systemName: "camera.fill")
+                    .font(.body)
+                    .frame(width: controlSize, height: controlSize)
+            }
+            .buttonStyle(.plain)
+            .modifier(NativeGlassCircle())
+            .disabled(recorder.isRecording)
+
+            Button(action: onRecord) {
+                Image(systemName: recorder.isRecording ? "stop.fill" : "mic.fill")
+                    .font(.title3)
+                    .frame(width: controlSize, height: controlSize)
+                    .foregroundStyle(recorder.isRecording ? .white : .primary)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.plain)
+            .modifier(NativeRecordControl(recording: recorder.isRecording))
+            .sensoryFeedback(.impact, trigger: recorder.isRecording)
+        }
+    }
+
+    private var controlSize: CGFloat {
+        verticalSizeClass == .compact ? 44 : 50
+    }
+}
+
+private struct EntryRow: View {
+    @Environment(SomaStore.self) private var store
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    let entry: SomaEntry
+    @State private var player: AVPlayer?
+
+    var body: some View {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 5))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 10))
+
+        layout {
+            Text(entry.createdAt.formatted(date: .omitted, time: .shortened))
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(
+                    width: dynamicTypeSize.isAccessibilitySize ? nil : 54,
+                    alignment: .leading
+                )
+
+            VStack(alignment: .leading, spacing: 5) {
+                if let fileName = entry.imageFileName {
+                    EntryPhoto(fileName: fileName)
+                    if !entry.text.isEmpty {
+                        Text(entry.text)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                } else if entry.kind == .voice, let fileName = entry.audioFileName {
+                    Button {
+                        guard let url = store.availableAudioURL(fileName: fileName) else { return }
+                        let player = AVPlayer(url: url)
+                        self.player = player
+                        player.play()
+                    } label: {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Image(systemName: "waveform")
+                            voiceLabel
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Text(entry.text)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if let provenance = entry.transcriptionProvenance {
+                    Text(provenanceLabel(provenance))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private var voiceLabel: some View {
+        switch entry.transcriptionState {
+        case .queued, .running:
+            if entry.text.isEmpty {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Transcribing…")
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Text(entry.text)
+            }
+        case .failed:
+            if entry.text.isEmpty {
+                Text("Voice note · transcription unavailable")
+                    .foregroundStyle(.secondary)
+            } else {
+                Text(entry.text)
+            }
+        default:
+            Text(entry.text.isEmpty ? "Voice note" : entry.text)
+        }
+    }
+
+    private func provenanceLabel(_ provenance: TranscriptionProvenance) -> String {
+        if let reason = provenance.fallbackReason {
+            return "\(provenance.usedEngine.displayName) · \(reason.displayName)"
+        }
+        return provenance.usedEngine.displayName
+    }
+}
+
+private struct EntryPhoto: View {
+    @Environment(SomaStore.self) private var store
+    let fileName: String
+    @State private var image: UIImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 220)
+                    .clipped()
+            } else {
+                ZStack {
+                    Rectangle().fill(.quaternary)
+                    ProgressView()
+                }
+                .frame(height: 180)
+            }
+        }
+        .clipShape(.rect(cornerRadius: 12))
+        .privacySensitive()
+        .task(id: fileName) {
+            guard let url = store.availableImageURL(fileName: fileName) else { return }
+            let data = await Task.detached(priority: .utility) {
+                try? Data(contentsOf: url, options: [.mappedIfSafe])
+            }.value
+            image = data.flatMap(UIImage.init(data:))
+        }
+    }
+}
+
+private struct SuggestionRow: View {
+    @Environment(SomaStore.self) private var store
+    let suggestion: ImportantSuggestion
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "sparkles")
+                .foregroundStyle(.secondary)
+            Button {
+                withAnimation { _ = store.accept(suggestion) }
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Important?")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(suggestion.text)
+                        .foregroundStyle(.primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .buttonStyle(.plain)
+            Button("Dismiss", systemImage: "xmark") {
+                withAnimation { _ = store.dismiss(suggestion) }
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.borderless)
+            .frame(minWidth: 44, minHeight: 44)
+        }
+        .padding(10)
+        .background(.quaternary, in: .rect(cornerRadius: 14))
+        .accessibilityElement(children: .contain)
+        .accessibilityHint("Tap the suggestion to add it to Important.")
+        .contextMenu {
+            Text(suggestion.engine.displayName)
+        }
+    }
+}
+
+private struct EntryEditor: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(SomaStore.self) private var store
+    @Environment(SomaIntelligence.self) private var intelligence
+    let entry: SomaEntry
+    @State private var text: String
+    @State private var errorMessage: String?
+
+    init(entry: SomaEntry) {
+        self.entry = entry
+        _text = State(initialValue: entry.text)
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                if let fileName = entry.imageFileName {
+                    EntryPhoto(fileName: fileName)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+                }
+                TextEditor(text: $text)
+                    .font(.body)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+            }
+                .navigationTitle("Entry")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { dismiss() }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") {
+                            guard let updated = store.update(entry: entry, text: text) else {
+                                errorMessage = "Couldn’t save this edit. It may be too long, or protected storage may be unavailable."
+                                return
+                            }
+                            Task { await intelligence.processNewEntry(updated) }
+                            dismiss()
+                        }
+                    }
+                }
+        }
+        .alert("Couldn’t save", isPresented: .constant(errorMessage != nil)) {
+            Button("OK") { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
+        }
+    }
+}
+
+private struct CaptureSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let title: String
+    let onSave: (String) -> Bool
+    @State private var text = ""
+    @State private var errorMessage: String?
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        NavigationStack {
+            TextEditor(text: $text)
+                .focused($focused)
+                .font(.title3)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .navigationTitle(title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { dismiss() }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") {
+                            if onSave(text) {
+                                dismiss()
+                            } else {
+                                errorMessage = "Couldn’t save this text. It may be too long, or protected storage may be unavailable."
+                            }
+                        }
+                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
+        }
+        .onAppear { focused = true }
+        .alert("Couldn’t save", isPresented: .constant(errorMessage != nil)) {
+            Button("OK") { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
+        }
+    }
+}
+
+private struct ImportantView: View {
+    @Environment(SomaStore.self) private var store
+    @State private var showingCapture = false
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if !store.openImportant.isEmpty {
+                    Section {
+                        ForEach(store.openImportant) { item in
+                            ImportantRow(item: item)
+                                .listRowBackground(Color.clear)
+                        }
+                    }
+                }
+                if !store.completedImportant.isEmpty {
+                    Section("Completed") {
+                        ForEach(store.completedImportant) { item in
+                            ImportantRow(item: item)
+                                .listRowBackground(Color.clear)
+                        }
+                    }
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background { SomaScreenBackground() }
+            .overlay {
+                if store.openImportant.isEmpty && store.completedImportant.isEmpty {
+                    ContentUnavailableView(
+                        "Nothing important",
+                        systemImage: "checkmark.circle",
+                        description: Text("Keep only what still needs your attention.")
+                    )
+                }
+            }
+            .navigationTitle("Important")
+            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar {
+                Button("Add", systemImage: "plus") { showingCapture = true }
+            }
+            .sheet(isPresented: $showingCapture) {
+                CaptureSheet(title: "New important item") { store.addImportant($0) }
+                    .presentationDetents([.medium, .large])
+            }
+        }
+    }
+}
+
+private struct ImportantRow: View {
+    @Environment(SomaStore.self) private var store
+    let item: ImportantItem
+
+    var body: some View {
+        Button {
+            withAnimation { _ = store.toggle(item) }
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Image(systemName: item.state == .open ? "circle" : "checkmark.circle.fill")
+                    .contentTransition(.symbolEffect(.replace))
+                Text(item.text)
+                    .strikethrough(item.state == .done)
+                    .foregroundStyle(item.state == .done ? .secondary : .primary)
+                Spacer()
+            }
+        }
+        .buttonStyle(.plain)
+        .swipeActions {
+            Button("Delete", systemImage: "trash", role: .destructive) {
+                _ = store.remove(item)
+            }
+        }
+    }
+}
+
+private struct SettingsView: View {
+    @Environment(SomaStore.self) private var store
+    @State private var exporting = false
+    @State private var confirmingReadableExport = false
+    @State private var importing = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Button("Export readable context", systemImage: "square.and.arrow.up") {
+                        confirmingReadableExport = true
+                    }
+                    .disabled(store.storageIssue != nil)
+                    Button("Import and merge", systemImage: "square.and.arrow.down") {
+                        importing = true
+                    }
+                    .disabled(store.storageIssue != nil)
+                } header: {
+                    Text("Context")
+                } footer: {
+                    Text("The exported JSON contains readable note text. Keep it somewhere private. API keys, AI suggestions, settings, audio, and photos are never included.")
+                }
+                Section("System") {
+                    NavigationLink {
+                        IntelligenceSettingsView()
+                    } label: {
+                        Label("Intelligence", systemImage: "apple.intelligence")
+                    }
+                    LabeledContent("Siri & Shortcuts", value: "2 actions")
+                }
+                Section {
+                    LabeledContent("Storage", value: "On this iPhone")
+                    LabeledContent("Storage status", value: store.storageStatus)
+                    LabeledContent("Sync", value: "Manual context bundles")
+                } footer: {
+                    Text("Bundles merge by stable IDs and newest edit. This is the boundary a future encrypted device-to-device sync service will use.")
+                }
+                Section("About") {
+                    LabeledContent("Soma", value: "Native iOS preview")
+                    LabeledContent("Context schema", value: "\(SomaContextBundle.currentSchemaVersion)")
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background { SomaScreenBackground() }
+            .navigationTitle("Settings")
+            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .confirmationDialog(
+                "Export readable context?",
+                isPresented: $confirmingReadableExport,
+                titleVisibility: .visible
+            ) {
+                Button("Export") { exporting = true }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Anyone with the exported file can read its note text and Important items.")
+            }
+            .fileExporter(
+                isPresented: $exporting,
+                document: SomaContextDocument(bundle: store.contextBundle()),
+                contentType: .somaContext,
+                defaultFilename: "Soma Context"
+            ) { result in
+                if case .failure(let error) = result { errorMessage = error.localizedDescription }
+            }
+            .fileImporter(
+                isPresented: $importing,
+                allowedContentTypes: [.somaContext, .json]
+            ) { result in
+                do {
+                    let url = try result.get()
+                    let accessing = url.startAccessingSecurityScopedResource()
+                    defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+                    let values = try url.resourceValues(
+                        forKeys: [.fileSizeKey, .isRegularFileKey, .isSymbolicLinkKey]
+                    )
+                    guard
+                        values.isRegularFile == true,
+                        values.isSymbolicLink != true,
+                        (values.fileSize ?? 0) <= 16 * 1_024 * 1_024
+                    else {
+                        throw ContextError.invalidBundle
+                    }
+                    let data = try Data(contentsOf: url, options: [.mappedIfSafe])
+                    guard data.count <= 16 * 1_024 * 1_024 else {
+                        throw ContextError.invalidBundle
+                    }
+                    let decoder = JSONDecoder()
+                    decoder.dateDecodingStrategy = .iso8601
+                    try store.merge(decoder.decode(SomaContextBundle.self, from: data))
+                } catch {
+                    errorMessage = error.localizedDescription
+                }
+            }
+            .alert("Couldn’t complete that", isPresented: .constant(errorMessage != nil)) {
+                Button("OK") { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "")
+            }
+        }
+    }
+}
+
+private struct IntelligenceSettingsView: View {
+    @Environment(SomaIntelligence.self) private var intelligence
+    @State private var editingProvider: CloudSpeechProvider?
+    @State private var keyText = ""
+    @State private var errorMessage: String?
+
+    var body: some View {
+        @Bindable var settings = intelligence.settings
+        Form {
+            Section {
+                Toggle("Transcribe voice notes", isOn: $settings.voiceTranscriptionEnabled)
+                Toggle("Suggest Important items", isOn: $settings.onDeviceSuggestionsEnabled)
+                LabeledContent("Apple Speech", value: intelligence.speechModelStatus)
+                LabeledContent("Foundation Models", value: intelligence.foundationModelStatus)
+            } header: {
+                Text("On Device")
+            } footer: {
+                Text("On-device processing keeps note text and audio on this iPhone.")
+            }
+
+            Section {
+                Toggle("Cloud transcription", isOn: $settings.cloudTranscriptionEnabled)
+                Toggle("Groq Important suggestions", isOn: $settings.cloudSuggestionsEnabled)
+                Picker("Speech provider", selection: $settings.provider) {
+                    ForEach(CloudSpeechProvider.allCases) { provider in
+                        Text(provider.displayName).tag(provider)
+                    }
+                }
+                if settings.provider == .groq {
+                    Picker("Groq speech model", selection: $settings.groqModel) {
+                        ForEach(GroqSpeechModel.allCases) { model in
+                            Text(model.displayName).tag(model)
+                        }
+                    }
+                }
+                Toggle("Wi-Fi only", isOn: $settings.wifiOnly)
+            } header: {
+                Text("Optional Cloud BYOK")
+            } footer: {
+                Text("Cloud features are off by default. When enabled, the selected note text or recording is sent directly to your provider using your key.")
+            }
+
+            Section("Credentials") {
+                credentialButton(.groq)
+                credentialButton(.elevenLabs)
+            }
+
+            Section("Diagnostics") {
+                if let error = settings.lastError {
+                    LabeledContent(
+                        "Last issue",
+                        value: "\(error.reason.displayName) · \(error.occurredAt.formatted(date: .abbreviated, time: .shortened))"
+                    )
+                    Button("Clear diagnostic") { settings.clearLastError() }
+                } else {
+                    LabeledContent("Last issue", value: "None")
+                }
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background { SomaScreenBackground() }
+        .navigationTitle("Intelligence")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $editingProvider) { provider in
+            NavigationStack {
+                Form {
+                    SecureField("\(provider.displayName) API key", text: $keyText)
+                        .textContentType(.password)
+                        .privacySensitive()
+                    Text("Stored in the Keychain as device-only. Empty text removes the saved key.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .navigationTitle(provider.displayName)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") {
+                            keyText = ""
+                            editingProvider = nil
+                        }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") {
+                            do {
+                                try settings.setKey(keyText, for: provider)
+                                keyText = ""
+                                editingProvider = nil
+                            } catch {
+                                errorMessage = error.localizedDescription
+                            }
+                        }
+                    }
+                }
+            }
+            .presentationDetents([.medium])
+        }
+        .alert("Couldn’t save the key", isPresented: .constant(errorMessage != nil)) {
+            Button("OK") { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
+        }
+    }
+
+    private func credentialButton(_ provider: CloudSpeechProvider) -> some View {
+        Button {
+            keyText = ""
+            editingProvider = provider
+        } label: {
+            LabeledContent(
+                "\(provider.displayName) key",
+                value: intelligence.settings.hasKey(for: provider) ? "Saved" : "Missing"
+            )
+        }
+        .foregroundStyle(.primary)
+    }
+}
+
+private struct LatestTabBehavior: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.tabBarMinimizeBehavior(.onScrollDown)
+        } else {
+            content
+        }
+    }
+}
+
+private struct NativeGlassCapsule: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.glassEffect(.regular.interactive(), in: .capsule)
+        } else {
+            content.background(.regularMaterial, in: .capsule)
+        }
+    }
+}
+
+private struct NativeGlassCircle: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.glassEffect(.regular.interactive(), in: .circle)
+        } else {
+            content.background(.regularMaterial, in: .circle)
+        }
+    }
+}
+
+private struct NativeRecordControl: ViewModifier {
+    let recording: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if recording {
+            content.background(.red, in: .circle)
+        } else if #available(iOS 26.0, *) {
+            content.glassEffect(.regular.interactive(), in: .circle)
+        } else {
+            content
+                .background(.primary, in: .circle)
+                .foregroundStyle(Color(.systemBackground))
+        }
+    }
+}
+
+private extension TimeInterval {
+    var formattedDuration: String {
+        let seconds = Int(self)
+        return String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+}
