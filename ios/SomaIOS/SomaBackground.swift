@@ -1,3 +1,4 @@
+import CoreImage
 import SwiftUI
 import UIKit
 
@@ -12,6 +13,7 @@ struct SomaForestBackground: View {
                 if let image = SessionForest.image {
                     Image(uiImage: image)
                         .resizable()
+                        .interpolation(.high)
                         .scaledToFill()
                         .frame(width: proxy.size.width, height: proxy.size.height)
                         .clipped()
@@ -39,12 +41,22 @@ struct SomaForestBackground: View {
 }
 
 struct SomaReadingSurface: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
-        Rectangle()
-            .fill(.ultraThinMaterial)
-            .opacity(0.52)
-            .ignoresSafeArea()
-            .accessibilityHidden(true)
+        let veil = colorScheme == .dark ? Color.black : Color.white
+        LinearGradient(
+            stops: [
+                .init(color: veil.opacity(colorScheme == .dark ? 0.52 : 0.48), location: 0),
+                .init(color: veil.opacity(colorScheme == .dark ? 0.26 : 0.30), location: 0.28),
+                .init(color: veil.opacity(colorScheme == .dark ? 0.26 : 0.30), location: 0.70),
+                .init(color: veil.opacity(colorScheme == .dark ? 0.56 : 0.52), location: 1),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .ignoresSafeArea()
+        .accessibilityHidden(true)
     }
 }
 
@@ -66,10 +78,30 @@ private enum SessionForest {
     static let image: UIImage? = {
         guard
             let url = Bundle.main.url(forResource: name, withExtension: "webp"),
-            let data = try? Data(contentsOf: url)
+            let data = try? Data(contentsOf: url),
+            let decoded = UIImage(data: data)
         else {
             return nil
         }
-        return UIImage(data: data)
+        return upscaled(decoded) ?? decoded
     }()
+
+    /// The bundled forests are 1280×721, so filling a portrait phone stretches them
+    /// ~3.5×, which the renderer's bilinear sampling smears. One Lanczos upscale plus
+    /// a gentle unsharp mask at load keeps the fill crisp.
+    private static func upscaled(_ source: UIImage) -> UIImage? {
+        guard let input = CIImage(image: source) else { return nil }
+        let scaled = input.applyingFilter(
+            "CILanczosScaleTransform",
+            parameters: [kCIInputScaleKey: 3.0, kCIInputAspectRatioKey: 1.0]
+        )
+        let sharpened = scaled.applyingFilter(
+            "CIUnsharpMask",
+            parameters: [kCIInputRadiusKey: 2.5, kCIInputIntensityKey: 0.55]
+        )
+        guard let cgImage = CIContext().createCGImage(sharpened, from: sharpened.extent) else {
+            return nil
+        }
+        return UIImage(cgImage: cgImage, scale: source.scale, orientation: .up)
+    }
 }

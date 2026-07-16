@@ -88,8 +88,6 @@ private struct TodayView: View {
             .background { SomaScreenBackground() }
             .navigationTitle(store.selectedDay.formatted(.dateTime.weekday(.wide).month().day()))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Previous day", systemImage: "chevron.left") {
@@ -387,7 +385,7 @@ private struct SuggestionRow: View {
             .frame(minWidth: 44, minHeight: 44)
         }
         .padding(10)
-        .background(.quaternary, in: .rect(cornerRadius: 14))
+        .background(.ultraThinMaterial, in: .rect(cornerRadius: 14))
         .accessibilityElement(children: .contain)
         .accessibilityHint("Tap the suggestion to add it to Important.")
         .contextMenu {
@@ -526,8 +524,6 @@ private struct ImportantView: View {
                 }
             }
             .navigationTitle("Important")
-            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 Button("Add", systemImage: "plus") { showingCapture = true }
             }
@@ -589,6 +585,7 @@ private struct SettingsView: View {
                 } footer: {
                     Text("The exported JSON contains readable note text. Keep it somewhere private. API keys, AI suggestions, settings, audio, and photos are never included.")
                 }
+                .listRowBackground(FrostedRowBackground())
                 Section("System") {
                     NavigationLink {
                         IntelligenceSettingsView()
@@ -597,6 +594,7 @@ private struct SettingsView: View {
                     }
                     LabeledContent("Siri & Shortcuts", value: "2 actions")
                 }
+                .listRowBackground(FrostedRowBackground())
                 Section {
                     LabeledContent("Storage", value: "On this iPhone")
                     LabeledContent("Storage status", value: store.storageStatus)
@@ -604,16 +602,16 @@ private struct SettingsView: View {
                 } footer: {
                     Text("Bundles merge by stable IDs and newest edit. This is the boundary a future encrypted device-to-device sync service will use.")
                 }
+                .listRowBackground(FrostedRowBackground())
                 Section("About") {
                     LabeledContent("Soma", value: "Native iOS preview")
                     LabeledContent("Context schema", value: "\(SomaContextBundle.currentSchemaVersion)")
                 }
+                .listRowBackground(FrostedRowBackground())
             }
             .scrollContentBackground(.hidden)
             .background { SomaScreenBackground() }
             .navigationTitle("Settings")
-            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
             .confirmationDialog(
                 "Export readable context?",
                 isPresented: $confirmingReadableExport,
@@ -689,6 +687,7 @@ private struct IntelligenceSettingsView: View {
             } footer: {
                 Text("On-device processing keeps note text and audio on this iPhone.")
             }
+            .listRowBackground(FrostedRowBackground())
 
             Section {
                 Toggle("Cloud transcription", isOn: $settings.cloudTranscriptionEnabled)
@@ -711,11 +710,13 @@ private struct IntelligenceSettingsView: View {
             } footer: {
                 Text("Cloud features are off by default. When enabled, the selected note text or recording is sent directly to your provider using your key.")
             }
+            .listRowBackground(FrostedRowBackground())
 
             Section("Credentials") {
                 credentialButton(.groq)
                 credentialButton(.elevenLabs)
             }
+            .listRowBackground(FrostedRowBackground())
 
             Section("Diagnostics") {
                 if let error = settings.lastError {
@@ -728,6 +729,7 @@ private struct IntelligenceSettingsView: View {
                     LabeledContent("Last issue", value: "None")
                 }
             }
+            .listRowBackground(FrostedRowBackground())
         }
         .scrollContentBackground(.hidden)
         .background { SomaScreenBackground() }
@@ -785,6 +787,12 @@ private struct IntelligenceSettingsView: View {
             )
         }
         .foregroundStyle(.primary)
+    }
+}
+
+private struct FrostedRowBackground: View {
+    var body: some View {
+        Rectangle().fill(.ultraThinMaterial)
     }
 }
 
