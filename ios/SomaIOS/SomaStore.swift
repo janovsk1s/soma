@@ -67,10 +67,11 @@ final class SomaStore {
             .sorted { $0.createdAt < $1.createdAt }
     }
 
+    // Newest first, matching the completed list — one ordering philosophy.
     var openImportant: [ImportantItem] {
         important
             .filter { !$0.isDeleted && $0.state == .open }
-            .sorted { $0.createdAt < $1.createdAt }
+            .sorted { $0.createdAt > $1.createdAt }
     }
 
     var completedImportant: [ImportantItem] {

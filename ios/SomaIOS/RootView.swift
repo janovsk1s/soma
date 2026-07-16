@@ -40,6 +40,8 @@ private struct TodayView: View {
     @Environment(SomaStore.self) private var store
     @Environment(SomaIntelligence.self) private var intelligence
     @Environment(HealthWorkouts.self) private var health
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showingCamera = false
     @State private var showingCalendar = false
     @State private var editingEntry: SomaEntry?
@@ -47,6 +49,8 @@ private struct TodayView: View {
     @State private var errorMessage: String?
     @State private var workoutLines: [HealthWorkouts.Line] = []
     @State private var showJumpToLatest = false
+    @State private var scrollPosition = ScrollPosition()
+    @State private var lastSeenTodayKey = SomaDay.key(Date())
 
     private var isViewingLatestDay: Bool {
         SomaDay.key(store.selectedDay) >= SomaDay.key(Date())
@@ -69,16 +73,22 @@ private struct TodayView: View {
             Group {
                 if dayIsEmpty {
                     ContentUnavailableView(
-                        "Nothing here yet",
+                        isViewingLatestDay ? "Nothing here yet" : "A quiet day",
                         systemImage: "circle",
-                        description: Text("Drop a thought and return to your day.")
+                        description: Text(
+                            isViewingLatestDay
+                                ? "Drop a thought and return to your day."
+                                : "Nothing was kept on this day."
+                        )
                     )
                 } else {
-                    ScrollViewReader { proxy in
                     List {
                         ForEach(store.selectedEntries) { entry in
                             VStack(alignment: .leading, spacing: 8) {
-                                EntryRow(entry: entry)
+                                EntryRow(
+                                    entry: entry,
+                                    onRetryTranscription: { intelligence.retryTranscription(for: entry) }
+                                )
                                     .contentShape(.rect)
                                     .onTapGesture { editingEntry = entry }
                                     .contextMenu {
@@ -106,8 +116,9 @@ private struct TodayView: View {
                                     SuggestionRow(suggestion: suggestion)
                                         .transition(.opacity.combined(with: .move(edge: .top)))
                                 }
-                                ForEach(store.pendingTrackingSuggestions(for: entry.id)) { proposal in
-                                    TrackingSuggestionRow(suggestion: proposal)
+                                let tracking = store.pendingTrackingSuggestions(for: entry.id)
+                                if !tracking.isEmpty {
+                                    TrackingSuggestionsRow(suggestions: tracking)
                                         .transition(.opacity.combined(with: .move(edge: .top)))
                                 }
                             }
@@ -122,24 +133,24 @@ private struct TodayView: View {
                         }
 
                         quietDayLines
-
-                        Color.clear
-                            .frame(height: 1)
-                            .id("dayEnd")
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                            .onScrollVisibilityChange { visible in
-                                withAnimation(.snappy) { showJumpToLatest = !visible }
-                            }
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
                     .scrollIndicators(.hidden)
+                    .scrollPosition($scrollPosition)
+                    // Geometry, not a sentinel row: List is lazy, so an end-of-list
+                    // marker is never realized on long days and its visibility
+                    // callback never fires.
+                    .onScrollGeometryChange(for: Bool.self) { geometry in
+                        geometry.visibleRect.maxY < geometry.contentSize.height - 80
+                    } action: { _, isFarFromEnd in
+                        withAnimation(.snappy) { showJumpToLatest = isFarFromEnd }
+                    }
                     // Messages-style return to "now" after scrolling back through the day.
                     .overlay(alignment: .bottomTrailing) {
                         if showJumpToLatest {
                             Button("Jump to latest", systemImage: "chevron.down") {
-                                withAnimation { proxy.scrollTo("dayEnd", anchor: .bottom) }
+                                withAnimation { scrollPosition.scrollTo(edge: .bottom) }
                             }
                             .labelStyle(.iconOnly)
                             .font(.body)
@@ -150,7 +161,6 @@ private struct TodayView: View {
                             .padding(.bottom, 6)
                             .transition(.opacity.combined(with: .scale(scale: 0.8)))
                         }
-                    }
                     }
                 }
             }
@@ -186,9 +196,35 @@ private struct TodayView: View {
                 )
                 .padding(.horizontal, 12)
                 .padding(.bottom, 10)
+                // Seats the bar visually: content scrolling through the gap between
+                // composer and tab bar fades out instead of showing raw.
+                .background {
+                    LinearGradient(
+                        colors: [
+                            .clear,
+                            (colorScheme == .dark ? Color.black : .white).opacity(0.45),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .padding(.top, -16)
+                    .ignoresSafeArea()
+                }
             }
             .task(id: "\(SomaDay.key(store.selectedDay))-\(health.isEnabled)") {
                 workoutLines = await health.workoutLines(for: store.selectedDay)
+            }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+                let todayKey = SomaDay.key(Date())
+                if todayKey != lastSeenTodayKey {
+                    // The date rolled while the app was away; follow it only if the
+                    // user was sitting on the old today.
+                    if SomaDay.key(store.selectedDay) == lastSeenTodayKey {
+                        store.selectedDay = Date()
+                    }
+                    lastSeenTodayKey = todayKey
+                }
             }
             .sheet(item: $editingEntry) { entry in
                 EntryEditor(entry: entry)
@@ -226,21 +262,27 @@ private struct TodayView: View {
         .disabled(isViewingLatestDay)
     }
 
-    // Tap returns to today; holding opens the calendar.
+    // Tap returns to today; holding opens the calendar. The micro-chevron is the
+    // only hint the title is interactive — without it nothing looks tappable.
     private var dayTitle: some View {
-        Text(store.selectedDay.formatted(.dateTime.weekday(.wide).month().day()))
-            .font(.headline)
-            .foregroundStyle(.primary)
-            .contentShape(.rect)
-            .onTapGesture {
-                withAnimation { store.selectedDay = Date() }
-            }
-            .onLongPressGesture {
-                showingCalendar = true
-            }
-            .accessibilityAddTraits(.isButton)
-            .accessibilityLabel("Day")
-            .accessibilityHint("Tap for today, hold for the calendar.")
+        VStack(spacing: 1) {
+            Text(store.selectedDay.formatted(.dateTime.weekday(.wide).month().day()))
+                .font(.headline)
+                .foregroundStyle(.primary)
+            Image(systemName: "chevron.compact.down")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .contentShape(.rect)
+        .onTapGesture {
+            withAnimation { store.selectedDay = Date() }
+        }
+        .onLongPressGesture {
+            showingCalendar = true
+        }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel("Day")
+        .accessibilityHint("Tap for today, hold for the calendar.")
     }
 
     // Ambient lines at the end of the day: workouts straight from Health (kept only
@@ -461,6 +503,9 @@ private struct CaptureBar: View {
         .animation(.snappy, value: recorder.isRecording)
         .animation(.snappy, value: trimmed.isEmpty)
         .sensoryFeedback(.impact(weight: .light), trigger: holdState)
+        // Compact bars cap their own type scaling (as Apple's do); accessibility
+        // sizes otherwise push the field into the buttons.
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     }
 
     // Hold to record, release to stop and keep the note; slide right past the
@@ -499,6 +544,7 @@ private struct EntryRow: View {
     @Environment(SomaStore.self) private var store
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let entry: SomaEntry
+    var onRetryTranscription: (() -> Void)? = nil
     @State private var player: AVPlayer?
     @State private var isPlaying = false
 
@@ -557,6 +603,18 @@ private struct EntryRow: View {
                 } else {
                     Text(entry.text)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if
+                    entry.kind == .voice,
+                    entry.transcriptionState == .failed,
+                    let onRetryTranscription
+                {
+                    Button("Try transcription again", systemImage: "arrow.clockwise") {
+                        onRetryTranscription()
+                    }
+                    .font(.caption)
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(.secondary)
                 }
                 if let provenance = entry.transcriptionProvenance {
                     Text(provenanceLabel(provenance))
@@ -709,31 +767,42 @@ private struct SuggestionRow: View {
     }
 }
 
-private struct TrackingSuggestionRow: View {
+// One chip per entry no matter how many proposals — three stacked cards under a
+// single note read as the AI taking over the day.
+private struct TrackingSuggestionsRow: View {
     @Environment(SomaStore.self) private var store
-    let suggestion: TrackingSuggestion
+    let suggestions: [TrackingSuggestion]
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: suggestion.kind.systemImage)
-                .foregroundStyle(.secondary)
-            Button {
-                withAnimation { _ = store.accept(suggestion) }
-            } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(suggestion.kind.question)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(suggestion.text)
-                        .foregroundStyle(.primary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .lineLimit(3)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Log?")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                ForEach(suggestions) { suggestion in
+                    Button {
+                        withAnimation { _ = store.accept(suggestion) }
+                    } label: {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Image(systemName: suggestion.kind.systemImage)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(suggestion.text)
+                                .foregroundStyle(.primary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .lineLimit(2)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .buttonStyle(.plain)
                 }
             }
-            .buttonStyle(.plain)
             Button("Dismiss", systemImage: "xmark") {
-                withAnimation { _ = store.dismiss(suggestion) }
+                withAnimation {
+                    for suggestion in suggestions {
+                        _ = store.dismiss(suggestion)
+                    }
+                }
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.borderless)
@@ -742,9 +811,9 @@ private struct TrackingSuggestionRow: View {
         .padding(10)
         .background(.ultraThinMaterial, in: .rect(cornerRadius: 14))
         .accessibilityElement(children: .contain)
-        .accessibilityHint("Tap the suggestion to keep it as a quiet log line.")
+        .accessibilityHint("Tap a line to keep it as a quiet log.")
         .contextMenu {
-            Text(suggestion.engine.displayName)
+            Text(suggestions.first?.engine.displayName ?? "")
         }
     }
 }
@@ -923,13 +992,25 @@ private struct ImportantView: View {
             }
             .navigationTitle("Important")
             .toolbar {
-                Button("Add", systemImage: "plus") { showingCapture = true }
+                // Bare like the day chevrons — one bar language across tabs.
+                if #available(iOS 26.0, *) {
+                    ToolbarItem(placement: .topBarTrailing) { addButton }
+                        .sharedBackgroundVisibility(.hidden)
+                } else {
+                    ToolbarItem(placement: .topBarTrailing) { addButton }
+                }
             }
             .sheet(isPresented: $showingCapture) {
                 CaptureSheet(title: "New important item") { store.addImportant($0) }
-                    .presentationDetents([.medium, .large])
+                    .presentationDetents([.height(240), .medium])
+                    .presentationDragIndicator(.visible)
             }
         }
+    }
+
+    private var addButton: some View {
+        Button("Add", systemImage: "plus") { showingCapture = true }
+            .labelStyle(.iconOnly)
     }
 }
 
@@ -1323,6 +1404,7 @@ private struct DayPickerSheet: View {
 private struct SearchView: View {
     @Environment(SomaStore.self) private var store
     @State private var query = ""
+    @State private var detailItem: ImportantItem?
     let onOpenDay: () -> Void
 
     var body: some View {
@@ -1351,19 +1433,29 @@ private struct SearchView: View {
                 if !matchingImportant.isEmpty {
                     Section("Important") {
                         ForEach(matchingImportant) { item in
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(highlighted(item.text))
-                                    .lineLimit(3)
-                                    .strikethrough(item.state == .done)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                Text(item.state == .done ? "Done" : "Open")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                            Button {
+                                detailItem = item
+                            } label: {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(highlighted(item.text))
+                                        .lineLimit(3)
+                                        .strikethrough(item.state == .done)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    Text(item.state == .done ? "Done" : "Open")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
+                            .buttonStyle(.plain)
                             .listRowBackground(Color.clear)
                         }
                     }
                 }
+            }
+            .sheet(item: $detailItem) { item in
+                ImportantDetailSheet(item: item)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
