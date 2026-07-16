@@ -119,6 +119,47 @@ struct EntryRevision: Identifiable, Codable, Hashable, Sendable {
     var recordedAt: Date
 }
 
+enum SomaLogKind: String, Codable, Sendable {
+    case meal
+    case workout
+
+    var systemImage: String {
+        switch self {
+        case .meal: "fork.knife"
+        case .workout: "figure.run"
+        }
+    }
+
+    var question: String {
+        switch self {
+        case .meal: "Log meal?"
+        case .workout: "Log workout?"
+        }
+    }
+}
+
+struct SomaLog: Identifiable, Codable, Hashable, Sendable {
+    var id: UUID
+    var day: String
+    var kind: SomaLogKind
+    var title: String
+    var createdAt: Date
+    var updatedAt: Date
+    var sourceEntryID: UUID? = nil
+}
+
+struct TrackingSuggestion: Identifiable, Codable, Hashable, Sendable {
+    var id: UUID
+    var entryID: UUID
+    var kind: SomaLogKind
+    var text: String
+    var engine: SuggestionEngine
+    var createdAt: Date
+    var dismissedAt: Date? = nil
+
+    var isPending: Bool { dismissedAt == nil }
+}
+
 struct ImportantSuggestion: Identifiable, Codable, Hashable, Sendable {
     var id: UUID
     var entryID: UUID

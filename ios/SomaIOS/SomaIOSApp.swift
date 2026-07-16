@@ -6,6 +6,8 @@ import SwiftUI
 struct SomaIOSApp: App {
     @State private var store: SomaStore
     @State private var intelligence: SomaIntelligence
+    @State private var health = HealthWorkouts()
+    @AppStorage("ios.dev.lightMode") private var developerLightMode = false
 
     init() {
         let store = SomaStore.shared
@@ -19,7 +21,8 @@ struct SomaIOSApp: App {
             RootView()
                 .environment(store)
                 .environment(intelligence)
-                .preferredColorScheme(.dark)
+                .environment(health)
+                .preferredColorScheme(developerLightMode ? .light : .dark)
                 .task { await intelligence.resumePendingWork() }
         }
     }

@@ -1,4 +1,5 @@
 import AVKit
+import ImageIO
 import SwiftUI
 
 struct RootView: View {
@@ -38,17 +39,30 @@ struct RootView: View {
 private struct TodayView: View {
     @Environment(SomaStore.self) private var store
     @Environment(SomaIntelligence.self) private var intelligence
-    @State private var showingCapture = false
+    @Environment(HealthWorkouts.self) private var health
     @State private var showingCamera = false
     @State private var showingCalendar = false
     @State private var editingEntry: SomaEntry?
     @State private var recorder = AudioRecorder()
     @State private var errorMessage: String?
+    @State private var workoutLines: [HealthWorkouts.Line] = []
+
+    private var unkeptWorkoutLines: [HealthWorkouts.Line] {
+        workoutLines.filter {
+            !store.hasLog(day: store.selectedDay, kind: .workout, title: $0.title)
+        }
+    }
+
+    private var dayIsEmpty: Bool {
+        store.selectedEntries.isEmpty &&
+        store.logs(for: store.selectedDay).isEmpty &&
+        unkeptWorkoutLines.isEmpty
+    }
 
     var body: some View {
         NavigationStack {
             Group {
-                if store.selectedEntries.isEmpty {
+                if dayIsEmpty {
                     ContentUnavailableView(
                         "Nothing here yet",
                         systemImage: "circle",
@@ -86,20 +100,29 @@ private struct TodayView: View {
                                     SuggestionRow(suggestion: suggestion)
                                         .transition(.opacity.combined(with: .move(edge: .top)))
                                 }
+                                ForEach(store.pendingTrackingSuggestions(for: entry.id)) { proposal in
+                                    TrackingSuggestionRow(suggestion: proposal)
+                                        .transition(.opacity.combined(with: .move(edge: .top)))
+                                }
                             }
                             .animation(.snappy, value: store.pendingSuggestions(for: entry.id))
+                            .animation(.snappy, value: store.pendingTrackingSuggestions(for: entry.id))
                             .listRowSeparator(
-                                store.pendingSuggestions(for: entry.id).isEmpty ? .automatic : .hidden
+                                store.pendingSuggestions(for: entry.id).isEmpty &&
+                                store.pendingTrackingSuggestions(for: entry.id).isEmpty
+                                    ? .automatic : .hidden
                             )
                             .listRowBackground(Color.clear)
                         }
+
+                        quietDayLines
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
+                    .scrollIndicators(.hidden)
                 }
             }
             .background { SomaScreenBackground() }
-            .navigationTitle(store.selectedDay.formatted(.dateTime.weekday(.wide).month().day()))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -108,15 +131,21 @@ private struct TodayView: View {
                     }
                     .labelStyle(.iconOnly)
                 }
+                // The date itself opens the calendar — one fewer control in the bar.
+                ToolbarItem(placement: .principal) {
+                    Button {
+                        showingCalendar = true
+                    } label: {
+                        Text(store.selectedDay.formatted(.dateTime.weekday(.wide).month().day()))
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Open calendar")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Next day", systemImage: "chevron.right") {
                         withAnimation { shiftDay(by: 1) }
-                    }
-                    .labelStyle(.iconOnly)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Calendar", systemImage: "calendar") {
-                        showingCalendar = true
                     }
                     .labelStyle(.iconOnly)
                 }
@@ -124,20 +153,21 @@ private struct TodayView: View {
             .safeAreaInset(edge: .bottom) {
                 CaptureBar(
                     recorder: recorder,
-                    onText: { showingCapture = true },
+                    onSave: { text in
+                        guard let entry = store.addText(text) else {
+                            errorMessage = saveFailureMessage
+                            return false
+                        }
+                        Task { await intelligence.processNewEntry(entry) }
+                        return true
+                    },
                     onCamera: { showingCamera = true },
                     onRecord: toggleRecording
                 )
                 .padding(.horizontal, 12)
             }
-            .sheet(isPresented: $showingCapture) {
-                CaptureSheet(title: "New thought") { text in
-                    guard let entry = store.addText(text) else { return false }
-                    Task { await intelligence.processNewEntry(entry) }
-                    return true
-                }
-                    .presentationDetents([.medium, .large])
-                    .presentationDragIndicator(.visible)
+            .task(id: "\(SomaDay.key(store.selectedDay))-\(health.isEnabled)") {
+                workoutLines = await health.workoutLines(for: store.selectedDay)
             }
             .sheet(item: $editingEntry) { entry in
                 EntryEditor(entry: entry)
@@ -154,6 +184,50 @@ private struct TodayView: View {
                 Button("OK") { errorMessage = nil }
             } message: {
                 Text(errorMessage ?? "")
+            }
+        }
+    }
+
+    // Ambient lines at the end of the day: workouts straight from Health (kept only
+    // if the user says so) and accepted meal/workout logs. Silence when there are none.
+    @ViewBuilder
+    private var quietDayLines: some View {
+        Section {
+            ForEach(unkeptWorkoutLines) { line in
+                HStack(spacing: 10) {
+                    Image(systemName: "figure.run")
+                        .font(.caption)
+                    Text(line.title)
+                        .font(.callout)
+                    Spacer()
+                    Button("Keep") {
+                        withAnimation {
+                            _ = store.addLog(kind: .workout, title: line.title, day: store.selectedDay)
+                        }
+                    }
+                    .font(.caption)
+                    .buttonStyle(.borderless)
+                }
+                .foregroundStyle(.secondary)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+            ForEach(store.logs(for: store.selectedDay)) { log in
+                HStack(spacing: 10) {
+                    Image(systemName: log.kind.systemImage)
+                        .font(.caption)
+                    Text(log.title)
+                        .font(.callout)
+                    Spacer()
+                }
+                .foregroundStyle(.secondary)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .swipeActions {
+                    Button("Delete", systemImage: "trash", role: .destructive) {
+                        _ = store.remove(log: log)
+                    }
+                }
             }
         }
     }
@@ -211,48 +285,96 @@ private struct TodayView: View {
     }
 }
 
+// Capture never takes over the screen: typing expands the bar in place (keeping
+// focus so several thoughts can be dropped in a row), holding the bar starts a
+// voice note — the same reach-for-it feel as the Light Phone capture bar.
 private struct CaptureBar: View {
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     let recorder: AudioRecorder
-    let onText: () -> Void
+    let onSave: (String) -> Bool
     let onCamera: () -> Void
     let onRecord: () -> Void
 
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    private var trimmed: String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     var body: some View {
-        HStack(spacing: 8) {
-            Button(action: onText) {
-                HStack {
-                    Text(recorder.isRecording ? recorder.elapsed.formattedDuration : "Write something")
-                    Spacer()
-                    Image(systemName: "square.and.pencil")
+        HStack(alignment: .bottom, spacing: 8) {
+            HStack(alignment: .bottom, spacing: 6) {
+                if recorder.isRecording {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(.red)
+                            .frame(width: 8, height: 8)
+                        Text(recorder.elapsed.formattedDuration)
+                            .monospacedDigit()
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(minHeight: controlSize - 24)
+                    .padding(.vertical, 12)
+                } else {
+                    TextField("Write something", text: $text, axis: .vertical)
+                        .lineLimit(1...5)
+                        .focused($focused)
+                        .frame(minHeight: controlSize - 24)
+                        .padding(.vertical, 12)
                 }
-                .padding(.horizontal, 16)
-                .frame(height: controlSize)
+                if !trimmed.isEmpty, !recorder.isRecording {
+                    Button("Save", systemImage: "arrow.up.circle.fill") {
+                        if onSave(trimmed) {
+                            text = ""
+                        }
+                    }
+                    .labelStyle(.iconOnly)
+                    .font(.title2)
+                    .padding(.bottom, 12)
+                }
             }
-            .buttonStyle(.plain)
-            .modifier(NativeGlassCapsule())
-            .disabled(recorder.isRecording)
+            .padding(.horizontal, 16)
+            .modifier(NativeGlassComposer())
+            .onLongPressGesture {
+                guard !recorder.isRecording, !focused, trimmed.isEmpty else { return }
+                onRecord()
+            }
 
-            Button(action: onCamera) {
-                Image(systemName: "camera.fill")
-                    .font(.body)
-                    .frame(width: controlSize, height: controlSize)
-            }
-            .buttonStyle(.plain)
-            .modifier(NativeGlassCircle())
-            .disabled(recorder.isRecording)
+            if focused {
+                Button("Hide keyboard", systemImage: "keyboard.chevron.compact.down") {
+                    focused = false
+                }
+                .labelStyle(.iconOnly)
+                .font(.body)
+                .frame(width: controlSize, height: controlSize)
+                .buttonStyle(.plain)
+                .modifier(NativeGlassCircle())
+            } else {
+                Button(action: onCamera) {
+                    Image(systemName: "camera.fill")
+                        .font(.body)
+                        .frame(width: controlSize, height: controlSize)
+                }
+                .buttonStyle(.plain)
+                .modifier(NativeGlassCircle())
+                .disabled(recorder.isRecording)
 
-            Button(action: onRecord) {
-                Image(systemName: recorder.isRecording ? "stop.fill" : "mic.fill")
-                    .font(.title3)
-                    .frame(width: controlSize, height: controlSize)
-                    .foregroundStyle(recorder.isRecording ? .white : .primary)
-                    .contentTransition(.symbolEffect(.replace))
+                Button(action: onRecord) {
+                    Image(systemName: recorder.isRecording ? "stop.fill" : "mic.fill")
+                        .font(.title3)
+                        .frame(width: controlSize, height: controlSize)
+                        .foregroundStyle(recorder.isRecording ? .white : .primary)
+                        .contentTransition(.symbolEffect(.replace))
+                }
+                .buttonStyle(.plain)
+                .modifier(NativeRecordControl(recording: recorder.isRecording))
+                .sensoryFeedback(.impact, trigger: recorder.isRecording)
             }
-            .buttonStyle(.plain)
-            .modifier(NativeRecordControl(recording: recorder.isRecording))
-            .sensoryFeedback(.impact, trigger: recorder.isRecording)
         }
+        .animation(.snappy, value: focused)
+        .animation(.snappy, value: recorder.isRecording)
+        .animation(.snappy, value: trimmed.isEmpty)
     }
 
     private var controlSize: CGFloat {
@@ -389,11 +511,16 @@ private struct EntryPhoto: View {
     var body: some View {
         Group {
             if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
+                // Fill via overlay so the image exerts no intrinsic width pressure —
+                // scaledToFill inside an HStack row otherwise shoves siblings off-screen.
+                Color.clear
                     .frame(maxWidth: .infinity)
                     .frame(height: 220)
+                    .overlay {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                    }
                     .clipped()
             } else {
                 ZStack {
@@ -407,12 +534,26 @@ private struct EntryPhoto: View {
         .privacySensitive()
         .task(id: fileName) {
             guard let url = store.availableImageURL(fileName: fileName) else { return }
-            let data = await Task.detached(priority: .utility) {
-                try? Data(contentsOf: url, options: [.mappedIfSafe])
+            image = await Task.detached(priority: .utility) {
+                downsampledImage(at: url, maxPixelSize: 1200)
             }.value
-            image = data.flatMap(UIImage.init(data:))
         }
     }
+}
+
+/// Decodes at display size via ImageIO instead of inflating the full capture into
+/// memory — a multi-megapixel JPEG would otherwise cost tens of MB per visible row.
+private func downsampledImage(at url: URL, maxPixelSize: CGFloat) -> UIImage? {
+    let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+    guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else { return nil }
+    let options = [
+        kCGImageSourceCreateThumbnailFromImageAlways: true,
+        kCGImageSourceShouldCacheImmediately: true,
+        kCGImageSourceCreateThumbnailWithTransform: true,
+        kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+    ] as CFDictionary
+    guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options) else { return nil }
+    return UIImage(cgImage: cgImage)
 }
 
 private struct SuggestionRow: View {
@@ -449,6 +590,46 @@ private struct SuggestionRow: View {
         .background(.ultraThinMaterial, in: .rect(cornerRadius: 14))
         .accessibilityElement(children: .contain)
         .accessibilityHint("Tap the suggestion to add it to Important.")
+        .contextMenu {
+            Text(suggestion.engine.displayName)
+        }
+    }
+}
+
+private struct TrackingSuggestionRow: View {
+    @Environment(SomaStore.self) private var store
+    let suggestion: TrackingSuggestion
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: suggestion.kind.systemImage)
+                .foregroundStyle(.secondary)
+            Button {
+                withAnimation { _ = store.accept(suggestion) }
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(suggestion.kind.question)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(suggestion.text)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .buttonStyle(.plain)
+            Button("Dismiss", systemImage: "xmark") {
+                withAnimation { _ = store.dismiss(suggestion) }
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.borderless)
+            .frame(minWidth: 44, minHeight: 44)
+        }
+        .padding(10)
+        .background(.ultraThinMaterial, in: .rect(cornerRadius: 14))
+        .accessibilityElement(children: .contain)
+        .accessibilityHint("Tap the suggestion to keep it as a quiet log line.")
         .contextMenu {
             Text(suggestion.engine.displayName)
         }
@@ -616,6 +797,7 @@ private struct ImportantView: View {
                 }
             }
             .scrollContentBackground(.hidden)
+            .scrollIndicators(.hidden)
             .background { SomaScreenBackground() }
             .overlay {
                 if store.openImportant.isEmpty && store.completedImportant.isEmpty {
@@ -723,8 +905,11 @@ private struct SettingsView: View {
     @State private var importing = false
     @State private var errorMessage: String?
     @State private var reminder = DailyReminder()
+    @State private var showingDeveloper = false
+    @Environment(HealthWorkouts.self) private var health
 
     var body: some View {
+        @Bindable var health = health
         NavigationStack {
             List {
                 Section {
@@ -762,11 +947,21 @@ private struct SettingsView: View {
                             displayedComponents: .hourAndMinute
                         )
                     }
+                    if HealthWorkouts.isAvailable {
+                        Toggle("Workouts from Health", isOn: $health.isEnabled)
+                    }
                 } header: {
                     Text("System")
                 } footer: {
-                    if let note = reminder.authorizationNote {
-                        Text(note)
+                    let notes = [
+                        reminder.authorizationNote,
+                        health.authorizationNote,
+                        health.isEnabled
+                            ? "Workouts appear as one quiet line in their day. Nothing is stored unless you keep it."
+                            : nil,
+                    ].compactMap(\.self)
+                    if !notes.isEmpty {
+                        Text(notes.joined(separator: " "))
                     }
                 }
                 .listRowBackground(FrostedRowBackground())
@@ -779,14 +974,21 @@ private struct SettingsView: View {
                 }
                 .listRowBackground(FrostedRowBackground())
                 Section("About") {
+                    // Triple-tap opens Developer — the same quiet door as on the Light Phone.
                     LabeledContent("Soma", value: "Native iOS preview")
+                        .contentShape(.rect)
+                        .onTapGesture(count: 3) { showingDeveloper = true }
                     LabeledContent("Context schema", value: "\(SomaContextBundle.currentSchemaVersion)")
                 }
                 .listRowBackground(FrostedRowBackground())
             }
             .scrollContentBackground(.hidden)
+            .scrollIndicators(.hidden)
             .background { SomaScreenBackground() }
             .navigationTitle("Settings")
+            .navigationDestination(isPresented: $showingDeveloper) {
+                DeveloperView()
+            }
             .confirmationDialog(
                 "Export readable context?",
                 isPresented: $confirmingReadableExport,
@@ -855,6 +1057,7 @@ private struct IntelligenceSettingsView: View {
             Section {
                 Toggle("Transcribe voice notes", isOn: $settings.voiceTranscriptionEnabled)
                 Toggle("Suggest Important items", isOn: $settings.onDeviceSuggestionsEnabled)
+                Toggle("Meal & workout suggestions", isOn: $settings.trackingSuggestionsEnabled)
                 LabeledContent("Apple Speech", value: intelligence.speechModelStatus)
                 LabeledContent("Foundation Models", value: intelligence.foundationModelStatus)
             } header: {
@@ -907,6 +1110,7 @@ private struct IntelligenceSettingsView: View {
             .listRowBackground(FrostedRowBackground())
         }
         .scrollContentBackground(.hidden)
+        .scrollIndicators(.hidden)
         .background { SomaScreenBackground() }
         .navigationTitle("Intelligence")
         .navigationBarTitleDisplayMode(.inline)
@@ -1049,6 +1253,7 @@ private struct SearchView: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+            .scrollIndicators(.hidden)
             .background { SomaScreenBackground() }
             .overlay {
                 if trimmedQuery.isEmpty {
@@ -1161,6 +1366,7 @@ private struct TrashView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .scrollIndicators(.hidden)
         .background { SomaScreenBackground() }
         .overlay {
             if store.trashedEntries.isEmpty && store.trashedImportant.isEmpty {
@@ -1240,6 +1446,42 @@ private struct TrashView: View {
     }
 }
 
+private struct DeveloperView: View {
+    @Environment(SomaStore.self) private var store
+    @Environment(SomaIntelligence.self) private var intelligence
+    @AppStorage("ios.dev.lightMode") private var lightMode = false
+
+    var body: some View {
+        List {
+            Section {
+                Toggle("Light mode", isOn: $lightMode)
+            } footer: {
+                Text("Soma is dark-first; this is the same hidden switch the Light Phone version keeps in Developer.")
+            }
+            .listRowBackground(FrostedRowBackground())
+            Section("Store") {
+                LabeledContent("Entries", value: "\(store.entries.count)")
+                LabeledContent("Important", value: "\(store.important.count)")
+                LabeledContent("Logs", value: "\(store.logs.count)")
+                LabeledContent("Revisions", value: "\(store.revisions.count)")
+                LabeledContent("Snapshot", value: "AES-256-GCM")
+                LabeledContent("Storage status", value: store.storageStatus)
+            }
+            .listRowBackground(FrostedRowBackground())
+            Section("Models") {
+                LabeledContent("Apple Speech", value: intelligence.speechModelStatus)
+                LabeledContent("Foundation Models", value: intelligence.foundationModelStatus)
+            }
+            .listRowBackground(FrostedRowBackground())
+        }
+        .scrollContentBackground(.hidden)
+        .scrollIndicators(.hidden)
+        .background { SomaScreenBackground() }
+        .navigationTitle("Developer")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
 private struct FrostedRowBackground: View {
     var body: some View {
         Rectangle().fill(.ultraThinMaterial)
@@ -1257,13 +1499,13 @@ private struct LatestTabBehavior: ViewModifier {
     }
 }
 
-private struct NativeGlassCapsule: ViewModifier {
+private struct NativeGlassComposer: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         if #available(iOS 26.0, *) {
-            content.glassEffect(.regular.interactive(), in: .capsule)
+            content.glassEffect(.regular.interactive(), in: .rect(cornerRadius: 25))
         } else {
-            content.background(.regularMaterial, in: .capsule)
+            content.background(.regularMaterial, in: .rect(cornerRadius: 25))
         }
     }
 }

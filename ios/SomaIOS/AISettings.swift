@@ -65,6 +65,9 @@ final class AISettings {
     var cloudSuggestionsEnabled: Bool {
         didSet { defaults.set(cloudSuggestionsEnabled, forKey: Keys.cloudSuggestionsEnabled) }
     }
+    var trackingSuggestionsEnabled: Bool {
+        didSet { defaults.set(trackingSuggestionsEnabled, forKey: Keys.trackingSuggestionsEnabled) }
+    }
     var provider: CloudSpeechProvider {
         didSet { defaults.set(provider.rawValue, forKey: Keys.provider) }
     }
@@ -90,6 +93,7 @@ final class AISettings {
         cloudTranscriptionEnabled = defaults.bool(forKey: Keys.cloudTranscriptionEnabled)
         onDeviceSuggestionsEnabled = defaults.object(forKey: Keys.onDeviceSuggestionsEnabled) as? Bool ?? true
         cloudSuggestionsEnabled = defaults.bool(forKey: Keys.cloudSuggestionsEnabled)
+        trackingSuggestionsEnabled = defaults.object(forKey: Keys.trackingSuggestionsEnabled) as? Bool ?? true
         provider = CloudSpeechProvider(
             rawValue: defaults.string(forKey: Keys.provider) ?? ""
         ) ?? .groq
@@ -138,6 +142,7 @@ final class AISettings {
         static let cloudTranscriptionEnabled = "ios.ai.cloudTranscription"
         static let onDeviceSuggestionsEnabled = "ios.ai.onDeviceSuggestions"
         static let cloudSuggestionsEnabled = "ios.ai.cloudSuggestions"
+        static let trackingSuggestionsEnabled = "ios.ai.trackingSuggestions"
         static let provider = "ios.ai.speechProvider"
         static let groqModel = "ios.ai.groqSpeechModel"
         static let wifiOnly = "ios.ai.wifiOnly"

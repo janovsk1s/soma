@@ -11,6 +11,8 @@ final class SomaStore {
     private(set) var important: [ImportantItem] = []
     private(set) var suggestions: [ImportantSuggestion] = []
     private(set) var revisions: [EntryRevision] = []
+    private(set) var logs: [SomaLog] = []
+    private(set) var trackingSuggestions: [TrackingSuggestion] = []
     private(set) var deviceID: UUID
     private(set) var storageIssue: StoreError?
     var selectedDay = Date()
@@ -42,6 +44,8 @@ final class SomaStore {
             important = snapshot.important
             suggestions = snapshot.suggestions ?? []
             revisions = snapshot.revisions ?? []
+            logs = snapshot.logs ?? []
+            trackingSuggestions = snapshot.trackingSuggestions ?? []
             if wasPlaintext {
                 _ = writeSnapshot()
             }
@@ -450,6 +454,121 @@ final class SomaStore {
             .sorted { $0.createdAt < $1.createdAt }
     }
 
+    // MARK: - Logs (meals, workouts)
+
+    func logs(for day: Date) -> [SomaLog] {
+        let key = SomaDay.key(day)
+        return logs
+            .filter { $0.day == key }
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    func hasLog(day: Date, kind: SomaLogKind, title: String) -> Bool {
+        let key = SomaDay.key(day)
+        return logs.contains { $0.day == key && $0.kind == kind && $0.title == title }
+    }
+
+    @discardableResult
+    func addLog(kind: SomaLogKind, title: String, day: Date, sourceEntryID: UUID? = nil) -> Bool {
+        guard let cleaned = Self.boundedText(title) else { return false }
+        let now = Date()
+        return commit {
+            logs.append(
+                SomaLog(
+                    id: UUID(),
+                    day: SomaDay.key(day),
+                    kind: kind,
+                    title: cleaned,
+                    createdAt: now,
+                    updatedAt: now,
+                    sourceEntryID: sourceEntryID
+                )
+            )
+            return true
+        } == true
+    }
+
+    @discardableResult
+    func remove(log: SomaLog) -> Bool {
+        guard logs.contains(where: { $0.id == log.id }) else { return false }
+        return commit {
+            logs.removeAll { $0.id == log.id }
+            return true
+        } == true
+    }
+
+    func pendingTrackingSuggestions(for entryID: UUID) -> [TrackingSuggestion] {
+        trackingSuggestions
+            .filter { $0.entryID == entryID && $0.isPending }
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    func replaceTrackingSuggestions(
+        for entryID: UUID,
+        sourceUpdatedAt: Date,
+        proposals: [(SomaLogKind, String)],
+        engine: SuggestionEngine
+    ) {
+        guard entry(id: entryID)?.updatedAt == sourceUpdatedAt else { return }
+        let bounded = proposals.compactMap { kind, text in
+            Self.boundedText(text).map { (kind, $0) }
+        }
+        _ = commit {
+            trackingSuggestions.removeAll { $0.entryID == entryID }
+            let now = Date()
+            trackingSuggestions.append(contentsOf: bounded.prefix(3).map { kind, text in
+                TrackingSuggestion(
+                    id: UUID(),
+                    entryID: entryID,
+                    kind: kind,
+                    text: text,
+                    engine: engine,
+                    createdAt: now
+                )
+            })
+            return true
+        }
+    }
+
+    @discardableResult
+    func accept(_ suggestion: TrackingSuggestion) -> Bool {
+        guard
+            let index = trackingSuggestions.firstIndex(where: { $0.id == suggestion.id }),
+            let entry = entry(id: suggestion.entryID),
+            let day = SomaDay.date(fromKey: entry.day)
+        else {
+            return false
+        }
+        guard let cleaned = Self.boundedText(trackingSuggestions[index].text) else { return false }
+        return commit {
+            let now = Date()
+            logs.append(
+                SomaLog(
+                    id: UUID(),
+                    day: SomaDay.key(day),
+                    kind: trackingSuggestions[index].kind,
+                    title: cleaned,
+                    createdAt: now,
+                    updatedAt: now,
+                    sourceEntryID: entry.id
+                )
+            )
+            trackingSuggestions[index].dismissedAt = now
+            return true
+        } == true
+    }
+
+    @discardableResult
+    func dismiss(_ suggestion: TrackingSuggestion) -> Bool {
+        guard let index = trackingSuggestions.firstIndex(where: { $0.id == suggestion.id }) else {
+            return false
+        }
+        return commit {
+            trackingSuggestions[index].dismissedAt = Date()
+            return true
+        } == true
+    }
+
     func replaceSuggestions(
         for entryID: UUID,
         sourceUpdatedAt: Date,
@@ -615,12 +734,16 @@ final class SomaStore {
         let previousImportant = important
         let previousSuggestions = suggestions
         let previousRevisions = revisions
+        let previousLogs = logs
+        let previousTracking = trackingSuggestions
         let value = mutation()
         guard writeSnapshot() else {
             entries = previousEntries
             important = previousImportant
             suggestions = previousSuggestions
             revisions = previousRevisions
+            logs = previousLogs
+            trackingSuggestions = previousTracking
             return nil
         }
         return value
@@ -632,7 +755,9 @@ final class SomaStore {
             entries: entries,
             important: important,
             suggestions: suggestions,
-            revisions: revisions
+            revisions: revisions,
+            logs: logs,
+            trackingSuggestions: trackingSuggestions
         )
         do {
             let data = try Self.encoder.encode(snapshot)
@@ -815,6 +940,8 @@ final class SomaStore {
         var important: [ImportantItem]
         var suggestions: [ImportantSuggestion]?
         var revisions: [EntryRevision]?
+        var logs: [SomaLog]?
+        var trackingSuggestions: [TrackingSuggestion]?
     }
 
     private static let encoder: JSONEncoder = {

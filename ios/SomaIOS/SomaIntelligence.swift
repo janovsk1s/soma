@@ -12,6 +12,7 @@ final class SomaIntelligence {
     private let appleSpeech: AppleSpeechTranscriber
     private var activeTranscriptions = Set<UUID>()
     private var activeSuggestions = Set<UUID>()
+    private var activeTracking = Set<UUID>()
 
     init(
         store: SomaStore,
@@ -37,6 +38,11 @@ final class SomaIntelligence {
 
     func processNewEntry(_ entry: SomaEntry) async {
         guard !entry.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        await suggestImportant(for: entry)
+        await suggestTracking(for: entry)
+    }
+
+    private func suggestImportant(for entry: SomaEntry) async {
         guard activeSuggestions.insert(entry.id).inserted else { return }
         defer { activeSuggestions.remove(entry.id) }
 
@@ -89,6 +95,53 @@ final class SomaIntelligence {
                 for: entry.id,
                 sourceUpdatedAt: entry.updatedAt,
                 texts: actions,
+                engine: .groqGPTOSS20B
+            )
+        } catch is CancellationError {
+            return
+        } catch let error as CloudProviderError {
+            settings.record(error.reason)
+        } catch {
+            settings.record(.providerError)
+        }
+    }
+
+    // Meals and workouts: Apple's on-device model first; the Groq path only runs
+    // when the on-device model is unavailable AND cloud suggestions are opted in.
+    private func suggestTracking(for entry: SomaEntry) async {
+        guard settings.trackingSuggestionsEnabled else { return }
+        guard activeTracking.insert(entry.id).inserted else { return }
+        defer { activeTracking.remove(entry.id) }
+
+        do {
+            let proposals = try await appleActions.extractTracking(from: entry.text)
+            try Task.checkCancellation()
+            store.replaceTrackingSuggestions(
+                for: entry.id,
+                sourceUpdatedAt: entry.updatedAt,
+                proposals: proposals,
+                engine: .appleFoundationModel
+            )
+            return
+        } catch is CancellationError {
+            return
+        } catch {
+            // Capability-gated; fall through to the opted-in cloud path.
+        }
+
+        guard settings.cloudSuggestionsEnabled else { return }
+        guard let key = settings.key(for: .groq), !key.isEmpty else { return }
+        do {
+            let proposals = try await cloud.extractTracking(
+                text: entry.text,
+                apiKey: key,
+                wifiOnly: settings.wifiOnly
+            )
+            try Task.checkCancellation()
+            store.replaceTrackingSuggestions(
+                for: entry.id,
+                sourceUpdatedAt: entry.updatedAt,
+                proposals: proposals,
                 engine: .groqGPTOSS20B
             )
         } catch is CancellationError {
