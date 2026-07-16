@@ -1,102 +1,119 @@
 # Soma for iOS
 
-Soma’s iOS client is a lightweight, fully native SwiftUI app. It keeps the
-interaction model, capture flow, speech stack, and system integrations native to
-iPhone while defining a portable context boundary for the Android client.
+Soma’s iOS client is a fully native SwiftUI sibling of the Light Phone app. It
+keeps the interaction model, capture flow, speech stack, and system
+integrations native to iPhone while defining a portable context boundary for
+the Android client.
 
 ## Run it
 
 Requirements:
 
 - Xcode 26 or newer;
-- iOS 18 or newer;
+- iOS 18 or newer (newest features light up on iOS 26);
 - an Apple development team for a physical iPhone.
 
-Open `SomaIOS.xcodeproj`, select the `SomaIOS` scheme and an iPhone simulator or
-connected iPhone, configure Signing & Capabilities if needed, then Run.
+Open `SomaIOS.xcodeproj`, select the `SomaIOS` scheme and an iPhone simulator
+or connected iPhone, configure Signing & Capabilities if needed, then Run.
+HealthKit and Apple Intelligence require a physical, eligible iPhone.
 
-A physical Apple Intelligence-capable iPhone is recommended for testing
-Foundation Models and downloaded speech assets. The simulator does not represent
-every on-device model capability.
+## The capture bar
 
-## Native iOS experience
+Capture never takes over the screen:
 
-The app uses SwiftUI, Observation, Swift concurrency, AVFoundation, Speech,
-Foundation Models, App Intents, and App Shortcuts. It includes:
+- typing expands the bar in place and keeps focus so several thoughts can be
+  dropped in a row;
+- press-and-hold the bar starts a voice note — release to keep it, slide right
+  while holding to lock the recording open; an interruption (a phone call)
+  finalizes the note instead of losing it;
+- while recording, words appear live in the bar (on-device recognition, only
+  once speech access has been granted, never a network);
+- the camera is one tap; the date title returns to today on tap and opens the
+  calendar on hold; the day rail refuses the future.
 
-- native Today, Important, and Settings tabs;
-- fast text, one-shot photo, and voice capture with protected local media;
-- editable transcripts and audio playback;
-- the same eight bundled forest backgrounds as Browser view, rendered natively
-  with no WebView, network request, or duplicated image files;
-- Siri and Shortcuts actions for adding thoughts and Important items;
-- native sheets, context menus, file import/export, permissions, haptics, and
-  symbol transitions;
-- iOS 26 Liquid Glass controls and a minimizing tab bar, with native fallbacks
-  on iOS 18–25.
+A dim one-line hint teaches the hold gesture once, then retires forever.
 
-The deployment target remains iOS 18. Newer APIs are isolated behind
-availability checks.
+## Intelligence, in layers
 
-## AI architecture
+Soma is local-first, and AI is never load-bearing:
 
-Soma is local-first.
+1. **Deterministic rules first.** Obligation words for all eight Soma
+   languages, the Latvian debitive `jā-` prefix, booking/order codes, and
+   NSDataDetector-backed phone numbers and upcoming dates. No model, no key,
+   no network.
+2. **One on-device inference.** Apple Foundation Models (iOS 26, eligible
+   devices) extract actions, meals, and workouts in a single call. Rules
+   answer Important first; the model only fills what they left open.
+3. **Optional cloud, one request.** Groq `openai/gpt-oss-20b` behind its own
+   BYOK toggle, used only when the on-device model is unavailable.
 
-Voice notes use Apple’s on-device speech stack by default:
+Everything is accept-gated: Important suggestions, meal/workout proposals
+(one quiet "Log?" chip per note), and photo text. Accepted logs render as dim
+lines at the end of their day — no dashboards, no streaks.
 
-- iOS 26: `SpeechAnalyzer` and `SpeechTranscriber`;
-- iOS 18–25: `SFSpeechRecognizer` with on-device recognition required.
+Photos get one on-device Vision OCR pass at capture; recognized text is
+offered as a "Keep photo text?" chip, and accepting makes the photo
+searchable and feeds it through the same pipeline.
 
-Optional cloud transcription supports Groq Whisper and ElevenLabs Scribe v2. If
-a cloud request fails, Soma attempts Apple Speech and records which engine was
-requested, which one was used, and a sanitized fallback reason.
+Voice notes are transcribed from the saved file: optional cloud transcription
+(Groq Whisper, ElevenLabs Scribe v2) falls back to Apple Speech, with
+per-entry provenance (requested engine, used engine, sanitized fallback
+reason) and a diagnostics row.
 
-Important suggestions use Apple Foundation Models on eligible iOS 26 devices.
-Optional Groq extraction uses `openai/gpt-oss-20b`. Suggestions are bounded,
-tied to the source note version, and never become Important items until the user
-accepts them.
+Workouts arrive ambiently from Apple Health behind a Settings toggle:
+read-only, one quiet line in their day, silence when there are none, stored
+only if you keep it.
 
-## Privacy and BYOK
+## Privacy and storage
 
-Cloud features are independently controlled and off by default.
+- The context snapshot is encrypted at rest with AES-256-GCM; the key lives
+  in the Keychain as device-only. Audio and photos use complete file
+  protection and never touch the Photos library.
+- API keys are Keychain device-only credentials; cloud requests go directly
+  from the device to the selected provider, gated by independent toggles and
+  an optional Wi-Fi-only switch.
+- Deletion is soft: the trash restores or purges (media is freed at purge).
+  Edits are append-only revisions — the original wording is always
+  recoverable. Timestamps are immutable facts.
+- Diagnostics retain sanitized categories, never provider bodies or
+  credentials.
 
-- API keys are supplied by the user and stored in the Keychain as
-  device-only credentials.
-- Keys are never written to the context store or exported.
-- Cloud requests go directly from the device to the selected provider.
-- Wi-Fi-only cloud processing can be enabled.
-- Note text and recordings remain on-device unless the matching cloud feature
-  is explicitly enabled.
-- The local context snapshot, audio files, and captured photos use complete file
-  protection. Photos stay in Soma's app container and are not written to Photos.
-- Diagnostics retain sanitized categories, not provider bodies or credentials.
-- Imported context is size-bounded and cannot reference local attachment paths.
+## Finding things again
+
+Search (its own tab) matches notes and Important items with diacritic
+folding — "zekes" finds "zeķes" — and jumps to the entry's day. A
+Messages-style chevron returns to "now" after scrolling back through a day.
+
+## Developer
+
+Triple-tap the "Soma" row in About: light-mode switch (the app is dark-first,
+like the Light Phone version), store counts, snapshot cipher, storage status,
+and model availability.
+
+A DEBUG launch argument `-soma-autorecord-seconds=N` drives one record-stop
+cycle headlessly; with `xcrun simctl privacy <sim> grant microphone
+com.soma.native` the whole recording loop is verifiable in the simulator
+against the host microphone.
 
 ## Context interchange
 
-`SomaContextBundle` schema 2 is the portable boundary. iOS can export and merge
-readable JSON bundles from Settings, while still accepting schema 1 bundles.
-Records have stable identifiers, timestamps, tombstones, and transcription
-provenance. Deliberate user edits are preserved over late machine transcripts.
-
-Device-local filenames, audio bytes, AI suggestions, API keys, and settings are
-not exported. The export UI warns that note text in the JSON is readable.
+`SomaContextBundle` schema 2 is the portable boundary. iOS exports and merges
+readable JSON bundles from Settings (size-bounded, stable IDs, tombstones,
+transcription provenance; deliberate user edits win over late machine
+transcripts). The export UI warns that note text in the JSON is readable.
 
 The Android app still needs an adapter between its richer Room model and this
-schema. Its existing passphrase-encrypted `.soma` backup remains a separate,
-restorable backup format; it should not be weakened or silently reinterpreted as
-the cross-platform context format.
+schema. Its passphrase-encrypted `.soma` backup remains a separate,
+restorable backup format; a cross-restore bridge for the documented formats
+is the intended long-term integration surface and is not built yet.
 
 ## Current limitations
 
-- Cross-platform automatic sync is not implemented yet.
-- Android import/export for `SomaContextBundle` is not wired yet.
-- Audio and photo bytes are not included in context bundles. Imported voice
-  entries keep their transcript but have no playable local recording; photo
-  captions interchange as text without their device-local image.
-- Captured photos are not automatically analyzed by the current AI pipeline.
-- Camera preview and capture latency must be tested on a physical iPhone; the
-  iOS simulator has no usable device camera.
-- Apple Foundation Models require iOS 26, an eligible device, Apple Intelligence
-  enabled, a ready model, and a supported locale.
-- On-device speech requires permission and may need language assets to download.
+- Cross-platform automatic sync is not implemented; Android import/export for
+  `SomaContextBundle` is not wired yet.
+- Audio and photo bytes are not included in context bundles.
+- Receipts, recipes, the LAN browser view, workbooks, and the eight-language
+  localization of the Android app have no iOS counterpart yet.
+- Apple Foundation Models require iOS 26, an eligible device, Apple
+  Intelligence enabled, and a supported locale; speech recognition asks for
+  permission once, on the first transcription.

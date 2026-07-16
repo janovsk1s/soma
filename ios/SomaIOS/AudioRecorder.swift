@@ -21,6 +21,25 @@ final class AudioRecorder {
     private var timer: Timer?
     private var completion: ((String, TimeInterval) -> Void)?
     private var liveRecognitionTask: SFSpeechRecognitionTask?
+    // Held for the recorder's lifetime; the recorder itself lives as long as the
+    // day view, so the observer is never removed (and captures self weakly).
+    private var interruptionObserver: NSObjectProtocol?
+
+    init() {
+        // A phone call or Siri taking the session kills the engine silently; stop
+        // gracefully so the words spoken so far become a note instead of nothing.
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { [weak self] notification in
+            let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+            guard rawType == AVAudioSession.InterruptionType.began.rawValue else { return }
+            MainActor.assumeIsolated {
+                self?.stop()
+            }
+        }
+    }
 
     func start(in directory: URL, completion: @escaping (String, TimeInterval) -> Void) async throws {
         guard !isRecording, tapBox == nil else { throw RecordingError.couldNotStart }
