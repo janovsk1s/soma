@@ -528,11 +528,18 @@ final class SomaStore {
         engine: SuggestionEngine
     ) {
         guard entry(id: entryID)?.updatedAt == sourceUpdatedAt else { return }
-        let bounded = proposals.compactMap { kind, text in
-            Self.boundedText(text).map { (kind, $0) }
-        }
+        let dismissed = Set(
+            trackingSuggestions
+                .filter { $0.entryID == entryID && !$0.isPending }
+                .map { Self.suggestionKey($0.text) }
+        )
+        let bounded = proposals
+            .compactMap { kind, text in
+                Self.boundedText(text).map { (kind, $0) }
+            }
+            .filter { !dismissed.contains(Self.suggestionKey($0.1)) }
         _ = commit {
-            trackingSuggestions.removeAll { $0.entryID == entryID }
+            trackingSuggestions.removeAll { $0.entryID == entryID && $0.isPending }
             let now = Date()
             trackingSuggestions.append(contentsOf: bounded.prefix(3).map { kind, text in
                 TrackingSuggestion(
@@ -644,6 +651,8 @@ final class SomaStore {
         } == true
     }
 
+    // A dismissal is remembered: re-running the pipeline (say, after an edit)
+    // must not resurface a suggestion the user already said no to.
     func replaceSuggestions(
         for entryID: UUID,
         sourceUpdatedAt: Date,
@@ -651,9 +660,16 @@ final class SomaStore {
         engine: SuggestionEngine
     ) {
         guard entry(id: entryID)?.updatedAt == sourceUpdatedAt else { return }
-        let boundedTexts = texts.compactMap { Self.boundedText($0) }
+        let dismissed = Set(
+            suggestions
+                .filter { $0.entryID == entryID && !$0.isPending }
+                .map { Self.suggestionKey($0.text) }
+        )
+        let boundedTexts = texts
+            .compactMap { Self.boundedText($0) }
+            .filter { !dismissed.contains(Self.suggestionKey($0)) }
         _ = commit {
-            suggestions.removeAll { $0.entryID == entryID }
+            suggestions.removeAll { $0.entryID == entryID && $0.isPending }
             let now = Date()
             suggestions.append(contentsOf: boundedTexts.prefix(3).map {
                 ImportantSuggestion(
@@ -666,6 +682,12 @@ final class SomaStore {
             })
             return true
         }
+    }
+
+    private static func suggestionKey(_ text: String) -> String {
+        text
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     @discardableResult

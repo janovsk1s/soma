@@ -53,6 +53,8 @@ private struct TodayView: View {
     @State private var lastSeenTodayKey = SomaDay.key(Date())
     @State private var stagedPhoto: StagedPhoto?
     @State private var showingReflection = false
+    @State private var recentlyDeleted: SomaEntry?
+    @State private var undoDismissTask: Task<Void, Never>?
 
     struct StagedPhoto {
         let photo: CapturedPhoto
@@ -122,7 +124,7 @@ private struct TodayView: View {
                                             }
                                         }
                                         Button("Delete", systemImage: "trash", role: .destructive) {
-                                            withAnimation { _ = store.remove(entry: entry) }
+                                            withAnimation { deleteWithUndo(entry) }
                                         }
                                     }
                                 if let suggestion = store.pendingSuggestions(for: entry.id).first {
@@ -198,14 +200,41 @@ private struct TodayView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                CaptureBar(
-                    recorder: recorder,
-                    stagedThumbnail: stagedPhoto?.thumbnail,
-                    onSave: { text in saveComposed(text: text) },
-                    onDiscardPhoto: { withAnimation { stagedPhoto = nil } },
-                    onCamera: { showingCamera = true },
-                    onRecord: toggleRecording
-                )
+                VStack(spacing: 8) {
+                    // Android parity: a deletion can be taken back on the spot,
+                    // not only fished out of the trash.
+                    if let deleted = recentlyDeleted {
+                        Button {
+                            withAnimation {
+                                _ = store.restore(entry: deleted)
+                                recentlyDeleted = nil
+                            }
+                            undoDismissTask?.cancel()
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text("Deleted")
+                                    .foregroundStyle(.secondary)
+                                Text("Undo")
+                                    .fontWeight(.medium)
+                            }
+                            .font(.callout)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                        }
+                        .buttonStyle(.plain)
+                        .modifier(NativeGlassComposer())
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    }
+                    CaptureBar(
+                        recorder: recorder,
+                        stagedThumbnail: stagedPhoto?.thumbnail,
+                        onSave: { text in saveComposed(text: text) },
+                        onDiscardPhoto: { withAnimation { stagedPhoto = nil } },
+                        onCamera: { showingCamera = true },
+                        onRecord: toggleRecording
+                    )
+                }
+                .animation(.snappy, value: recentlyDeleted == nil)
                 .padding(.horizontal, 12)
                 .padding(.bottom, 10)
                 // Seats the bar visually: content scrolling through the gap between
@@ -340,6 +369,9 @@ private struct TodayView: View {
 
     // Ambient lines at the end of the day: workouts straight from Health (kept only
     // if the user says so) and accepted meal/workout logs. Silence when there are none.
+    // Quiet lines share the entries' content column — same grid, softer voice.
+    private static let quietLineInset: CGFloat = 64
+
     @ViewBuilder
     private var quietDayLines: some View {
         Section {
@@ -358,6 +390,7 @@ private struct TodayView: View {
                     .font(.caption)
                     .buttonStyle(.borderless)
                 }
+                .padding(.leading, Self.quietLineInset)
                 .foregroundStyle(.secondary)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
@@ -370,6 +403,7 @@ private struct TodayView: View {
                         .font(.callout)
                     Spacer()
                 }
+                .padding(.leading, Self.quietLineInset)
                 .foregroundStyle(.secondary)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
@@ -392,6 +426,7 @@ private struct TodayView: View {
                             .font(.callout)
                         Spacer()
                     }
+                    .padding(.leading, Self.quietLineInset)
                     .foregroundStyle(.tertiary)
                 }
                 .buttonStyle(.plain)
@@ -482,6 +517,17 @@ private struct TodayView: View {
         }
     }
 
+    private func deleteWithUndo(_ entry: SomaEntry) {
+        guard store.remove(entry: entry) else { return }
+        recentlyDeleted = entry
+        undoDismissTask?.cancel()
+        undoDismissTask = Task {
+            try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled else { return }
+            withAnimation { recentlyDeleted = nil }
+        }
+    }
+
     private func writePhotoFile(_ photo: CapturedPhoto) -> String? {
         guard let directory = try? store.imageDirectory() else { return nil }
         let fileName = "\(UUID().uuidString).jpg"
@@ -539,8 +585,8 @@ private struct CaptureBar: View {
                     Image(uiImage: stagedThumbnail)
                         .resizable()
                         .scaledToFill()
-                        .frame(width: 64, height: 64)
-                        .clipShape(.rect(cornerRadius: 12))
+                        .frame(width: 88, height: 88)
+                        .clipShape(.rect(cornerRadius: 14))
                         .accessibilityLabel("Staged photo")
                     Button("Remove photo", systemImage: "xmark.circle.fill") {
                         onDiscardPhoto()
