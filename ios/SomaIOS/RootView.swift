@@ -59,6 +59,7 @@ private struct TodayView: View {
     @State private var showingLibrary = false
     @State private var pickedItem: PhotosPickerItem?
     @State private var savedTick = 0
+    @State private var receiptLog: SomaLog?
 
     struct StagedPhoto {
         let photo: CapturedPhoto
@@ -316,6 +317,10 @@ private struct TodayView: View {
                     try? await Task.sleep(for: .seconds(1))
                     showingCamera = true
                 }
+                if arguments.contains("-soma-show-calendar") {
+                    try? await Task.sleep(for: .seconds(1))
+                    showingCalendar = true
+                }
                 if arguments.contains("-soma-autotext") {
                     try? await Task.sleep(for: .seconds(2))
                     _ = saveComposed(text: "A saved note must be seen landing.")
@@ -375,6 +380,11 @@ private struct TodayView: View {
             .sheet(isPresented: $showingReflection) {
                 ReflectionSheet(day: store.selectedDay)
                     .presentationDetents([.height(280), .medium])
+                    .presentationDragIndicator(.visible)
+            }
+            .sheet(item: $receiptLog) { log in
+                ReceiptSheet(log: log)
+                    .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
             }
             .alert("Soma", isPresented: .constant(errorMessage != nil)) {
@@ -449,14 +459,19 @@ private struct TodayView: View {
                 .listRowSeparator(.hidden)
             }
             ForEach(store.logs(for: store.selectedDay)) { log in
-                HStack(spacing: 10) {
-                    Image(systemName: log.kind.systemImage)
-                        .font(.caption)
-                    Text(log.title)
-                        .font(.callout)
-                    Spacer()
+                Button {
+                    if log.detail != nil { receiptLog = log }
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: log.kind.systemImage)
+                            .font(.caption)
+                        Text(log.title)
+                            .font(.callout)
+                        Spacer()
+                    }
+                    .padding(.leading, Self.quietLineInset)
                 }
-                .padding(.leading, Self.quietLineInset)
+                .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
@@ -1060,6 +1075,32 @@ private struct SuggestionRow: View {
         .accessibilityHint("Tap the suggestion to add it to Important.")
         .contextMenu {
             Text(suggestion.engine.displayName)
+        }
+    }
+}
+
+private struct ReceiptSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let log: SomaLog
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                Text(log.detail ?? log.title)
+                    .font(.callout.monospacedDigit())
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(20)
+            }
+            .scrollIndicators(.hidden)
+            .background { SomaScreenBackground() }
+            .navigationTitle(log.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
         }
     }
 }
@@ -1771,6 +1812,22 @@ private struct DayPickerSheet: View {
                 )
                 .datePickerStyle(.graphical)
                 .padding(.horizontal, 12)
+
+                // The month's receipts, summed — the quiet answer to "how much
+                // did I spend". Silence when nothing was logged.
+                let spent = store.spentCents(inMonthOf: store.selectedDay)
+                if spent != 0 {
+                    HStack(spacing: 8) {
+                        Image(systemName: "receipt")
+                            .font(.caption)
+                        Text("This month · \(ReceiptParse.decimalString(spent))")
+                            .font(.callout.monospacedDigit())
+                        Spacer()
+                    }
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 2)
+                }
                 Spacer(minLength: 0)
             }
             .navigationTitle("Go to day")

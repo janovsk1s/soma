@@ -122,18 +122,21 @@ struct EntryRevision: Identifiable, Codable, Hashable, Sendable {
 enum SomaLogKind: String, Codable, Sendable {
     case meal
     case workout
+    case receipt
 
     var systemImage: String {
         switch self {
         case .meal: "fork.knife"
         case .workout: "figure.run"
+        case .receipt: "receipt"
         }
     }
 
-    var question: String {
+    var question: LocalizedStringResource {
         switch self {
         case .meal: "Log meal?"
         case .workout: "Log workout?"
+        case .receipt: "Log receipt?"
         }
     }
 }
@@ -146,6 +149,8 @@ struct SomaLog: Identifiable, Codable, Hashable, Sendable {
     var createdAt: Date
     var updatedAt: Date
     var sourceEntryID: UUID? = nil
+    var detail: String? = nil
+    var amountCents: Int? = nil
 }
 
 struct PhotoTextSuggestion: Identifiable, Codable, Hashable, Sendable {
@@ -166,6 +171,8 @@ struct TrackingSuggestion: Identifiable, Codable, Hashable, Sendable {
     var engine: SuggestionEngine
     var createdAt: Date
     var dismissedAt: Date? = nil
+    var detail: String? = nil
+    var amountCents: Int? = nil
 
     var isPending: Bool { dismissedAt == nil }
 }

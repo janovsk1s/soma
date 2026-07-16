@@ -147,6 +147,14 @@ final class SomaIntelligence {
         }.value
         guard let recognized else { return }
         store.setPhotoTextSuggestion(for: entry.id, text: recognized)
+        if let receipt = ReceiptParse.parse(recognized) {
+            store.addReceiptSuggestion(
+                for: entry.id,
+                summary: receipt.summary,
+                detail: receipt.detail,
+                amountCents: receipt.totalCents
+            )
+        }
     }
 
     func transcribe(_ entry: SomaEntry) async {

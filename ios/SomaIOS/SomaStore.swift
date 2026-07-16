@@ -539,7 +539,11 @@ final class SomaStore {
             }
             .filter { !dismissed.contains(Self.suggestionKey($0.1)) }
         _ = commit {
-            trackingSuggestions.removeAll { $0.entryID == entryID && $0.isPending }
+            // Receipt proposals come from the deterministic parser, not the model —
+            // a model rerun must not wipe them.
+            trackingSuggestions.removeAll {
+                $0.entryID == entryID && $0.isPending && $0.kind != .receipt
+            }
             let now = Date()
             trackingSuggestions.append(contentsOf: bounded.prefix(3).map { kind, text in
                 TrackingSuggestion(
@@ -575,12 +579,60 @@ final class SomaStore {
                     title: cleaned,
                     createdAt: now,
                     updatedAt: now,
-                    sourceEntryID: entry.id
+                    sourceEntryID: entry.id,
+                    detail: trackingSuggestions[index].detail,
+                    amountCents: trackingSuggestions[index].amountCents
                 )
             )
             trackingSuggestions[index].dismissedAt = now
             return true
         } == true
+    }
+
+    // One receipt proposal per photo, ever — a dismissal is final.
+    func addReceiptSuggestion(
+        for entryID: UUID,
+        summary: String,
+        detail: String,
+        amountCents: Int
+    ) {
+        guard
+            !trackingSuggestions.contains(where: { $0.entryID == entryID && $0.kind == .receipt }),
+            let cleaned = Self.boundedText(summary)
+        else {
+            return
+        }
+        _ = commit {
+            trackingSuggestions.append(
+                TrackingSuggestion(
+                    id: UUID(),
+                    entryID: entryID,
+                    kind: .receipt,
+                    text: cleaned,
+                    engine: .localRules,
+                    createdAt: Date(),
+                    detail: String(detail.prefix(4_000)),
+                    amountCents: amountCents
+                )
+            )
+            return true
+        }
+    }
+
+    func spentCents(inMonthOf date: Date) -> Int {
+        let calendar = Calendar.autoupdatingCurrent
+        guard let month = calendar.dateInterval(of: .month, for: date) else { return 0 }
+        return logs.reduce(0) { sum, log in
+            guard
+                log.kind == .receipt,
+                let cents = log.amountCents,
+                let day = SomaDay.date(fromKey: log.day),
+                month.contains(day)
+            else {
+                return sum
+            }
+            return sum + cents
+        }
     }
 
     @discardableResult

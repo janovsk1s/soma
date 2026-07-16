@@ -1570,6 +1570,36 @@
           }
         }
       }
+    },
+    "Log receipt?": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pierakstīt čeku?"
+          }
+        }
+      }
+    },
+    "Total": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopā"
+          }
+        }
+      }
+    },
+    "This month · %@": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Šomēnes · %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
