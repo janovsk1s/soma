@@ -46,6 +46,11 @@ private struct TodayView: View {
     @State private var recorder = AudioRecorder()
     @State private var errorMessage: String?
     @State private var workoutLines: [HealthWorkouts.Line] = []
+    @State private var showJumpToLatest = false
+
+    private var isViewingLatestDay: Bool {
+        SomaDay.key(store.selectedDay) >= SomaDay.key(Date())
+    }
 
     private var unkeptWorkoutLines: [HealthWorkouts.Line] {
         workoutLines.filter {
@@ -69,6 +74,7 @@ private struct TodayView: View {
                         description: Text("Drop a thought and return to your day.")
                     )
                 } else {
+                    ScrollViewReader { proxy in
                     List {
                         ForEach(store.selectedEntries) { entry in
                             VStack(alignment: .leading, spacing: 8) {
@@ -116,38 +122,52 @@ private struct TodayView: View {
                         }
 
                         quietDayLines
+
+                        Color.clear
+                            .frame(height: 1)
+                            .id("dayEnd")
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .onScrollVisibilityChange { visible in
+                                withAnimation(.snappy) { showJumpToLatest = !visible }
+                            }
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
                     .scrollIndicators(.hidden)
+                    // Messages-style return to "now" after scrolling back through the day.
+                    .overlay(alignment: .bottomTrailing) {
+                        if showJumpToLatest {
+                            Button("Jump to latest", systemImage: "chevron.down") {
+                                withAnimation { proxy.scrollTo("dayEnd", anchor: .bottom) }
+                            }
+                            .labelStyle(.iconOnly)
+                            .font(.body)
+                            .frame(width: 40, height: 40)
+                            .buttonStyle(.plain)
+                            .modifier(NativeGlassCircle())
+                            .padding(.trailing, 16)
+                            .padding(.bottom, 6)
+                            .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                        }
+                    }
+                    }
                 }
             }
             .background { SomaScreenBackground() }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Previous day", systemImage: "chevron.left") {
-                        withAnimation { shiftDay(by: -1) }
-                    }
-                    .labelStyle(.iconOnly)
-                }
-                // The date itself opens the calendar — one fewer control in the bar.
-                ToolbarItem(placement: .principal) {
-                    Button {
-                        showingCalendar = true
-                    } label: {
-                        Text(store.selectedDay.formatted(.dateTime.weekday(.wide).month().day()))
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Open calendar")
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Next day", systemImage: "chevron.right") {
-                        withAnimation { shiftDay(by: 1) }
-                    }
-                    .labelStyle(.iconOnly)
+                // Bare chevrons — the default glass circles read as heavy ovals here.
+                if #available(iOS 26.0, *) {
+                    ToolbarItem(placement: .topBarLeading) { previousDayButton }
+                        .sharedBackgroundVisibility(.hidden)
+                    ToolbarItem(placement: .principal) { dayTitle }
+                    ToolbarItem(placement: .topBarTrailing) { nextDayButton }
+                        .sharedBackgroundVisibility(.hidden)
+                } else {
+                    ToolbarItem(placement: .topBarLeading) { previousDayButton }
+                    ToolbarItem(placement: .principal) { dayTitle }
+                    ToolbarItem(placement: .topBarTrailing) { nextDayButton }
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -165,6 +185,7 @@ private struct TodayView: View {
                     onRecord: toggleRecording
                 )
                 .padding(.horizontal, 12)
+                .padding(.bottom, 10)
             }
             .task(id: "\(SomaDay.key(store.selectedDay))-\(health.isEnabled)") {
                 workoutLines = await health.workoutLines(for: store.selectedDay)
@@ -186,6 +207,40 @@ private struct TodayView: View {
                 Text(errorMessage ?? "")
             }
         }
+    }
+
+    private var previousDayButton: some View {
+        Button("Previous day", systemImage: "chevron.left") {
+            withAnimation { shiftDay(by: -1) }
+        }
+        .labelStyle(.iconOnly)
+    }
+
+    // Notes live in the present: the day rail stops at today (reminders are the
+    // only thing allowed to point forward).
+    private var nextDayButton: some View {
+        Button("Next day", systemImage: "chevron.right") {
+            withAnimation { shiftDay(by: 1) }
+        }
+        .labelStyle(.iconOnly)
+        .disabled(isViewingLatestDay)
+    }
+
+    // Tap returns to today; holding opens the calendar.
+    private var dayTitle: some View {
+        Text(store.selectedDay.formatted(.dateTime.weekday(.wide).month().day()))
+            .font(.headline)
+            .foregroundStyle(.primary)
+            .contentShape(.rect)
+            .onTapGesture {
+                withAnimation { store.selectedDay = Date() }
+            }
+            .onLongPressGesture {
+                showingCalendar = true
+            }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel("Day")
+            .accessibilityHint("Tap for today, hold for the calendar.")
     }
 
     // Ambient lines at the end of the day: workouts straight from Health (kept only
@@ -237,11 +292,12 @@ private struct TodayView: View {
     }
 
     private func shiftDay(by days: Int) {
-        store.selectedDay = Calendar.autoupdatingCurrent.date(
+        let shifted = Calendar.autoupdatingCurrent.date(
             byAdding: .day,
             value: days,
             to: store.selectedDay
         ) ?? store.selectedDay
+        store.selectedDay = SomaDay.key(shifted) > SomaDay.key(Date()) ? Date() : shifted
     }
 
     private func toggleRecording() {
@@ -286,9 +342,16 @@ private struct TodayView: View {
 }
 
 // Capture never takes over the screen: typing expands the bar in place (keeping
-// focus so several thoughts can be dropped in a row), holding the bar starts a
-// voice note — the same reach-for-it feel as the Light Phone capture bar.
+// focus so several thoughts can be dropped in a row). Press-and-hold the bar to
+// talk — release to stop, or slide right while holding to keep recording, the
+// same reach-for-it feel as the Light Phone capture bar.
 private struct CaptureBar: View {
+    private enum HoldState {
+        case idle
+        case holding
+        case locked
+    }
+
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     let recorder: AudioRecorder
     let onSave: (String) -> Bool
@@ -296,6 +359,7 @@ private struct CaptureBar: View {
     let onRecord: () -> Void
 
     @State private var text = ""
+    @State private var holdState: HoldState = .idle
     @FocusState private var focused: Bool
 
     private var trimmed: String {
@@ -312,6 +376,15 @@ private struct CaptureBar: View {
                             .frame(width: 8, height: 8)
                         Text(recorder.elapsed.formattedDuration)
                             .monospacedDigit()
+                        if holdState == .holding {
+                            Text("slide right to keep")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        } else if holdState == .locked {
+                            Image(systemName: "lock.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .frame(minHeight: controlSize - 24)
@@ -336,9 +409,21 @@ private struct CaptureBar: View {
             }
             .padding(.horizontal, 16)
             .modifier(NativeGlassComposer())
-            .onLongPressGesture {
-                guard !recorder.isRecording, !focused, trimmed.isEmpty else { return }
-                onRecord()
+            .overlay {
+                // The TextField swallows touches, so hold-to-talk lives on a clear
+                // overlay that is only present while the composer is empty and idle.
+                if !focused, trimmed.isEmpty {
+                    Rectangle()
+                        .fill(Color.clear)
+                        .contentShape(.rect)
+                        .onTapGesture {
+                            if !recorder.isRecording { focused = true }
+                        }
+                        .gesture(holdToTalk)
+                }
+            }
+            .onChange(of: recorder.isRecording) { _, recording in
+                if !recording { holdState = .idle }
             }
 
             if focused {
@@ -375,6 +460,34 @@ private struct CaptureBar: View {
         .animation(.snappy, value: focused)
         .animation(.snappy, value: recorder.isRecording)
         .animation(.snappy, value: trimmed.isEmpty)
+        .sensoryFeedback(.impact(weight: .light), trigger: holdState)
+    }
+
+    // Hold to record, release to stop and keep the note; slide right past the
+    // threshold while holding to lock the recording open (stop ends it).
+    private var holdToTalk: some Gesture {
+        LongPressGesture(minimumDuration: 0.3)
+            .sequenced(before: DragGesture(minimumDistance: 0))
+            .onChanged { value in
+                guard case .second(true, let drag) = value else { return }
+                if holdState == .idle, !recorder.isRecording {
+                    holdState = .holding
+                    onRecord()
+                }
+                if holdState == .holding, let drag, drag.translation.width > 60 {
+                    holdState = .locked
+                }
+            }
+            .onEnded { value in
+                guard case .second(true, _) = value else {
+                    holdState = .idle
+                    return
+                }
+                if holdState == .holding {
+                    holdState = .idle
+                    if recorder.isRecording { onRecord() }
+                }
+            }
     }
 
     private var controlSize: CGFloat {
@@ -1180,6 +1293,7 @@ private struct DayPickerSheet: View {
                 DatePicker(
                     "Day",
                     selection: $store.selectedDay,
+                    in: ...Date(),
                     displayedComponents: .date
                 )
                 .datePickerStyle(.graphical)
