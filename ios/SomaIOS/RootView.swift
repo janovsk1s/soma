@@ -403,18 +403,12 @@ private struct TodayView: View {
         .disabled(isViewingLatestDay)
     }
 
-    // Tap returns to today; holding opens the calendar. The micro-chevron is the
-    // only hint the title is interactive — without it nothing looks tappable.
+    // Tap returns to today; holding opens the calendar.
     private var dayTitle: some View {
-        VStack(spacing: 1) {
-            Text(store.selectedDay.formatted(.dateTime.weekday(.wide).month().day()))
-                .font(.headline)
-                .foregroundStyle(.primary)
-            Image(systemName: "chevron.compact.down")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-        }
-        .contentShape(.rect)
+        Text(store.selectedDay.formatted(.dateTime.weekday(.wide).month().day()))
+            .font(.headline)
+            .foregroundStyle(.primary)
+            .contentShape(.rect)
         .onTapGesture {
             withAnimation { store.selectedDay = Date() }
         }
@@ -1324,53 +1318,15 @@ private struct EntryHistorySheet: View {
     }
 }
 
-private struct CaptureSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    let title: String
-    let onSave: (String) -> Bool
-    @State private var text = ""
-    @State private var errorMessage: String?
-    @FocusState private var focused: Bool
-
-    var body: some View {
-        NavigationStack {
-            TextEditor(text: $text)
-                .focused($focused)
-                .font(.title3)
-                .scrollContentBackground(.hidden)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background { SomaScreenBackground() }
-                .navigationTitle(title)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") { dismiss() }
-                    }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Save") {
-                            if onSave(text) {
-                                dismiss()
-                            } else {
-                                errorMessage = "Couldn’t save this text. It may be too long, or protected storage may be unavailable."
-                            }
-                        }
-                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }
-                }
-        }
-        .onAppear { focused = true }
-        .alert("Couldn’t save", isPresented: .constant(errorMessage != nil)) {
-            Button("OK") { errorMessage = nil }
-        } message: {
-            Text(errorMessage ?? "")
-        }
-    }
-}
-
 private struct ImportantView: View {
     @Environment(SomaStore.self) private var store
-    @State private var showingCapture = false
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var newItemText = ""
+    @FocusState private var addFocused: Bool
+
+    private var trimmedNewItem: String {
+        newItemText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
     var body: some View {
         NavigationStack {
@@ -1405,26 +1361,46 @@ private struct ImportantView: View {
                 }
             }
             .navigationTitle("Important")
-            .toolbar {
-                // Bare like the day chevrons — one bar language across tabs.
-                if #available(iOS 26.0, *) {
-                    ToolbarItem(placement: .topBarTrailing) { addButton }
-                        .sharedBackgroundVisibility(.hidden)
-                } else {
-                    ToolbarItem(placement: .topBarTrailing) { addButton }
+            .scrollDismissesKeyboard(.interactively)
+            // Adding lives at the bottom, in the same composer language as Today —
+            // a top-corner "+" made the most common action the hardest reach.
+            .safeAreaInset(edge: .bottom) {
+                HStack(alignment: .bottom, spacing: 6) {
+                    TextField("Add something important", text: $newItemText, axis: .vertical)
+                        .lineLimit(1...4)
+                        .focused($addFocused)
+                        .frame(minHeight: 26)
+                        .padding(.vertical, 12)
+                    if !trimmedNewItem.isEmpty {
+                        Button("Save", systemImage: "arrow.up.circle.fill") {
+                            if store.addImportant(trimmedNewItem) {
+                                newItemText = ""
+                            }
+                        }
+                        .labelStyle(.iconOnly)
+                        .font(.title2)
+                        .padding(.bottom, 12)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .modifier(NativeGlassComposer())
+                .animation(.snappy, value: trimmedNewItem.isEmpty)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 10)
+                .background {
+                    LinearGradient(
+                        colors: [
+                            .clear,
+                            (colorScheme == .dark ? Color.black : .white).opacity(0.45),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .padding(.top, -16)
+                    .ignoresSafeArea()
                 }
             }
-            .sheet(isPresented: $showingCapture) {
-                CaptureSheet(title: "New important item") { store.addImportant($0) }
-                    .presentationDetents([.height(240), .medium])
-                    .presentationDragIndicator(.visible)
-            }
         }
-    }
-
-    private var addButton: some View {
-        Button("Add", systemImage: "plus") { showingCapture = true }
-            .labelStyle(.iconOnly)
     }
 }
 

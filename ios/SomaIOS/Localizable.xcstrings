@@ -1,0 +1,1576 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Today": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Šodien"
+          }
+        }
+      }
+    },
+    "Important": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Svarīgais"
+          }
+        }
+      }
+    },
+    "Settings": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Iestatījumi"
+          }
+        }
+      }
+    },
+    "Search": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meklēt"
+          }
+        }
+      }
+    },
+    "Nothing here yet": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Te vēl nekā nav"
+          }
+        }
+      }
+    },
+    "Drop a thought and return to your day.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atstāj domu un atgriezies savā dienā."
+          }
+        }
+      }
+    },
+    "A quiet day": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klusa diena"
+          }
+        }
+      }
+    },
+    "Nothing was kept on this day.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Šajā dienā nekas netika paturēts."
+          }
+        }
+      }
+    },
+    "Previous day": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Iepriekšējā diena"
+          }
+        }
+      }
+    },
+    "Next day": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nākamā diena"
+          }
+        }
+      }
+    },
+    "Day": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diena"
+          }
+        }
+      }
+    },
+    "Tap for today, hold for the calendar.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pieskaries, lai atgrieztos šodienā; turi kalendāram."
+          }
+        }
+      }
+    },
+    "Write something": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uzraksti kaut ko"
+          }
+        }
+      }
+    },
+    "Save": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saglabāt"
+          }
+        }
+      }
+    },
+    "Hide keyboard": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paslēpt tastatūru"
+          }
+        }
+      }
+    },
+    "Take a photo": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uzņemt foto"
+          }
+        }
+      }
+    },
+    "Hold to choose from your photo library.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turi, lai izvēlētos no galerijas."
+          }
+        }
+      }
+    },
+    "Record a voice note": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ierakstīt balss piezīmi"
+          }
+        }
+      }
+    },
+    "Stop recording": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apturēt ierakstu"
+          }
+        }
+      }
+    },
+    "slide right to keep": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bīdi pa labi, lai turpinātu"
+          }
+        }
+      }
+    },
+    "hold to talk · slide right to keep recording": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "turi, lai runātu · bīdi pa labi, lai turpinātu ierakstu"
+          }
+        }
+      }
+    },
+    "Jump to latest": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uz jaunāko"
+          }
+        }
+      }
+    },
+    "Deleted": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dzēsts"
+          }
+        }
+      }
+    },
+    "Undo": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atsaukt"
+          }
+        }
+      }
+    },
+    "reflect": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pārdomas"
+          }
+        }
+      }
+    },
+    "Keep": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paturēt"
+          }
+        }
+      }
+    },
+    "Log?": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pierakstīt?"
+          }
+        }
+      }
+    },
+    "Important?": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Svarīgi?"
+          }
+        }
+      }
+    },
+    "Dismiss": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noraidīt"
+          }
+        }
+      }
+    },
+    "Keep photo text?": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paturēt foto tekstu?"
+          }
+        }
+      }
+    },
+    "Tap a line to keep it as a quiet log.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pieskaries rindai, lai paturētu to kā klusu pierakstu."
+          }
+        }
+      }
+    },
+    "Tap the suggestion to add it to Important.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pieskaries ieteikumam, lai pievienotu to svarīgajam."
+          }
+        }
+      }
+    },
+    "Tap to make the photo's text part of the note.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pieskaries, lai foto teksts kļūtu par piezīmes daļu."
+          }
+        }
+      }
+    },
+    "Recognized on this iPhone": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atpazīts šajā iPhone"
+          }
+        }
+      }
+    },
+    "Copy": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopēt"
+          }
+        }
+      }
+    },
+    "Make Important": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Padarīt svarīgu"
+          }
+        }
+      }
+    },
+    "Suggest Important": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ieteikt svarīgo"
+          }
+        }
+      }
+    },
+    "Transcribe Again": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkribēt vēlreiz"
+          }
+        }
+      }
+    },
+    "Delete": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dzēst"
+          }
+        }
+      }
+    },
+    "Voice note": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Balss piezīme"
+          }
+        }
+      }
+    },
+    "Voice note · transcription unavailable": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Balss piezīme · transkripcija nav pieejama"
+          }
+        }
+      }
+    },
+    "Transcribing…": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkribē…"
+          }
+        }
+      }
+    },
+    "Try transcription again": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mēģināt transkripciju vēlreiz"
+          }
+        }
+      }
+    },
+    "Photo note": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Foto piezīme"
+          }
+        }
+      }
+    },
+    "Staged photo": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pievienotais foto"
+          }
+        }
+      }
+    },
+    "Remove photo": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noņemt foto"
+          }
+        }
+      }
+    },
+    "Play voice note": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atskaņot balss piezīmi"
+          }
+        }
+      }
+    },
+    "Stop voice note": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apturēt balss piezīmi"
+          }
+        }
+      }
+    },
+    "Entry": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ieraksts"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atcelt"
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gatavs"
+          }
+        }
+      }
+    },
+    "History": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vēsture"
+          }
+        }
+      }
+    },
+    "Earlier wording": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agrākais formulējums"
+          }
+        }
+      }
+    },
+    "Couldn’t save": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neizdevās saglabāt"
+          }
+        }
+      }
+    },
+    "OK": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Labi"
+          }
+        }
+      }
+    },
+    "Go to day": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doties uz dienu"
+          }
+        }
+      }
+    },
+    "listening to the day…": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ieklausās dienā…"
+          }
+        }
+      }
+    },
+    "No reflection right now": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pārdomu šobrīd nav"
+          }
+        }
+      }
+    },
+    "Reflections need Apple Intelligence on this iPhone.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pārdomām nepieciešams Apple Intelligence šajā iPhone."
+          }
+        }
+      }
+    },
+    "on this iPhone · nothing is saved": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "šajā iPhone · nekas netiek saglabāts"
+          }
+        }
+      }
+    },
+    "Add": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pievienot"
+          }
+        }
+      }
+    },
+    "Completed": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paveiktais"
+          }
+        }
+      }
+    },
+    "Nothing important": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nekā svarīga"
+          }
+        }
+      }
+    },
+    "Keep only what still needs your attention.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paturi tikai to, kam vēl vajadzīga tava uzmanība."
+          }
+        }
+      }
+    },
+    "Mark done": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atzīmēt kā paveiktu"
+          }
+        }
+      }
+    },
+    "Mark open": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atzīmēt kā atvērtu"
+          }
+        }
+      }
+    },
+    "Complete": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pabeigt"
+          }
+        }
+      }
+    },
+    "Reopen": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atvērt atkal"
+          }
+        }
+      }
+    },
+    "Added %@": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pievienots %@"
+          }
+        }
+      }
+    },
+    "Search your bag": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meklē savā somā"
+          }
+        }
+      }
+    },
+    "Notes and Important items — with or without diacritics.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Piezīmes un svarīgais — ar vai bez garumzīmēm."
+          }
+        }
+      }
+    },
+    "Search notes and Important": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meklēt piezīmēs un svarīgajā"
+          }
+        }
+      }
+    },
+    "Notes": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Piezīmes"
+          }
+        }
+      }
+    },
+    "Open": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atvērts"
+          }
+        }
+      }
+    },
+    "Export readable context": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eksportēt lasāmu kontekstu"
+          }
+        }
+      }
+    },
+    "Import and merge": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importēt un apvienot"
+          }
+        }
+      }
+    },
+    "Trash": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atkritne"
+          }
+        }
+      }
+    },
+    "Context": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konteksts"
+          }
+        }
+      }
+    },
+    "The exported JSON contains readable note text. Keep it somewhere private. API keys, AI suggestions, settings, audio, and photos are never included.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eksportētais JSON satur lasāmu piezīmju tekstu. Glabā to drošā vietā. API atslēgas, MI ieteikumi, iestatījumi, audio un foto nekad netiek iekļauti."
+          }
+        }
+      }
+    },
+    "Intelligence": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Intelekts"
+          }
+        }
+      }
+    },
+    "Siri & Shortcuts": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Siri un saīsnes"
+          }
+        }
+      }
+    },
+    "2 actions": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 darbības"
+          }
+        }
+      }
+    },
+    "Daily reminder": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dienas atgādinājums"
+          }
+        }
+      }
+    },
+    "Reminder time": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atgādinājuma laiks"
+          }
+        }
+      }
+    },
+    "Workouts from Health": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Treniņi no Health"
+          }
+        }
+      }
+    },
+    "System": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sistēma"
+          }
+        }
+      }
+    },
+    "Storage": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Krātuve"
+          }
+        }
+      }
+    },
+    "On this iPhone": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Šajā iPhone"
+          }
+        }
+      }
+    },
+    "Storage status": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Krātuves stāvoklis"
+          }
+        }
+      }
+    },
+    "Sync": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sinhronizācija"
+          }
+        }
+      }
+    },
+    "Manual context bundles": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manuāli konteksta saišķi"
+          }
+        }
+      }
+    },
+    "Bundles merge by stable IDs and newest edit. This is the boundary a future encrypted device-to-device sync service will use.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saišķi apvienojas pēc stabiliem ID un jaunākā labojuma. Šī ir robeža, ko izmantos nākotnes šifrētā ierīču sinhronizācija."
+          }
+        }
+      }
+    },
+    "About": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Par lietotni"
+          }
+        }
+      }
+    },
+    "Native iOS preview": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vietējais iOS priekšskatījums"
+          }
+        }
+      }
+    },
+    "Context schema": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konteksta shēma"
+          }
+        }
+      }
+    },
+    "Export readable context?": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eksportēt lasāmu kontekstu?"
+          }
+        }
+      }
+    },
+    "Export": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eksportēt"
+          }
+        }
+      }
+    },
+    "Anyone with the exported file can read its note text and Important items.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ikviens ar eksportēto failu var izlasīt piezīmju tekstu un svarīgo."
+          }
+        }
+      }
+    },
+    "Couldn’t complete that": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neizdevās pabeigt"
+          }
+        }
+      }
+    },
+    "Workouts appear as one quiet line in their day. Nothing is stored unless you keep it.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Treniņi parādās kā viena klusa rinda savā dienā. Nekas netiek saglabāts, ja vien to nepaturi."
+          }
+        }
+      }
+    },
+    "Notifications are off for Soma in iOS Settings.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paziņojumi lietotnei Soma ir izslēgti iOS iestatījumos."
+          }
+        }
+      }
+    },
+    "Health access could not be requested.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neizdevās pieprasīt Health piekļuvi."
+          }
+        }
+      }
+    },
+    "Transcribe voice notes": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkribēt balss piezīmes"
+          }
+        }
+      }
+    },
+    "Suggest Important items": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ieteikt svarīgo"
+          }
+        }
+      }
+    },
+    "Meal & workout suggestions": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maltīšu un treniņu ieteikumi"
+          }
+        }
+      }
+    },
+    "Apple Speech": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Speech"
+          }
+        }
+      }
+    },
+    "Foundation Models": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Foundation Models"
+          }
+        }
+      }
+    },
+    "On Device": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ierīcē"
+          }
+        }
+      }
+    },
+    "On-device processing keeps note text and audio on this iPhone.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apstrāde ierīcē patur piezīmju tekstu un audio šajā iPhone."
+          }
+        }
+      }
+    },
+    "Cloud transcription": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkripcija mākonī"
+          }
+        }
+      }
+    },
+    "Groq Important suggestions": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Groq svarīgā ieteikumi"
+          }
+        }
+      }
+    },
+    "Speech provider": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Runas pakalpojums"
+          }
+        }
+      }
+    },
+    "Groq speech model": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Groq runas modelis"
+          }
+        }
+      }
+    },
+    "Wi-Fi only": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tikai Wi-Fi"
+          }
+        }
+      }
+    },
+    "Optional Cloud BYOK": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neobligāts mākonis (savas atslēgas)"
+          }
+        }
+      }
+    },
+    "Cloud features are off by default. When enabled, the selected note text or recording is sent directly to your provider using your key.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mākoņa iespējas pēc noklusējuma ir izslēgtas. Kad ieslēgtas, izvēlētais piezīmes teksts vai ieraksts tiek sūtīts tieši tavam pakalpojumam ar tavu atslēgu."
+          }
+        }
+      }
+    },
+    "Credentials": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atslēgas"
+          }
+        }
+      }
+    },
+    "Diagnostics": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnostika"
+          }
+        }
+      }
+    },
+    "Last issue": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pēdējā problēma"
+          }
+        }
+      }
+    },
+    "None": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nav"
+          }
+        }
+      }
+    },
+    "Clear diagnostic": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notīrīt diagnostiku"
+          }
+        }
+      }
+    },
+    "%@ key": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ atslēga"
+          }
+        }
+      }
+    },
+    "%@ API key": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ API atslēga"
+          }
+        }
+      }
+    },
+    "Saved": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saglabāta"
+          }
+        }
+      }
+    },
+    "Missing": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nav"
+          }
+        }
+      }
+    },
+    "Stored in the Keychain as device-only. Empty text removes the saved key.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Glabājas atslēgu saišķī tikai šajā ierīcē. Tukšs teksts dzēš saglabāto atslēgu."
+          }
+        }
+      }
+    },
+    "Couldn’t save the key": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neizdevās saglabāt atslēgu"
+          }
+        }
+      }
+    },
+    "Trash is empty": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atkritne ir tukša"
+          }
+        }
+      }
+    },
+    "Deleted notes and Important items wait here until you decide.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dzēstās piezīmes un svarīgais gaida šeit, līdz izlem."
+          }
+        }
+      }
+    },
+    "Empty Trash": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Iztukšot atkritni"
+          }
+        }
+      }
+    },
+    "Delete everything in the trash forever?": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neatgriezeniski dzēst visu atkritnē?"
+          }
+        }
+      }
+    },
+    "Delete forever": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dzēst neatgriezeniski"
+          }
+        }
+      }
+    },
+    "Restore": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atjaunot"
+          }
+        }
+      }
+    },
+    "Deleted note": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dzēstā piezīme"
+          }
+        }
+      }
+    },
+    "Deleted Important item": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dzēstais svarīgais"
+          }
+        }
+      }
+    },
+    "Empty note": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tukša piezīme"
+          }
+        }
+      }
+    },
+    "Deleted %@": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dzēsts %@"
+          }
+        }
+      }
+    },
+    "Developer": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Izstrādātājs"
+          }
+        }
+      }
+    },
+    "Light mode": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gaišais režīms"
+          }
+        }
+      }
+    },
+    "Soma is dark-first; this is the same hidden switch the Light Phone version keeps in Developer.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soma pirmām kārtām ir tumša; šis ir tas pats slēptais slēdzis, kas Light Phone versijā ir pie izstrādātāja."
+          }
+        }
+      }
+    },
+    "Store": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Krātuve"
+          }
+        }
+      }
+    },
+    "Entries": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ieraksti"
+          }
+        }
+      }
+    },
+    "Logs": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pieraksti"
+          }
+        }
+      }
+    },
+    "Revisions": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versijas"
+          }
+        }
+      }
+    },
+    "Snapshot": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Momentuzņēmums"
+          }
+        }
+      }
+    },
+    "Models": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modeļi"
+          }
+        }
+      }
+    },
+    "Close": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aizvērt"
+          }
+        }
+      }
+    },
+    "Starting camera…": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Startē kameru…"
+          }
+        }
+      }
+    },
+    "Camera access is off": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kameras piekļuve ir izslēgta"
+          }
+        }
+      }
+    },
+    "Allow access in Settings to capture photos in Soma.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atļauj piekļuvi iestatījumos, lai uzņemtu foto lietotnē Soma."
+          }
+        }
+      }
+    },
+    "Open Settings": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atvērt iestatījumus"
+          }
+        }
+      }
+    },
+    "Camera unavailable": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kamera nav pieejama"
+          }
+        }
+      }
+    },
+    "Connect an iPhone with an available camera.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pievieno iPhone ar pieejamu kameru."
+          }
+        }
+      }
+    },
+    "Take photo": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uzņemt foto"
+          }
+        }
+      }
+    },
+    "Camera": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kamera"
+          }
+        }
+      }
+    },
+    "A quiet on-device reflection of this day. Nothing is saved.": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klusas pārdomas par šo dienu, radītas ierīcē. Nekas netiek saglabāts."
+          }
+        }
+      }
+    },
+    "Add something important": {
+      "localizations": {
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pievieno ko svarīgu"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}
